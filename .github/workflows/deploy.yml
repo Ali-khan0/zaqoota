@@ -25,10 +25,10 @@ jobs:
             set -e
 
             if [ "${{ github.ref }}" = "refs/heads/dev" ]; then
-              TARGET_DIR="/var/www/dev.domain.com"
+              TARGET_DIR="/var/www/dev.zaqoota"
               BRANCH="dev"
             elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
-              TARGET_DIR="/var/www/domain.com"
+              TARGET_DIR="/var/www/zaqoota"
               BRANCH="main"
             fi
 
@@ -51,7 +51,7 @@ jobs:
             php artisan view:cache || true
 
             # Set folder permissions for storage & cache
-            sudo chown -R www-data:www-data $TARGET_DIR/storage $TARGET_DIR/bootstrap/cache
+            sudo chown -R ubuntu:www-data $TARGET_DIR/storage $TARGET_DIR/bootstrap/cache
             sudo chmod -R 775 $TARGET_DIR/storage $TARGET_DIR/bootstrap/cache
 
             echo "=========================================="
