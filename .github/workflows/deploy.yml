@@ -1,0 +1,59 @@
+name: Automated Deployment to AWS VPS
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+
+jobs:
+  deploy:
+    name: Deploy Laravel Application
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Execute SSH Commands on VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_IP }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+
+            if [ "${{ github.ref }}" = "refs/heads/dev" ]; then
+              TARGET_DIR="/var/www/dev.zaqoota"
+              BRANCH="dev"
+            elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
+              TARGET_DIR="/var/www/zaqoota"
+              BRANCH="main"
+            fi
+
+            echo "=========================================="
+            echo " Deploying branch: $BRANCH to $TARGET_DIR "
+            echo "=========================================="
+
+            # Target directory mein navigate karein
+            cd $TARGET_DIR
+
+            # Git pull latest changes
+            git fetch origin $BRANCH
+            git reset --hard origin/$BRANCH
+
+            # Laravel permissions & optimization commands
+            composer install --no-dev --optimize-autoloader --quiet || true
+            php artisan migrate --force || true
+            php artisan config:cache || true
+            php artisan route:cache || true
+            php artisan view:cache || true
+
+            # Set folder permissions for storage & cache
+            sudo chown -R ubuntu:www-data $TARGET_DIR/storage $TARGET_DIR/bootstrap/cache
+            sudo chmod -R 775 $TARGET_DIR/storage $TARGET_DIR/bootstrap/cache
+
+            echo "=========================================="
+            echo " Deployment Completed Successfully!        "
+            echo "=========================================="
