@@ -1,13 +1,13 @@
 @extends('layouts.admin.app')
 
 @php($editing = $fleetManager->exists)
-@section('title', $editing ? translate('Edit fleet manager') : translate('Add fleet manager'))
+@section('title', $editing ? __('fleet_management.edit_fleet_manager') : __('fleet_management.add_fleet_manager'))
 
 @section('content')
     <div class="content container-fluid">
         <div class="page-header">
             <h1 class="page-header-title">
-                {{ $editing ? translate('Edit fleet manager') : translate('Add fleet manager') }}
+                {{ $editing ? __('fleet_management.edit_fleet_manager') : __('fleet_management.add_fleet_manager') }}
             </h1>
         </div>
 
@@ -27,45 +27,45 @@
             @if($editing) @method('PUT') @endif
 
             <div class="card mb-3">
-                <div class="card-header"><h5 class="mb-0">{{ translate('Account information') }}</h5></div>
+                <div class="card-header"><h5 class="mb-0">{{ __('fleet_management.account_information') }}</h5></div>
                 <div class="card-body">
                     <div class="row">
                         <div class="col-md-4 mb-3">
-                            <label>{{ translate('First name') }} *</label>
+                            <label>{{ __('fleet_management.first_name') }} *</label>
                             <input name="f_name" class="form-control" required value="{{ old('f_name', $fleetManager->f_name) }}">
                         </div>
                         <div class="col-md-4 mb-3">
-                            <label>{{ translate('Last name') }}</label>
+                            <label>{{ __('fleet_management.last_name') }}</label>
                             <input name="l_name" class="form-control" value="{{ old('l_name', $fleetManager->l_name) }}">
                         </div>
                         <div class="col-md-4 mb-3">
-                            <label>{{ translate('Employee ID') }}</label>
+                            <label>{{ __('fleet_management.employee_id') }}</label>
                             <input name="employee_id" class="form-control" value="{{ old('employee_id', $fleetManager->employee_id) }}">
                         </div>
                         <div class="col-md-4 mb-3">
-                            <label>{{ translate('Phone') }} *</label>
+                            <label>{{ __('fleet_management.phone') }} *</label>
                             <input name="phone" class="form-control" required value="{{ old('phone', $fleetManager->phone) }}">
                         </div>
                         <div class="col-md-4 mb-3">
-                            <label>{{ translate('Email') }}</label>
+                            <label>{{ __('fleet_management.email') }}</label>
                             <input name="email" type="email" class="form-control" value="{{ old('email', $fleetManager->email) }}">
                         </div>
                         <div class="col-md-4 mb-3">
-                            <label>{{ translate('Password') }} {{ $editing ? '' : '*' }}</label>
+                            <label>{{ __('fleet_management.password') }} {{ $editing ? '' : '*' }}</label>
                             <input name="password" type="password" class="form-control" {{ $editing ? '' : 'required' }}>
-                            @if($editing)<small class="text-muted">{{ translate('Leave empty to keep the current password.') }}</small>@endif
+                            @if($editing)<small class="text-muted">{{ __('fleet_management.leave_password_blank') }}</small>@endif
                         </div>
                     </div>
                 </div>
             </div>
 
             <div class="card mb-3">
-                <div class="card-header"><h5 class="mb-0">{{ translate('Operational scope') }}</h5></div>
+                <div class="card-header"><h5 class="mb-0">{{ __('fleet_management.operational_scope') }}</h5></div>
                 <div class="card-body">
                     @php($selectedZones = old('zone_ids', $fleetManager->exists ? $fleetManager->zones->pluck('id')->all() : []))
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label>{{ translate('Assigned areas') }} *</label>
+                            <label>{{ __('fleet_management.assigned_areas') }} *</label>
                             <select name="zone_ids[]" class="form-control" multiple required size="6">
                                 @foreach($zones as $zone)
                                     <option value="{{ $zone->id }}" {{ in_array($zone->id, $selectedZones) ? 'selected' : '' }}>
@@ -73,12 +73,12 @@
                                     </option>
                                 @endforeach
                             </select>
-                            <small class="text-muted">{{ translate('Use Ctrl/Cmd to select multiple areas.') }}</small>
+                            <small class="text-muted">{{ __('fleet_management.multi_area_hint') }}</small>
                         </div>
                         <div class="col-md-3 mb-3">
-                            <label>{{ translate('Primary area') }}</label>
+                            <label>{{ __('fleet_management.primary_area') }}</label>
                             <select name="primary_zone_id" class="form-control">
-                                <option value="">{{ translate('Use first selected area') }}</option>
+                                <option value="">{{ __('fleet_management.use_first_selected_area') }}</option>
                                 @foreach($zones as $zone)
                                     <option value="{{ $zone->id }}" {{ (int) old('primary_zone_id', $fleetManager->primary_zone_id) === $zone->id ? 'selected' : '' }}>
                                         {{ $zone->name }}
@@ -87,29 +87,29 @@
                             </select>
                         </div>
                         <div class="col-md-3 mb-3">
-                            <label>{{ translate('Rider capacity') }} *</label>
+                            <label>{{ __('fleet_management.rider_capacity') }} *</label>
                             <input name="rider_capacity" type="number" min="1" class="form-control" required
                                    value="{{ old('rider_capacity', $fleetManager->rider_capacity ?: 50) }}">
                         </div>
                         <div class="col-md-3 mb-3">
-                            <label>{{ translate('Shift start') }}</label>
+                            <label>{{ __('fleet_management.shift_start') }}</label>
                             <input name="shift_start" type="time" class="form-control" value="{{ old('shift_start', $fleetManager->shift_start) }}">
                         </div>
                         <div class="col-md-3 mb-3">
-                            <label>{{ translate('Shift end') }}</label>
+                            <label>{{ __('fleet_management.shift_end') }}</label>
                             <input name="shift_end" type="time" class="form-control" value="{{ old('shift_end', $fleetManager->shift_end) }}">
                         </div>
                         <div class="col-md-3 mb-3">
-                            <label>{{ translate('Joining date') }}</label>
+                            <label>{{ __('fleet_management.joining_date') }}</label>
                             <input name="joining_date" type="date" class="form-control"
                                    value="{{ old('joining_date', optional($fleetManager->joining_date)->format('Y-m-d')) }}">
                         </div>
                         <div class="col-md-3 mb-3">
-                            <label>{{ translate('Contract type') }}</label>
+                            <label>{{ __('fleet_management.contract_type') }}</label>
                             <select name="contract_type" class="form-control">
                                 @foreach(['employee', 'contractor', 'external_fleet'] as $type)
                                     <option value="{{ $type }}" {{ old('contract_type', $fleetManager->contract_type ?: 'employee') === $type ? 'selected' : '' }}>
-                                        {{ translate(str_replace('_', ' ', ucfirst($type))) }}
+                                        {{ __('fleet_management.contract_'.$type) }}
                                     </option>
                                 @endforeach
                             </select>
@@ -118,24 +118,24 @@
                             <input type="hidden" name="status" value="0">
                             <label class="d-block">
                                 <input type="checkbox" name="status" value="1" {{ old('status', $fleetManager->exists ? $fleetManager->status : true) ? 'checked' : '' }}>
-                                {{ translate('Active') }}
+                                {{ __('fleet_management.active') }}
                             </label>
                             <input type="hidden" name="on_leave" value="0">
                             <label class="d-block">
                                 <input type="checkbox" name="on_leave" value="1" {{ old('on_leave', $fleetManager->on_leave) ? 'checked' : '' }}>
-                                {{ translate('On leave') }}
+                                {{ __('fleet_management.on_leave') }}
                             </label>
                         </div>
                         <div class="col-md-9 mb-3">
-                            <label>{{ translate('Internal notes') }}</label>
+                            <label>{{ __('fleet_management.internal_notes') }}</label>
                             <textarea name="notes" class="form-control" rows="3">{{ old('notes', $fleetManager->notes) }}</textarea>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <button class="btn btn--primary" type="submit">{{ translate('Save') }}</button>
-            <a class="btn btn-secondary" href="{{ route('admin.users.delivery-man.fleet-manager.index') }}">{{ translate('Cancel') }}</a>
+            <button class="btn btn--primary" type="submit">{{ __('fleet_management.save') }}</button>
+            <a class="btn btn-secondary" href="{{ route('admin.users.delivery-man.fleet-manager.index') }}">{{ __('fleet_management.cancel') }}</a>
         </form>
     </div>
 @endsection

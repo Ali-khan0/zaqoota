@@ -188,7 +188,7 @@ class FleetManagerController extends Controller
 
         $this->manager($request)->update(['fcm_token' => $request->fcm_token]);
 
-        return response()->json(['message' => translate('FCM token updated successfully.')]);
+        return response()->json(['message' => __('fleet_management.fcm_token_updated')]);
     }
 
     public function submitCollection(Request $request)
@@ -235,7 +235,7 @@ class FleetManagerController extends Controller
         }
 
         return response()->json([
-            'message' => translate('Payment collection submitted for admin reconciliation.'),
+            'message' => __('fleet_management.collection_submitted'),
             'collection' => $this->formatCollection($collection->load('deliveryMan:id,f_name,l_name,phone')),
         ], 201);
     }

@@ -1,16 +1,16 @@
 @extends('layouts.admin.app')
 
-@section('title', translate('Fleet managers'))
+@section('title', __('fleet_management.fleet_managers'))
 
 @section('content')
     <div class="content container-fluid">
         <div class="page-header d-flex justify-content-between align-items-center">
             <div>
-                <h1 class="page-header-title">{{ translate('Fleet managers') }}</h1>
-                <p class="text-muted mb-0">{{ translate('Manage rider supervisors, areas and workload capacity.') }}</p>
+                <h1 class="page-header-title">{{ __('fleet_management.fleet_managers') }}</h1>
+                <p class="text-muted mb-0">{{ __('fleet_management.manage_rider_supervisors') }}</p>
             </div>
             <a href="{{ route('admin.users.delivery-man.fleet-manager.create') }}" class="btn btn--primary">
-                <i class="tio-add"></i> {{ translate('Add fleet manager') }}
+                <i class="tio-add"></i> {{ __('fleet_management.add_fleet_manager') }}
             </a>
         </div>
 
@@ -19,9 +19,9 @@
                 <form class="w-100">
                     <div class="input-group">
                         <input type="search" name="search" class="form-control" value="{{ request('search') }}"
-                               placeholder="{{ translate('Search by name, phone or employee ID') }}">
+                               placeholder="{{ __('fleet_management.search_manager_placeholder') }}">
                         <div class="input-group-append">
-                            <button class="btn btn--primary" type="submit">{{ translate('Search') }}</button>
+                            <button class="btn btn--primary" type="submit">{{ __('fleet_management.search') }}</button>
                         </div>
                     </div>
                 </form>
@@ -30,12 +30,12 @@
                 <table class="table table-hover table-borderless align-middle mb-0">
                     <thead class="thead-light">
                     <tr>
-                        <th>{{ translate('Manager') }}</th>
-                        <th>{{ translate('Areas') }}</th>
-                        <th>{{ translate('Riders') }}</th>
-                        <th>{{ translate('Shift') }}</th>
-                        <th>{{ translate('Status') }}</th>
-                        <th class="text-center">{{ translate('Actions') }}</th>
+                        <th>{{ __('fleet_management.manager') }}</th>
+                        <th>{{ __('fleet_management.areas') }}</th>
+                        <th>{{ __('fleet_management.riders') }}</th>
+                        <th>{{ __('fleet_management.shift') }}</th>
+                        <th>{{ __('fleet_management.status') }}</th>
+                        <th class="text-center">{{ __('fleet_management.actions') }}</th>
                     </tr>
                     </thead>
                     <tbody>
@@ -59,13 +59,13 @@
                             </td>
                             <td>
                                 <span class="badge {{ $manager->status && !$manager->on_leave ? 'badge-soft-success' : 'badge-soft-danger' }}">
-                                    {{ $manager->on_leave ? translate('On leave') : ($manager->status ? translate('Active') : translate('Inactive')) }}
+                                    {{ $manager->on_leave ? __('fleet_management.on_leave') : ($manager->status ? __('fleet_management.active') : __('fleet_management.inactive')) }}
                                 </span>
                             </td>
                             <td class="text-center">
                                 <a class="btn btn-sm btn-outline-primary"
                                    href="{{ route('admin.users.delivery-man.fleet-manager.edit', $manager->id) }}">
-                                    {{ translate('Edit') }}
+                                    {{ __('fleet_management.edit') }}
                                 </a>
                                 <form method="post"
                                       action="{{ route('admin.users.delivery-man.fleet-manager.status', $manager->id) }}"
@@ -73,14 +73,14 @@
                                     @csrf
                                     @method('PUT')
                                     <button class="btn btn-sm btn-outline-secondary" type="submit">
-                                        {{ $manager->status ? translate('Deactivate') : translate('Activate') }}
+                                        {{ $manager->status ? __('fleet_management.deactivate') : __('fleet_management.activate') }}
                                     </button>
                                 </form>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="text-center py-5">{{ translate('No fleet managers found.') }}</td>
+                            <td colspan="6" class="text-center py-5">{{ __('fleet_management.no_fleet_managers') }}</td>
                         </tr>
                     @endforelse
                     </tbody>

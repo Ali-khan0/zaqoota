@@ -62,7 +62,7 @@ class DeliveryManLoginController extends Controller
             if (! $fleetManager->status || $fleetManager->on_leave) {
                 return response()->json([
                     'errors' => [
-                        ['code' => 'auth-003', 'message' => translate('Your fleet manager account is not currently available.')],
+                        ['code' => 'auth-003', 'message' => __('fleet_management.error_manager_unavailable')],
                     ],
                 ], 401);
             }

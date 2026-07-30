@@ -65,7 +65,7 @@ class FleetManagerController extends Controller
         $fleetManager = FleetManager::create($data);
         $fleetManager->zones()->sync($zoneIds);
 
-        Toastr::success(translate('Fleet manager created successfully.'));
+        Toastr::success(__('fleet_management.manager_created'));
 
         return redirect()->route('admin.users.delivery-man.fleet-manager.index');
     }
@@ -98,7 +98,7 @@ class FleetManagerController extends Controller
             $fleetManager->update(['auth_token' => null]);
         }
 
-        Toastr::success(translate('Fleet manager updated successfully.'));
+        Toastr::success(__('fleet_management.manager_updated'));
 
         return redirect()->route('admin.users.delivery-man.fleet-manager.index');
     }
@@ -111,7 +111,7 @@ class FleetManagerController extends Controller
             $fleetManager->update(['auth_token' => null]);
         }
 
-        Toastr::success(translate('Fleet manager status updated.'));
+        Toastr::success(__('fleet_management.manager_status_updated'));
 
         return back();
     }
@@ -178,7 +178,7 @@ class FleetManagerController extends Controller
             }
         });
 
-        Toastr::success(translate('Selected riders were assigned successfully.'));
+        Toastr::success(__('fleet_management.riders_assigned'));
 
         return back();
     }
@@ -195,7 +195,7 @@ class FleetManagerController extends Controller
             $data['reason'] ?? null
         );
 
-        Toastr::success(translate('Rider was unassigned successfully.'));
+        Toastr::success(__('fleet_management.rider_unassigned'));
 
         return back();
     }
@@ -219,7 +219,7 @@ class FleetManagerController extends Controller
         $collection = FleetPaymentCollection::findOrFail($id);
         $this->findVisibleRider($collection->delivery_man_id);
         $this->fleetManagementService->approveCollection($collection, Auth::guard('admin')->id());
-        Toastr::success(translate('Payment collection approved and rider due reconciled.'));
+        Toastr::success(__('fleet_management.collection_approved'));
 
         return back();
     }
@@ -237,7 +237,7 @@ class FleetManagerController extends Controller
             Auth::guard('admin')->id(),
             $data['rejection_reason']
         );
-        Toastr::success(translate('Payment collection rejected.'));
+        Toastr::success(__('fleet_management.collection_rejected'));
 
         return back();
     }
@@ -294,14 +294,14 @@ class FleetManagerController extends Controller
         $zoneIds = array_map('intval', $data['zone_ids']);
         if (! empty($data['primary_zone_id']) && ! in_array((int) $data['primary_zone_id'], $zoneIds, true)) {
             throw ValidationException::withMessages([
-                'primary_zone_id' => translate('Primary area must be one of the assigned areas.'),
+                'primary_zone_id' => __('fleet_management.error_primary_area_invalid'),
             ]);
         }
 
         $adminZoneId = Auth::guard('admin')->user()?->zone_id;
         if ($adminZoneId && ($zoneIds !== [(int) $adminZoneId])) {
             throw ValidationException::withMessages([
-                'zone_ids' => translate('Area administrators can only manage fleet managers in their own area.'),
+                'zone_ids' => __('fleet_management.error_area_admin_scope'),
             ]);
         }
 
@@ -333,7 +333,7 @@ class FleetManagerController extends Controller
         $adminZoneId = Auth::guard('admin')->user()?->zone_id;
 
         if ($adminZoneId && $fleetManager->zones()->where('zones.id', '!=', $adminZoneId)->exists()) {
-            abort(403, translate('Only a super admin can edit a fleet manager assigned to multiple areas.'));
+            abort(403, __('fleet_management.error_multi_area_super_admin'));
         }
 
         return $fleetManager;

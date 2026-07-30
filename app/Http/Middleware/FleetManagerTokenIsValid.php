@@ -31,7 +31,7 @@ class FleetManagerTokenIsValid
         if (! FleetManager::query()->available()->where('auth_token', $token)->exists()) {
             return response()->json([
                 'errors' => [
-                    ['code' => 'auth-003', 'message' => translate('Fleet manager account is inactive or unavailable.')],
+                    ['code' => 'auth-003', 'message' => __('fleet_management.error_manager_inactive')],
                 ],
             ], 401);
         }

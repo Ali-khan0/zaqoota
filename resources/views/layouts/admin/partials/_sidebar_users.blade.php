@@ -154,21 +154,21 @@
                     </a>
                 </li>
                 <li class="navbar-vertical-aside-has-menu {{ Request::is('admin/users/delivery-man/fleet-manager') || Request::is('admin/users/delivery-man/fleet-manager/create') || Request::is('admin/users/delivery-man/fleet-manager/*/edit') ? 'active' : '' }}">
-                    <a class="js-navbar-vertical-aside-menu-link nav-link" href="{{ route('admin.users.delivery-man.fleet-manager.index') }}" title="{{ translate('Fleet managers') }}">
+                    <a class="js-navbar-vertical-aside-menu-link nav-link" href="{{ route('admin.users.delivery-man.fleet-manager.index') }}" title="{{ __('fleet_management.fleet_managers') }}">
                         <i class="tio-group-senior nav-icon"></i>
-                        <span class="navbar-vertical-aside-mini-mode-hidden-elements text-truncate">{{ translate('Fleet managers') }}</span>
+                        <span class="navbar-vertical-aside-mini-mode-hidden-elements text-truncate">{{ __('fleet_management.fleet_managers') }}</span>
                     </a>
                 </li>
                 <li class="navbar-vertical-aside-has-menu {{ Request::is('admin/users/delivery-man/fleet-manager/rider/assignments') ? 'active' : '' }}">
-                    <a class="js-navbar-vertical-aside-menu-link nav-link" href="{{ route('admin.users.delivery-man.fleet-manager.assignments') }}" title="{{ translate('Rider assignments') }}">
+                    <a class="js-navbar-vertical-aside-menu-link nav-link" href="{{ route('admin.users.delivery-man.fleet-manager.assignments') }}" title="{{ __('fleet_management.rider_assignments') }}">
                         <i class="tio-account-tree nav-icon"></i>
-                        <span class="navbar-vertical-aside-mini-mode-hidden-elements text-truncate">{{ translate('Rider assignments') }}</span>
+                        <span class="navbar-vertical-aside-mini-mode-hidden-elements text-truncate">{{ __('fleet_management.rider_assignments') }}</span>
                     </a>
                 </li>
                 <li class="navbar-vertical-aside-has-menu {{ Request::is('admin/users/delivery-man/fleet-manager/payment/collections') ? 'active' : '' }}">
-                    <a class="js-navbar-vertical-aside-menu-link nav-link" href="{{ route('admin.users.delivery-man.fleet-manager.collections') }}" title="{{ translate('Payment recoveries') }}">
+                    <a class="js-navbar-vertical-aside-menu-link nav-link" href="{{ route('admin.users.delivery-man.fleet-manager.collections') }}" title="{{ __('fleet_management.payment_recoveries') }}">
                         <i class="tio-money nav-icon"></i>
-                        <span class="navbar-vertical-aside-mini-mode-hidden-elements text-truncate">{{ translate('Payment recoveries') }}</span>
+                        <span class="navbar-vertical-aside-mini-mode-hidden-elements text-truncate">{{ __('fleet_management.payment_recoveries') }}</span>
                     </a>
                 </li>
                 @endif

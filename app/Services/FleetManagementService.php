@@ -25,14 +25,14 @@ class FleetManagementService
 
             if (! $fleetManager->status || $fleetManager->on_leave) {
                 throw ValidationException::withMessages([
-                    'fleet_manager_id' => translate('Fleet manager must be active and available.'),
+                    'fleet_manager_id' => __('fleet_management.error_manager_must_be_available'),
                 ]);
             }
 
             $allowedZoneIds = $fleetManager->zones()->pluck('zones.id');
             if ($rider->zone_id && ! $allowedZoneIds->contains((int) $rider->zone_id)) {
                 throw ValidationException::withMessages([
-                    'delivery_man_id' => translate('The rider is outside this fleet manager’s assigned areas.'),
+                    'delivery_man_id' => __('fleet_management.error_rider_outside_areas'),
                 ]);
             }
 
@@ -43,7 +43,7 @@ class FleetManagementService
 
             if ($currentRiderCount >= $fleetManager->rider_capacity) {
                 throw ValidationException::withMessages([
-                    'fleet_manager_id' => translate('The fleet manager has reached the rider capacity.'),
+                    'fleet_manager_id' => __('fleet_management.error_capacity_reached'),
                 ]);
             }
 
@@ -54,7 +54,7 @@ class FleetManagementService
                     'is_active' => false,
                     'ended_at' => now(),
                     'ended_by' => $assignedBy,
-                    'end_reason' => $reason ?: translate('Transferred to another fleet manager.'),
+                    'end_reason' => $reason ?: __('fleet_management.transferred_to_another_manager'),
                 ]);
 
             $rider->fleet_manager_id = $fleetManager->id;
@@ -100,7 +100,7 @@ class FleetManagementService
             $rider = DeliveryMan::withoutGlobalScopes()->lockForUpdate()->findOrFail($rider->id);
             if ((int) $rider->fleet_manager_id !== (int) $fleetManager->id) {
                 throw ValidationException::withMessages([
-                    'delivery_man_id' => translate('This rider is not assigned to the fleet manager.'),
+                    'delivery_man_id' => __('fleet_management.error_rider_not_assigned'),
                 ]);
             }
 
@@ -118,7 +118,7 @@ class FleetManagementService
 
             if ($availableDue <= 0 || (float) $data['amount'] > $availableDue) {
                 throw ValidationException::withMessages([
-                    'amount' => translate('Collection amount exceeds the rider’s unreserved payable balance.'),
+                    'amount' => __('fleet_management.error_collection_exceeds_balance'),
                 ]);
             }
 
@@ -144,7 +144,7 @@ class FleetManagementService
             $collection = FleetPaymentCollection::query()->lockForUpdate()->findOrFail($collection->id);
             if ($collection->status !== FleetPaymentCollection::STATUS_PENDING) {
                 throw ValidationException::withMessages([
-                    'status' => translate('Only pending collections can be approved.'),
+                    'status' => __('fleet_management.error_only_pending_approved'),
                 ]);
             }
 
@@ -156,7 +156,7 @@ class FleetManagementService
             $currentDue = max(0, (float) ($wallet?->collected_cash ?? 0));
             if (! $wallet || $currentDue < (float) $collection->amount) {
                 throw ValidationException::withMessages([
-                    'amount' => translate('The rider payable balance changed and is lower than this collection.'),
+                    'amount' => __('fleet_management.error_balance_changed'),
                 ]);
             }
 
@@ -196,7 +196,7 @@ class FleetManagementService
     ): FleetPaymentCollection {
         if ($collection->status !== FleetPaymentCollection::STATUS_PENDING) {
             throw ValidationException::withMessages([
-                'status' => translate('Only pending collections can be rejected.'),
+                'status' => __('fleet_management.error_only_pending_rejected'),
             ]);
         }
 
