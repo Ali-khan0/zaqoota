@@ -23,6 +23,7 @@ class DeliveryMan extends Authenticatable
         'store_id'=>'integer',
         'current_orders'=>'integer',
         'vehicle_id'=>'integer',
+        'fleet_manager_id'=>'integer',
     ];
 
     protected $hidden = [
@@ -59,6 +60,21 @@ class DeliveryMan extends Authenticatable
     public function wallet()
     {
         return $this->hasOne(DeliveryManWallet::class);
+    }
+
+    public function fleetManager()
+    {
+        return $this->belongsTo(FleetManager::class);
+    }
+
+    public function fleetManagerAssignments()
+    {
+        return $this->hasMany(FleetManagerRiderAssignment::class);
+    }
+
+    public function fleetPaymentCollections()
+    {
+        return $this->hasMany(FleetPaymentCollection::class);
     }
     
     public function registrationFee()

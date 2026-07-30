@@ -153,6 +153,24 @@
                         </span>
                     </a>
                 </li>
+                <li class="navbar-vertical-aside-has-menu {{ Request::is('admin/users/delivery-man/fleet-manager') || Request::is('admin/users/delivery-man/fleet-manager/create') || Request::is('admin/users/delivery-man/fleet-manager/*/edit') ? 'active' : '' }}">
+                    <a class="js-navbar-vertical-aside-menu-link nav-link" href="{{ route('admin.users.delivery-man.fleet-manager.index') }}" title="{{ translate('Fleet managers') }}">
+                        <i class="tio-group-senior nav-icon"></i>
+                        <span class="navbar-vertical-aside-mini-mode-hidden-elements text-truncate">{{ translate('Fleet managers') }}</span>
+                    </a>
+                </li>
+                <li class="navbar-vertical-aside-has-menu {{ Request::is('admin/users/delivery-man/fleet-manager/rider/assignments') ? 'active' : '' }}">
+                    <a class="js-navbar-vertical-aside-menu-link nav-link" href="{{ route('admin.users.delivery-man.fleet-manager.assignments') }}" title="{{ translate('Rider assignments') }}">
+                        <i class="tio-account-tree nav-icon"></i>
+                        <span class="navbar-vertical-aside-mini-mode-hidden-elements text-truncate">{{ translate('Rider assignments') }}</span>
+                    </a>
+                </li>
+                <li class="navbar-vertical-aside-has-menu {{ Request::is('admin/users/delivery-man/fleet-manager/payment/collections') ? 'active' : '' }}">
+                    <a class="js-navbar-vertical-aside-menu-link nav-link" href="{{ route('admin.users.delivery-man.fleet-manager.collections') }}" title="{{ translate('Payment recoveries') }}">
+                        <i class="tio-money nav-icon"></i>
+                        <span class="navbar-vertical-aside-mini-mode-hidden-elements text-truncate">{{ translate('Payment recoveries') }}</span>
+                    </a>
+                </li>
                 @endif
                 <!-- End DeliveryMan -->
 

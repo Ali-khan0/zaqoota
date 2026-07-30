@@ -6,6 +6,7 @@ use App\CentralLogics\Helpers;
 use App\Http\Controllers\Controller;
 use App\Models\Admin;
 use App\Models\DeliveryMan;
+use App\Models\FleetManager;
 use App\Services\DeliveryManRegistrationFeeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -48,6 +49,34 @@ class DeliveryManLoginController extends Controller
         }
         
         $phoneCandidates = array_values(array_unique(array_filter($phoneCandidates, static fn ($p) => $p !== null && $p !== '')));
+
+        $fleetManager = FleetManager::query()
+            ->where(function ($query) use ($phoneCandidates) {
+                foreach ($phoneCandidates as $phone) {
+                    $query->orWhere('phone', $phone);
+                }
+            })
+            ->first();
+
+        if ($fleetManager && Hash::check($password, $fleetManager->password)) {
+            if (! $fleetManager->status || $fleetManager->on_leave) {
+                return response()->json([
+                    'errors' => [
+                        ['code' => 'auth-003', 'message' => translate('Your fleet manager account is not currently available.')],
+                    ],
+                ], 401);
+            }
+
+            $token = Str::random(120);
+            $fleetManager->update(['auth_token' => $token]);
+
+            return response()->json([
+                'token' => $token,
+                'account_type' => 'fleet_manager',
+                'topic' => 'fleet_manager_'.$fleetManager->id,
+                'zone_topic' => '',
+            ]);
+        }
 
         $delivery_man = DeliveryMan::withoutGlobalScopes()
             ->where(function ($q) use ($phoneCandidates) {
@@ -100,6 +129,7 @@ class DeliveryManLoginController extends Controller
 
         return response()->json([
             'token' => $token,
+            'account_type' => 'rider',
             'topic' => isset($topic) ? $topic : 'No_topic_found',
             'zone_topic' => $zone_topic ?? '',
         ], 200);

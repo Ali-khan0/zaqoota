@@ -15,6 +15,8 @@ class DeliveryManWalletLedger extends Model
 
     public const TYPE_MILESTONE_BONUS_WEEKLY = 'milestone_bonus_weekly';
 
+    public const TYPE_FLEET_PAYMENT_RECOVERY = 'fleet_payment_recovery';
+
     public const DIR_DEBIT = 'debit';
 
     public const DIR_CREDIT = 'credit';

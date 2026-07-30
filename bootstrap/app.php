@@ -8,6 +8,7 @@ use App\Http\Middleware\APIGuestMiddleware;
 use App\Http\Middleware\Authenticate;
 use App\Http\Middleware\CurrentModule;
 use App\Http\Middleware\DmTokenIsValid;
+use App\Http\Middleware\FleetManagerTokenIsValid;
 use App\Http\Middleware\EncryptCookies;
 use App\Http\Middleware\InstallationMiddleware;
 use App\Http\Middleware\Localization;
@@ -76,6 +77,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'vendor' => VendorMiddleware::class,
             'vendor.api' => VendorTokenIsValid::class,
             'dm.api' => DmTokenIsValid::class,
+            'fleet-manager.api' => FleetManagerTokenIsValid::class,
             'module' => ModulePermissionMiddleware::class,
             'installation-check' => InstallationMiddleware::class,
             'actch' => ActivationCheckMiddleware::class,
