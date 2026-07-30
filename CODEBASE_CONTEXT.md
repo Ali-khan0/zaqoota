@@ -233,10 +233,13 @@ Fleet management is part of the core delivery context:
   `fleet_manager`). Fleet-manager app APIs live at `/api/v1/fleet-manager`
   and are guarded by `fleet-manager.api`.
 - Rider profile responses expose the current fleet manager.
-- Rider cash due remains `DeliveryManWallet.collected_cash`.
-  `FleetPaymentCollection` records recovery attempts; only admin approval
-  reduces the due and writes a `fleet_payment_recovery` row to
-  `DeliveryManWalletLedger`.
+- Rider cash due remains `DeliveryManWallet.collected_cash`. Fleet managers can
+  see due riders and contact them, but cannot submit payments or mutate wallet
+  balances. Riders pay the company bank account through the existing verified
+  payment workflow.
+- Admin Rider Payables is a filtered manager-accountability page. Each manager
+  links to a dedicated assigned-rider list with live payable balances, contact
+  details, rider profiles, and unassignment controls.
 - Fleet-manager commission is configured per manager and snapshotted per
   completed order in `FleetManagerEarningTransaction`. The amount is calculated
   from the delivery-value base and capped by the admin delivery-commission
@@ -248,7 +251,7 @@ Fleet management is part of the core delivery context:
   payout to show net admin earnings.
 - The manager report is available from Fleet Managers > Report and from
   Transactions & Reports > Fleet Manager Reports. It includes searchable,
-  date/status-filtered order earning transactions plus wallet and rider recovery
+  date/status-filtered order earning transactions plus wallet and rider payable
   summaries.
 - Fleet managers save payout details from the shared `WithdrawalMethod`
   templates and submit `FleetManagerWithdrawalRequest` records. Admin review
@@ -262,13 +265,11 @@ Current fleet-manager app contract:
 | POST | `/api/v1/auth/delivery-man/login` | Shared login; branch UI using `account_type` |
 | GET | `/api/v1/fleet-manager/profile` | Manager profile, zones and rider count |
 | PUT | `/api/v1/fleet-manager/profile` | Update manager-owned profile fields |
-| GET | `/api/v1/fleet-manager/dashboard` | Rider availability, due and recovery totals |
+| GET | `/api/v1/fleet-manager/dashboard` | Rider availability and current payable totals |
 | PUT | `/api/v1/fleet-manager/fcm-token` | Register manager push token |
 | GET | `/api/v1/fleet-manager/earnings` | Paginated commission earnings and wallet summary |
 | GET | `/api/v1/fleet-manager/riders` | Assigned riders; supports search and `due_only` |
 | GET | `/api/v1/fleet-manager/riders/{id}` | Scoped rider operational details |
-| GET | `/api/v1/fleet-manager/payment-collections` | Manager recovery history |
-| POST | `/api/v1/fleet-manager/payment-collections` | Submit auditable recovery for admin approval |
 | GET | `/api/v1/fleet-manager/withdrawal-method-templates` | Active admin payout templates |
 | GET/POST | `/api/v1/fleet-manager/withdrawal-methods` | List or save manager payout methods |
 | PUT/DELETE | `/api/v1/fleet-manager/withdrawal-methods/{id}` | Update/delete an owned payout method |

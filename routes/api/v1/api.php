@@ -163,8 +163,6 @@ Route::group(['namespace' => 'Api\V1', 'middleware'=>'localization'], function (
         Route::get('earnings', 'FleetManagerController@earnings');
         Route::get('riders', 'FleetManagerController@riders');
         Route::get('riders/{id}', 'FleetManagerController@rider');
-        Route::get('payment-collections', 'FleetManagerController@collections');
-        Route::post('payment-collections', 'FleetManagerController@submitCollection');
         Route::get('withdrawal-method-templates', 'FleetManagerController@withdrawalMethodTemplates');
         Route::get('withdrawal-methods', 'FleetManagerController@withdrawalMethods');
         Route::post('withdrawal-methods', 'FleetManagerController@storeWithdrawalMethod');

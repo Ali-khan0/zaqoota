@@ -8,7 +8,6 @@ use App\Models\DeliveryManWallet;
 use App\Models\FleetManager;
 use App\Models\FleetManagerRiderAssignment;
 use App\Models\FleetManagerWithdrawalRequest;
-use App\Models\FleetPaymentCollection;
 use App\Models\Zone;
 use App\Services\FleetManagerFinanceService;
 use App\Services\FleetManagementService;
@@ -17,7 +16,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Rules\Password;
@@ -207,44 +205,133 @@ class FleetManagerController extends Controller
 
     public function collections(Request $request)
     {
-        $collections = FleetPaymentCollection::query()
-            ->with([
-                'fleetManager',
-                'deliveryMan' => fn ($query) => $query
-                    ->with('wallet')
-                    ->withSum([
-                        'fleetPaymentCollections as pending_collection_amount' => fn ($collections) => $collections
-                            ->where('status', FleetPaymentCollection::STATUS_PENDING),
-                    ], 'amount'),
-                'reviewer',
-            ])
-            ->when(Auth::guard('admin')->user()?->zone_id, function ($query, $zoneId) {
-                $query->whereHas('deliveryMan', fn ($rider) => $rider->where('zone_id', $zoneId));
-            })
-            ->when($request->fleet_manager_id, fn ($query, $managerId) => $query->where('fleet_manager_id', $managerId))
-            ->when($request->status, fn ($query, $status) => $query->where('status', $status))
-            ->latest('submitted_at')
-            ->paginate(config('default_pagination'));
+        $adminZoneId = Auth::guard('admin')->user()?->zone_id;
+        $filters = $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+            'fleet_manager_id' => ['nullable', 'integer', 'exists:fleet_managers,id'],
+            'zone_id' => ['nullable', 'integer', 'exists:zones,id'],
+            'due_status' => ['nullable', Rule::in(['with_due', 'clear'])],
+        ]);
 
         $recoveryManagers = $this->managerQuery()
             ->with('zones')
             ->withCount([
-                'riders',
+                'riders' => fn ($query) => $query
+                    ->when($adminZoneId, fn ($rider, $zoneId) => $rider->where('zone_id', $zoneId)),
                 'riders as riders_with_due_count' => fn ($query) => $query
+                    ->when($adminZoneId, fn ($rider, $zoneId) => $rider->where('zone_id', $zoneId))
                     ->whereHas('wallet', fn ($wallet) => $wallet->where('collected_cash', '>', 0)),
             ])
             ->addSelect([
                 'rider_payable_balance' => DeliveryManWallet::query()
                     ->selectRaw('COALESCE(SUM(delivery_man_wallets.collected_cash), 0)')
                     ->join('delivery_men', 'delivery_men.id', '=', 'delivery_man_wallets.delivery_man_id')
-                    ->whereColumn('delivery_men.fleet_manager_id', 'fleet_managers.id'),
+                    ->whereColumn('delivery_men.fleet_manager_id', 'fleet_managers.id')
+                    ->when($adminZoneId, fn ($query, $zoneId) => $query->where('delivery_men.zone_id', $zoneId)),
+                'highest_rider_payable' => DeliveryManWallet::query()
+                    ->selectRaw('COALESCE(MAX(delivery_man_wallets.collected_cash), 0)')
+                    ->join('delivery_men', 'delivery_men.id', '=', 'delivery_man_wallets.delivery_man_id')
+                    ->whereColumn('delivery_men.fleet_manager_id', 'fleet_managers.id')
+                    ->when($adminZoneId, fn ($query, $zoneId) => $query->where('delivery_men.zone_id', $zoneId)),
             ])
+            ->when($filters['fleet_manager_id'] ?? null, fn ($query, $managerId) => $query->whereKey($managerId))
+            ->when($filters['zone_id'] ?? null, function ($query, $zoneId) {
+                $query->whereHas('zones', fn ($zone) => $zone->where('zones.id', $zoneId));
+            })
+            ->when($filters['due_status'] ?? null, function ($query, $status) use ($adminZoneId) {
+                $status === 'with_due'
+                    ? $query->whereHas('riders', fn ($rider) => $rider
+                        ->when($adminZoneId, fn ($scopedRider, $zoneId) => $scopedRider->where('zone_id', $zoneId))
+                        ->whereHas('wallet', fn ($wallet) => $wallet->where('collected_cash', '>', 0)))
+                    : $query->whereDoesntHave('riders', fn ($rider) => $rider
+                        ->when($adminZoneId, fn ($scopedRider, $zoneId) => $scopedRider->where('zone_id', $zoneId))
+                        ->whereHas('wallet', fn ($wallet) => $wallet->where('collected_cash', '>', 0)));
+            })
+            ->when($filters['search'] ?? null, function ($query, $search) use ($adminZoneId) {
+                $query->where(function ($manager) use ($search, $adminZoneId) {
+                    $manager->where('f_name', 'like', "%{$search}%")
+                        ->orWhere('l_name', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%")
+                        ->orWhere('employee_id', 'like', "%{$search}%")
+                        ->orWhereHas('riders', function ($rider) use ($search, $adminZoneId) {
+                            $rider->when($adminZoneId, fn ($scopedRider, $zoneId) => $scopedRider
+                                ->where('zone_id', $zoneId))
+                                ->where(function ($matchingRider) use ($search) {
+                                    $matchingRider->where('f_name', 'like', "%{$search}%")
+                                        ->orWhere('l_name', 'like', "%{$search}%")
+                                        ->orWhere('phone', 'like', "%{$search}%");
+                                });
+                        });
+                });
+            })
             ->orderByDesc('rider_payable_balance')
-            ->get();
+            ->paginate(config('default_pagination'))
+            ->withQueryString();
+
+        $managerOptions = $this->managerQuery()
+            ->orderBy('f_name')
+            ->orderBy('l_name')
+            ->get(['id', 'f_name', 'l_name']);
+        $zones = Zone::query()
+            ->when($adminZoneId, fn ($query, $zoneId) => $query->whereKey($zoneId))
+            ->where('status', 1)
+            ->orderBy('name')
+            ->get(['id', 'name']);
 
         return view('admin-views.delivery-man.fleet-manager.collections', compact(
-            'collections',
-            'recoveryManagers'
+            'recoveryManagers',
+            'managerOptions',
+            'zones'
+        ));
+    }
+
+    public function riders(Request $request, int $id)
+    {
+        $filters = $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+            'due_status' => ['nullable', Rule::in(['with_due', 'clear'])],
+        ]);
+
+        $fleetManager = $this->findVisibleManager($id)->load('zones');
+        $baseQuery = $this->riderQuery()->where('fleet_manager_id', $fleetManager->id);
+
+        $summary = [
+            'assigned' => (clone $baseQuery)->count(),
+            'with_due' => (clone $baseQuery)
+                ->whereHas('wallet', fn ($wallet) => $wallet->where('collected_cash', '>', 0))
+                ->count(),
+            'payable' => max(0, (float) DeliveryManWallet::query()
+                ->join('delivery_men', 'delivery_men.id', '=', 'delivery_man_wallets.delivery_man_id')
+                ->where('delivery_men.fleet_manager_id', $fleetManager->id)
+                ->when(Auth::guard('admin')->user()?->zone_id, fn ($query, $zoneId) => $query
+                    ->where('delivery_men.zone_id', $zoneId))
+                ->sum('delivery_man_wallets.collected_cash')),
+        ];
+
+        $riders = $baseQuery
+            ->with(['zone', 'wallet'])
+            ->when($filters['due_status'] ?? null, function ($query, $status) {
+                $status === 'with_due'
+                    ? $query->whereHas('wallet', fn ($wallet) => $wallet->where('collected_cash', '>', 0))
+                    : $query->whereDoesntHave('wallet', fn ($wallet) => $wallet->where('collected_cash', '>', 0));
+            })
+            ->when($filters['search'] ?? null, function ($query, $search) {
+                $query->where(function ($rider) use ($search) {
+                    $rider->where('f_name', 'like', "%{$search}%")
+                        ->orWhere('l_name', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%");
+                });
+            })
+            ->orderBy('f_name')
+            ->orderBy('l_name')
+            ->paginate(config('default_pagination'))
+            ->withQueryString();
+
+        return view('admin-views.delivery-man.fleet-manager.riders', compact(
+            'fleetManager',
+            'riders',
+            'summary'
         ));
     }
 
@@ -285,9 +372,6 @@ class FleetManagerController extends Controller
             'rider_payable_balance' => (float) $fleetManager->riders()
                 ->join('delivery_man_wallets', 'delivery_men.id', '=', 'delivery_man_wallets.delivery_man_id')
                 ->sum('delivery_man_wallets.collected_cash'),
-            'approved_recoveries' => (float) $fleetManager->paymentCollections()
-                ->where('status', FleetPaymentCollection::STATUS_APPROVED)
-                ->sum('amount'),
         ];
 
         $earnings = $earningsQuery->latest()->paginate(config('default_pagination'));
@@ -352,46 +436,6 @@ class FleetManagerController extends Controller
         );
 
         return back();
-    }
-
-    public function approveCollection(int $id)
-    {
-        $collection = FleetPaymentCollection::findOrFail($id);
-        $this->findVisibleRider($collection->delivery_man_id);
-        $this->fleetManagementService->approveCollection($collection, Auth::guard('admin')->id());
-        Toastr::success(__('fleet_management.collection_approved'));
-
-        return back();
-    }
-
-    public function rejectCollection(Request $request, int $id)
-    {
-        $data = $request->validate([
-            'rejection_reason' => ['required', 'string', 'max:1000'],
-        ]);
-
-        $collection = FleetPaymentCollection::findOrFail($id);
-        $this->findVisibleRider($collection->delivery_man_id);
-        $this->fleetManagementService->rejectCollection(
-            $collection,
-            Auth::guard('admin')->id(),
-            $data['rejection_reason']
-        );
-        Toastr::success(__('fleet_management.collection_rejected'));
-
-        return back();
-    }
-
-    public function collectionProof(int $id)
-    {
-        $collection = FleetPaymentCollection::findOrFail($id);
-        $this->findVisibleRider($collection->delivery_man_id);
-        abort_unless($collection->proof_file, 404);
-
-        $path = 'fleet-manager/payment-proofs/'.$collection->proof_file;
-        abort_unless(Storage::disk($collection->proof_disk ?: 'local')->exists($path), 404);
-
-        return Storage::disk($collection->proof_disk ?: 'local')->download($path);
     }
 
     private function validateManager(Request $request, ?FleetManager $fleetManager = null): array

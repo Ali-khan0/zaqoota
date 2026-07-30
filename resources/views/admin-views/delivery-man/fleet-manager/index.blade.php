@@ -54,7 +54,9 @@
                                 {{ $manager->zones->pluck('name')->join(', ') }}
                             </td>
                             <td>
-                                {{ $manager->riders_count }} / {{ $manager->rider_capacity }}
+                                <a href="{{ route('admin.users.delivery-man.fleet-manager.riders', $manager->id) }}">
+                                    {{ $manager->riders_count }} / {{ $manager->rider_capacity }}
+                                </a>
                             </td>
                             <td>{{ number_format((float) $manager->commission_percentage, 2) }}%</td>
                             <td>
@@ -74,6 +76,10 @@
                                 </span>
                             </td>
                             <td class="text-center">
+                                <a class="btn btn-sm btn-outline-secondary"
+                                   href="{{ route('admin.users.delivery-man.fleet-manager.riders', $manager->id) }}">
+                                    <i class="tio-group-senior"></i> {{ __('fleet_management.view_riders') }}
+                                </a>
                                 <a class="btn btn-sm btn-outline-info"
                                    href="{{ route('admin.users.delivery-man.fleet-manager.report', $manager->id) }}">
                                     <i class="tio-chart-bar-1"></i> {{ __('fleet_management.report') }}

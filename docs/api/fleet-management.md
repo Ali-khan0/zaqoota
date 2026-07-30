@@ -7,8 +7,8 @@ This API allows one rider application to support two account experiences:
 - **Rider:** existing rider functionality plus information about the assigned
   fleet manager.
 - **Fleet manager:** dashboard, assigned-rider list, rider details, cash-due
-  follow-up, payment-recovery submission, commission earnings, payout methods,
-  and withdrawal requests.
+  visibility and contact follow-up, commission earnings, payout methods, and
+  withdrawal requests.
 
 Ticketing, direct chat, rider performance scoring, medical benefits, and
 medical allowances are not part of this API version.
@@ -25,9 +25,7 @@ Shared login
    `-- account_type = fleet_manager
           `-- Fleet dashboard
               +-- Assigned riders
-              |    `-- Rider details
-              |         `-- Submit payment recovery
-              +-- Payment-recovery history
+              |    `-- Rider details and payable balance
               +-- Commission earnings
               `-- Wallet and withdrawals
                    +-- Payout methods
@@ -246,9 +244,6 @@ Authentication: fleet-manager token.
   "offline_riders": 9,
   "riders_with_due": 7,
   "total_due": 18500.5,
-  "total_pending_collection_amount": 3000,
-  "total_collectable_balance": 15500.5,
-  "pending_collections": 3,
   "commission_percentage": 5,
   "wallet": {
     "total_earning": 12500,
@@ -268,9 +263,6 @@ Authentication: fleet-manager token.
 | `offline_riders` | Assigned riders currently marked inactive/offline |
 | `riders_with_due` | Assigned riders whose `collected_cash` is greater than zero |
 | `total_due` | Total rider cash payable to the business |
-| `total_pending_collection_amount` | Current rider due already submitted and waiting for admin approval |
-| `total_collectable_balance` | Additional amount that can currently be recovered |
-| `pending_collections` | Submitted recoveries awaiting admin reconciliation |
 | `commission_percentage` | Current rate for future eligible order earnings |
 | `wallet` | Lifetime earnings and withdrawal balance summary |
 
@@ -358,26 +350,17 @@ GET /api/v1/fleet-manager/riders?due_only=1&search=Ali&page=1
   "status": true,
   "current_orders": 1,
   "rating": 4.7,
-  "payable_balance": 2500,
-  "pending_collection_amount": 1000,
-  "collectable_balance": 1500
+  "payable_balance": 2500
 }
 ```
 
 ### Payment-field meanings
 
-- `payable_balance`: current total cash due from the rider.
-- `pending_collection_amount`: already submitted for admin approval.
-- `collectable_balance`: maximum additional amount that can currently be
-  submitted.
+- `payable_balance`: the current amount still due from the rider.
 
-The payment form must use `collectable_balance` as its maximum, not
-`payable_balance`.
-
-Use `GET /riders?due_only=1` as the recovery work queue. This returns every
-assigned rider who still has an unpaid balance, including riders who do not
-yet have a recovery-history record. Show the payable amount and a phone/contact
-action on each row.
+Use `GET /riders?due_only=1` as the follow-up work queue. Show the payable
+amount and a phone/contact action on each row. Fleet managers can remind riders
+to pay, but they cannot submit payments or change this balance.
 
 ### Security
 
@@ -436,9 +419,7 @@ GET /api/v1/fleet-manager/riders/81
   "delivered_orders_count": 621,
   "canceled_orders_count": 12,
   "member_since": "2025-03-15",
-  "payable_balance": 2500,
-  "pending_collection_amount": 1000,
-  "collectable_balance": 1500
+  "payable_balance": 2500
 }
 ```
 
@@ -460,197 +441,23 @@ rider belongs to another manager.
 
 ---
 
-## 8. Payment-recovery history
+## 8. Rider payment responsibility
 
-```http
-GET /api/v1/fleet-manager/payment-collections
-```
+Fleet managers do not collect or submit rider payments. Riders transfer money
+directly to the company bank account, and only the existing verified
+bank-payment workflow may reduce `DeliveryManWallet.collected_cash`.
 
-Authentication: fleet-manager token.
+The fleet-manager app should use `GET /api/v1/fleet-manager/riders?due_only=1`
+to show the follow-up list. It may display the rider's `payable_balance` and
+phone action, but it must not display a recovery form or attempt to update the
+balance.
 
-### Query parameters
-
-| Parameter | Values | Required |
-|---|---|---:|
-| `status` | `pending`, `approved`, `rejected` | No |
-| `page` | positive integer | No |
-
-### Success data item
-
-```json
-{
-  "id": 402,
-  "rider": {
-    "id": 81,
-    "name": "Ali Raza",
-    "phone": "+923111234567"
-  },
-  "amount": 1000,
-  "due_before": 2500,
-  "due_after": 1500,
-  "payable_balance": 1500,
-  "pending_collection_amount": 0,
-  "collectable_balance": 1500,
-  "payment_method": "cash",
-  "reference": "RCPT-8291",
-  "note": "Collected at North hub",
-  "proof_uploaded": true,
-  "status": "approved",
-  "submitted_at": "2026-07-30T10:30:00+00:00",
-  "reviewed_at": "2026-07-30T11:15:00+00:00",
-  "rejection_reason": null
-}
-```
-
-### Status behavior
-
-| Status | Meaning |
-|---|---|
-| `pending` | Submitted but rider wallet due has not changed |
-| `approved` | Admin approved; rider `collected_cash` was reduced and ledgered |
-| `rejected` | Admin rejected; rider due was not reduced |
-
-`due_after` and `reviewed_at` are `null` while pending.
-`rejection_reason` is normally populated only for rejected records.
-
-The three current-balance fields are live values and can differ from the
-historical `due_before` and `due_after` values:
-
-- `payable_balance`: the rider's current total unpaid balance.
-- `pending_collection_amount`: current recovery submissions awaiting admin
-  approval for that rider.
-- `collectable_balance`: maximum additional recovery that can be submitted.
-
-Show `payable_balance` beside the rider's name and phone. When it is
-greater than zero, keep the phone action available so the fleet manager can
-contact the rider about the unpaid balance.
-
-### Backend implementation
-
-- Route: `routes/api/v1/api.php`
-- Controller: `FleetManagerController::collections`
-- Model: `app/Models/FleetPaymentCollection.php`
+The former `GET` and `POST /api/v1/fleet-manager/payment-collections`
+endpoints are not part of the API contract and have been removed.
 
 ---
 
-## 9. Submit rider payment recovery
-
-```http
-POST /api/v1/fleet-manager/payment-collections
-```
-
-Authentication: fleet-manager token.
-
-Content type: `multipart/form-data`.
-
-### Multipart fields
-
-| Field | Type | Required | Rules |
-|---|---|---:|---|
-| `delivery_man_id` | integer | Yes | Must be assigned to authenticated manager |
-| `amount` | decimal | Yes | Minimum `0.01`; cannot exceed `collectable_balance` |
-| `payment_method` | string | Yes | `cash`, `bank_transfer`, `mobile_wallet`, or `other` |
-| `reference` | string | No | Maximum 191 characters |
-| `note` | string | No | Maximum 1,000 characters |
-| `proof_file` | image | No | JPG, JPEG, PNG, or WEBP; maximum 5 MB |
-
-### Example logical request
-
-```text
-delivery_man_id: 81
-amount: 1000.00
-payment_method: cash
-reference: RCPT-8291
-note: Collected at North hub
-proof_file: receipt.jpg
-```
-
-### Success — HTTP 201
-
-```json
-{
-  "message": "Payment collection submitted for admin reconciliation.",
-  "collection": {
-    "id": 402,
-    "rider": {
-      "id": 81,
-      "name": "Ali Raza",
-      "phone": "+923111234567"
-    },
-    "amount": 1000,
-    "due_before": 2500,
-    "due_after": null,
-    "payable_balance": 2500,
-    "pending_collection_amount": 1000,
-    "collectable_balance": 1500,
-    "payment_method": "cash",
-    "reference": "RCPT-8291",
-    "note": "Collected at North hub",
-    "proof_uploaded": true,
-    "status": "pending",
-    "submitted_at": "2026-07-30T10:30:00+00:00",
-    "reviewed_at": null,
-    "rejection_reason": null
-  }
-}
-```
-
-### Important financial behavior
-
-- Submission does not reduce the rider’s due.
-- Pending amounts reserve part of the due and reduce `collectable_balance`.
-- Admin approval performs the actual wallet reconciliation.
-- Approval creates an immutable `fleet_payment_recovery` wallet-ledger row.
-- If the due changes before approval and becomes too low, approval is blocked.
-- Proof images are stored privately and are downloadable only from the
-  authenticated admin panel.
-
-### Common errors
-
-- `401`: invalid/inactive manager.
-- `404`: rider is not assigned to the manager.
-- `422`: invalid fields, unsupported payment method/file, or amount exceeds
-  the unreserved due.
-
-Example:
-
-```json
-{
-  "errors": [
-    {
-      "code": "amount",
-      "message": "Collection amount exceeds the rider’s unreserved payable balance."
-    }
-  ]
-}
-```
-
-### Mobile behavior
-
-1. Load rider details immediately before opening the form.
-2. Disable submission when `collectable_balance <= 0`.
-3. Restrict amount to `collectable_balance`.
-4. Prevent double taps while the request is running.
-5. On HTTP `201`, show “Pending admin approval,” not “Payment completed.”
-6. Refresh rider details and collection history.
-7. Show the rejection reason when a record becomes rejected.
-8. Keep the rider phone action visible while `payable_balance > 0` so the fleet
-   manager can contact the rider about the outstanding payment.
-
-### Backend implementation
-
-- Route: `routes/api/v1/api.php`
-- Token middleware: `app/Http/Middleware/FleetManagerTokenIsValid.php`
-- Controller: `FleetManagerController::submitCollection`
-- Business logic: `app/Services/FleetManagementService.php`
-- Models: `FleetPaymentCollection`, `DeliveryManWallet`,
-  `DeliveryManWalletLedger`
-- Admin review:
-  `app/Http/Controllers/Admin/DeliveryMan/FleetManagerController.php`
-
----
-
-## 10. Update fleet-manager profile
+## 9. Update fleet-manager profile
 
 ```http
 PUT /api/v1/fleet-manager/profile
@@ -679,7 +486,7 @@ Duplicate rider/manager phone or email values return HTTP `422`.
 
 ---
 
-## 11. Commission earnings
+## 10. Commission earnings
 
 ```http
 GET /api/v1/fleet-manager/earnings?from=2026-07-01&to=2026-07-31&status=earned&page=1
@@ -741,7 +548,7 @@ from the wallet.
 
 ---
 
-## 12. Available withdrawal-method templates
+## 11. Available withdrawal-method templates
 
 ```http
 GET /api/v1/fleet-manager/withdrawal-method-templates
@@ -775,7 +582,7 @@ Render these fields dynamically; do not hard-code bank field names.
 
 ---
 
-## 13. Saved withdrawal methods
+## 12. Saved withdrawal methods
 
 ```http
 GET /api/v1/fleet-manager/withdrawal-methods
@@ -800,7 +607,7 @@ Only methods owned by the authenticated manager are returned.
 
 ---
 
-## 14. Create or update a saved withdrawal method
+## 13. Create or update a saved withdrawal method
 
 Create:
 
@@ -831,7 +638,7 @@ manager are rejected. Create returns HTTP `201`; update returns `200`.
 
 ---
 
-## 15. Set default or delete a withdrawal method
+## 14. Set default or delete a withdrawal method
 
 ```http
 PUT /api/v1/fleet-manager/withdrawal-methods/{saved_method_id}/default
@@ -844,7 +651,7 @@ requests keep a snapshot of their payout details.
 
 ---
 
-## 16. Withdrawal history
+## 15. Withdrawal history
 
 ```http
 GET /api/v1/fleet-manager/withdrawals?status=pending&page=1
@@ -887,7 +694,7 @@ Show `admin_note` for rejected requests and refresh after admin decisions.
 
 ---
 
-## 17. Submit withdrawal request
+## 16. Submit withdrawal request
 
 ```http
 POST /api/v1/fleet-manager/withdrawals
@@ -946,16 +753,13 @@ features/fleet_management/
 │       ├── fleet_dashboard
 │       ├── managed_rider
 │       ├── managed_rider_details
-│       ├── payment_collection
 │       └── paginated_response
 ├── domain/
 │   └── fleet_manager_service
 └── presentation/
     ├── fleet_dashboard_screen
     ├── assigned_riders_screen
-    ├── rider_details_screen
-    ├── submit_payment_recovery_screen
-    └── payment_recovery_history_screen
+    └── rider_details_screen
 ```
 
 Add mobile models for `fleet_manager_earning`, `fleet_manager_wallet`,
@@ -975,11 +779,9 @@ guard. Existing rider profile should add a nullable `fleet_manager` model.
 - Rider search, due filter, and pagination work together.
 - Money is parsed as decimal/numeric data and formatted using configured
   currency.
-- Collection amount cannot exceed `collectable_balance`.
-- Multipart proof upload works on Android and iOS.
-- Double submission is blocked in the UI.
-- Pending, approved, and rejected states have distinct labels.
-- Rejection reasons are displayed.
+- Rider payable balances are read-only in the fleet-manager app.
+- Due riders always expose a contact action for manager follow-up.
+- No payment-submission or balance-adjustment action is shown to managers.
 - FCM token is refreshed after login and device-token rotation.
 - Manager can update only self-service profile fields.
 - Commission history displays snapshotted rates and reversal state.

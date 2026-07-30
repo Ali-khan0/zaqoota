@@ -400,6 +400,7 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
                         Route::post('/', [FleetManagerController::class, 'store'])->name('store');
                         Route::get('{id}/edit', [FleetManagerController::class, 'edit'])->name('edit');
                         Route::get('{id}/report', [FleetManagerController::class, 'report'])->name('report');
+                        Route::get('{id}/riders', [FleetManagerController::class, 'riders'])->name('riders');
                         Route::put('{id}', [FleetManagerController::class, 'update'])->name('update');
                         Route::put('{id}/status', [FleetManagerController::class, 'status'])->name('status');
 
@@ -408,9 +409,6 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
                         Route::delete('rider/{riderId}/assignment', [FleetManagerController::class, 'unassign'])->name('unassign');
 
                         Route::get('payment/collections', [FleetManagerController::class, 'collections'])->name('collections');
-                        Route::get('payment/collections/{id}/proof', [FleetManagerController::class, 'collectionProof'])->name('collections.proof');
-                        Route::put('payment/collections/{id}/approve', [FleetManagerController::class, 'approveCollection'])->name('collections.approve');
-                        Route::put('payment/collections/{id}/reject', [FleetManagerController::class, 'rejectCollection'])->name('collections.reject');
 
                     });
 

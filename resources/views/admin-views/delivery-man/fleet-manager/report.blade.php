@@ -31,7 +31,6 @@
                 [__('fleet_management.pending_withdrawal'), $wallet?->pending_withdraw ?? 0, 'warning'],
                 [__('fleet_management.total_withdrawn'), $wallet?->total_withdrawn ?? 0, 'info'],
                 [__('fleet_management.rider_payable_balance'), $summary['rider_payable_balance'], 'danger'],
-                [__('fleet_management.approved_recoveries'), $summary['approved_recoveries'], 'secondary'],
             ] as [$label, $value, $color])
                 <div class="col-md-4 col-xl-2 mb-3">
                     <div class="card h-100 border-left border-{{ $color }}">

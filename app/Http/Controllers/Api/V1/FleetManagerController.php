@@ -9,15 +9,11 @@ use App\Models\FleetManager;
 use App\Models\FleetManagerEarningTransaction;
 use App\Models\FleetManagerWithdrawalMethod;
 use App\Models\FleetManagerWithdrawalRequest;
-use App\Models\FleetPaymentCollection;
 use App\Models\WithdrawalMethod;
 use App\Services\FleetManagerFinanceService;
-use App\Services\FleetManagementService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Rules\Password;
@@ -25,7 +21,6 @@ use Illuminate\Validation\Rules\Password;
 class FleetManagerController extends Controller
 {
     public function __construct(
-        private readonly FleetManagementService $fleetManagementService,
         private readonly FleetManagerFinanceService $fleetManagerFinanceService
     ) {
     }
@@ -71,14 +66,9 @@ class FleetManagerController extends Controller
     {
         $manager = $this->manager($request);
         $riders = $manager->riders()->with('wallet');
-        $riderIds = $manager->riders()->select('delivery_men.id');
         $totalDue = (float) $manager->riders()
             ->join('delivery_man_wallets', 'delivery_men.id', '=', 'delivery_man_wallets.delivery_man_id')
             ->sum('delivery_man_wallets.collected_cash');
-        $pendingCollectionAmount = (float) FleetPaymentCollection::query()
-            ->whereIn('delivery_man_id', $riderIds)
-            ->where('status', FleetPaymentCollection::STATUS_PENDING)
-            ->sum('amount');
 
         return response()->json([
             'assigned_riders' => (clone $riders)->count(),
@@ -86,11 +76,6 @@ class FleetManagerController extends Controller
             'offline_riders' => (clone $riders)->where('active', 0)->count(),
             'riders_with_due' => (clone $riders)->whereHas('wallet', fn ($wallet) => $wallet->where('collected_cash', '>', 0))->count(),
             'total_due' => $totalDue,
-            'total_pending_collection_amount' => $pendingCollectionAmount,
-            'total_collectable_balance' => max(0, $totalDue - $pendingCollectionAmount),
-            'pending_collections' => $manager->paymentCollections()
-                ->where('status', FleetPaymentCollection::STATUS_PENDING)
-                ->count(),
             'commission_percentage' => (float) $manager->commission_percentage,
             'wallet' => $this->formatWallet($manager->loadMissing('wallet')),
         ]);
@@ -350,10 +335,6 @@ class FleetManagerController extends Controller
         $manager = $this->manager($request);
         $riders = $manager->riders()
             ->with(['zone', 'wallet', 'rating'])
-            ->withSum([
-                'fleetPaymentCollections as pending_collection_amount' => fn ($query) => $query
-                    ->where('status', FleetPaymentCollection::STATUS_PENDING),
-            ], 'amount')
             ->when($request->search, function ($query, $search) {
                 $query->where(function ($query) use ($search) {
                     $query->where('f_name', 'like', "%{$search}%")
@@ -376,11 +357,6 @@ class FleetManagerController extends Controller
                 'current_orders' => (int) $rider->current_orders,
                 'rating' => (float) ($rider->rating->first()?->average ?? 0),
                 'payable_balance' => (float) ($rider->wallet?->collected_cash ?? 0),
-                'pending_collection_amount' => (float) ($rider->pending_collection_amount ?? 0),
-                'collectable_balance' => max(
-                    0,
-                    (float) ($rider->wallet?->collected_cash ?? 0) - (float) ($rider->pending_collection_amount ?? 0)
-                ),
             ];
         });
 
@@ -391,15 +367,10 @@ class FleetManagerController extends Controller
     {
         $rider = $this->manager($request)->riders()
             ->with(['zone', 'wallet', 'rating', 'vehicle'])
-            ->withSum([
-                'fleetPaymentCollections as pending_collection_amount' => fn ($query) => $query
-                    ->where('status', FleetPaymentCollection::STATUS_PENDING),
-            ], 'amount')
             ->withCount(['orders', 'total_delivered_orders', 'total_canceled_orders'])
             ->findOrFail($id);
 
         $payableBalance = (float) ($rider->wallet?->collected_cash ?? 0);
-        $pendingAmount = (float) ($rider->pending_collection_amount ?? 0);
 
         return response()->json([
             'id' => $rider->id,
@@ -428,31 +399,7 @@ class FleetManagerController extends Controller
             'canceled_orders_count' => (int) $rider->total_canceled_orders_count,
             'member_since' => optional($rider->created_at)->format('Y-m-d'),
             'payable_balance' => $payableBalance,
-            'pending_collection_amount' => $pendingAmount,
-            'collectable_balance' => max(0, $payableBalance - $pendingAmount),
         ]);
-    }
-
-    public function collections(Request $request)
-    {
-        $collections = $this->manager($request)
-            ->paymentCollections()
-            ->with([
-                'deliveryMan' => fn ($query) => $query
-                    ->select('id', 'f_name', 'l_name', 'phone')
-                    ->with('wallet')
-                    ->withSum([
-                        'fleetPaymentCollections as pending_collection_amount' => fn ($collections) => $collections
-                            ->where('status', FleetPaymentCollection::STATUS_PENDING),
-                    ], 'amount'),
-            ])
-            ->when($request->status, fn ($query, $status) => $query->where('status', $status))
-            ->latest('submitted_at')
-            ->paginate(config('default_pagination'));
-
-        $collections->getCollection()->transform(fn ($collection) => $this->formatCollection($collection));
-
-        return response()->json($collections);
     }
 
     public function updateFcmToken(Request $request)
@@ -470,62 +417,6 @@ class FleetManagerController extends Controller
         return response()->json(['message' => __('fleet_management.fcm_token_updated')]);
     }
 
-    public function submitCollection(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'delivery_man_id' => ['required', 'integer', 'exists:delivery_men,id'],
-            'amount' => ['required', 'numeric', 'min:0.01'],
-            'payment_method' => ['required', 'in:cash,bank_transfer,mobile_wallet,other'],
-            'reference' => ['nullable', 'string', 'max:191'],
-            'note' => ['nullable', 'string', 'max:1000'],
-            'proof_file' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['errors' => Helpers::error_processor($validator)], 422);
-        }
-
-        $manager = $this->manager($request);
-        $rider = $manager->riders()->with('wallet')->findOrFail($request->delivery_man_id);
-        $data = $validator->validated();
-        $proofFile = $request->file('proof_file');
-        unset($data['proof_file']);
-
-        try {
-            $collection = $this->fleetManagementService->submitCollection($manager, $rider, $data);
-        } catch (ValidationException $exception) {
-            $errors = [];
-            foreach ($exception->errors() as $field => $messages) {
-                foreach ($messages as $message) {
-                    $errors[] = ['code' => $field, 'message' => $message];
-                }
-            }
-
-            return response()->json(['errors' => $errors], 422);
-        }
-
-        if ($proofFile) {
-            $fileName = now()->format('Y-m-d').'-'.Str::uuid().'.'.$proofFile->getClientOriginalExtension();
-            Storage::disk('local')->putFileAs('fleet-manager/payment-proofs', $proofFile, $fileName);
-            $collection->update([
-                'proof_file' => $fileName,
-                'proof_disk' => 'local',
-            ]);
-        }
-
-        return response()->json([
-            'message' => __('fleet_management.collection_submitted'),
-            'collection' => $this->formatCollection($collection->load([
-                'deliveryMan' => fn ($query) => $query
-                    ->select('id', 'f_name', 'l_name', 'phone')
-                    ->with('wallet')
-                    ->withSum([
-                        'fleetPaymentCollections as pending_collection_amount' => fn ($collections) => $collections
-                            ->where('status', FleetPaymentCollection::STATUS_PENDING),
-                    ], 'amount'),
-            ])),
-        ], 201);
-    }
 
     private function manager(Request $request): FleetManager
     {
@@ -534,38 +425,6 @@ class FleetManagerController extends Controller
             ->where('status', true)
             ->where('on_leave', false)
             ->firstOrFail();
-    }
-
-    private function formatCollection(FleetPaymentCollection $collection): array
-    {
-        $payableBalance = max(0, (float) ($collection->deliveryMan?->wallet?->collected_cash ?? 0));
-        $pendingCollectionAmount = max(
-            0,
-            (float) ($collection->deliveryMan?->pending_collection_amount ?? 0)
-        );
-
-        return [
-            'id' => $collection->id,
-            'rider' => $collection->deliveryMan ? [
-                'id' => $collection->deliveryMan->id,
-                'name' => $collection->deliveryMan->full_name,
-                'phone' => $collection->deliveryMan->phone,
-            ] : null,
-            'amount' => (float) $collection->amount,
-            'due_before' => (float) $collection->due_before,
-            'due_after' => $collection->due_after === null ? null : (float) $collection->due_after,
-            'payable_balance' => $payableBalance,
-            'pending_collection_amount' => $pendingCollectionAmount,
-            'collectable_balance' => max(0, $payableBalance - $pendingCollectionAmount),
-            'payment_method' => $collection->payment_method,
-            'reference' => $collection->reference,
-            'note' => $collection->note,
-            'proof_uploaded' => (bool) $collection->proof_file,
-            'status' => $collection->status,
-            'submitted_at' => $collection->submitted_at?->toIso8601String(),
-            'reviewed_at' => $collection->reviewed_at?->toIso8601String(),
-            'rejection_reason' => $collection->rejection_reason,
-        ];
     }
 
     private function formatWallet(FleetManager $manager): array
