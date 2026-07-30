@@ -18,7 +18,7 @@ applications.
 
 | Feature | Document | Status |
 |---|---|---|
-| Fleet management, rider assignment, recovery, commission and withdrawals | [fleet-management.md](fleet-management.md) | Backend implemented |
+| Fleet-manager mobile routing, riders, payables, commission and withdrawals | [fleet-management.md](fleet-management.md) | Backend implemented |
 
 ## Common conventions
 

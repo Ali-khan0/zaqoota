@@ -1,182 +1,554 @@
-# Fleet Management Mobile API
+# Fleet Manager Mobile App API and Routing Specification
 
-## Purpose
+## 1. Purpose of this document
 
-This API allows one rider application to support two account experiences:
+This is the implementation handoff for adding the fleet-manager experience to
+the existing rider mobile application.
 
-- **Rider:** existing rider functionality plus information about the assigned
-  fleet manager.
-- **Fleet manager:** dashboard, assigned-rider list, rider details, cash-due
-  visibility and contact follow-up, commission earnings, payout methods, and
-  withdrawal requests.
+The Codex instance working inside the mobile project must:
 
-Ticketing, direct chat, rider performance scoring, medical benefits, and
-medical allowances are not part of this API version.
+1. inspect the mobile project before changing it;
+2. reuse its existing API client, repository, state-management, navigation,
+   dependency-injection, secure-storage, localization, and UI conventions;
+3. keep the current rider experience unchanged;
+4. use the shared delivery-man login;
+5. route `account_type = fleet_manager` into a separate fleet-manager shell;
+6. implement only the screens and API operations defined here;
+7. add or update tests using the project's existing testing approach.
 
-## Mobile screen flow
-
-```text
-Shared login
-   |
-   +-- account_type = rider
-   |      `-- Existing rider home
-   |          `-- Profile shows assigned fleet manager
-   |
-   `-- account_type = fleet_manager
-          `-- Fleet dashboard
-              +-- Assigned riders
-              |    `-- Rider details and payable balance
-              +-- Commission earnings
-              `-- Wallet and withdrawals
-                   +-- Payout methods
-                   `-- Withdrawal history/status
-```
-
-The mobile app should persist both the token and `account_type`. Never infer
-the role from the presence of a particular response field.
-
-## Authentication
-
-Fleet managers use the existing delivery-man login endpoint. All subsequent
-fleet-manager requests require the returned token.
-
-Recommended header:
-
-```http
-Authorization: Bearer YOUR_TOKEN
-Accept: application/json
-```
-
-An inactive or unavailable fleet manager receives HTTP `401`.
+Do not create a second networking architecture or a second login system.
+Treat the backend paths and response keys in this document as fixed. If the
+mobile project has an older conflicting contract, migrate the mobile code to
+this contract instead of inventing new server routes.
 
 ---
 
-## 1. Shared rider/fleet-manager login
+## 2. Confirmed product decisions
+
+### Fleet manager responsibilities
+
+A fleet manager can:
+
+- see their assigned riders;
+- see rider contact details and operational performance;
+- see each rider's current payable balance;
+- contact riders who have an outstanding payable balance;
+- see commission earnings by completed order;
+- see wallet totals;
+- submit a withdrawal request;
+- see withdrawal history and admin decisions;
+- update permitted personal profile fields;
+- receive push notifications.
+
+### Fleet manager restrictions
+
+A fleet manager cannot:
+
+- assign, transfer, or unassign riders;
+- change a rider wallet or payable balance;
+- submit a rider payment;
+- approve or verify a bank payment;
+- mark a rider payment as recovered;
+- change their commission percentage;
+- change their assigned areas;
+- change account status, capacity, contract type, shift, or leave status;
+- approve their own withdrawal;
+- view another fleet manager's riders, earnings, or withdrawals;
+- access the normal rider operational home after a fleet-manager login.
+
+Riders pay the company bank account directly. Only the existing verified
+bank-payment workflow may reduce `DeliveryManWallet.collected_cash`.
+
+### Not included in this implementation
+
+Do not build these features from this document:
+
+- manager/rider chat or inbox;
+- complaints or ticketing;
+- medical allowance or hospital vouchers;
+- manager-side rider assignment;
+- payment recovery submission;
+- a new rider performance scoring algorithm;
+- manager-side payout-method editing.
+
+The rider detail API exposes basic operational performance values such as
+rating and order counts. A new scored performance indicator would require a
+separate confirmed backend contract.
+
+### Business write operations
+
+The minimal fleet-manager app has only two user-initiated business mutations:
+
+1. `PUT /api/v1/fleet-manager/profile`
+2. `POST /api/v1/fleet-manager/withdrawals`
+
+There is also one technical device operation:
+
+3. `PUT /api/v1/fleet-manager/fcm-token`
+
+Login is naturally a `POST`, but it is an authentication operation rather than
+a fleet-manager business action.
+
+---
+
+## 3. Important withdrawal-method prerequisite
+
+`POST /api/v1/fleet-manager/withdrawals` requires a saved
+`withdrawal_method_id` owned by the authenticated fleet manager.
+
+For the minimal app:
+
+- payout methods must be configured for the fleet manager by admin/back office;
+- the app loads them with `GET /api/v1/fleet-manager/withdrawal-methods`;
+- the app treats them as read-only;
+- if no method exists, disable the withdrawal submission button and show:
+  **"No payout method is configured. Please contact administration."**
+
+The server currently also exposes withdrawal-method template and CRUD
+endpoints. Do not build manager-facing add/edit/delete payout-method screens in
+this minimal version.
+
+If the business later wants managers to maintain their own bank details, treat
+that as a separate feature with its own security review.
+
+---
+
+## 4. Required mobile navigation
+
+### Shared authentication routing
+
+```text
+App launch
+  |
+  +-- No token
+  |     `-- Existing delivery-man login
+  |
+  `-- Token exists
+        `-- Restore saved account_type
+              |
+              +-- rider
+              |     `-- Existing rider application
+              |
+              `-- fleet_manager
+                    `-- Fleet Manager Shell
+```
+
+After a successful login:
+
+```text
+account_type = rider
+    -> preserve the current rider route and behavior
+
+account_type = fleet_manager
+    -> clear any rider-only navigation stack
+    -> open the Fleet Manager Dashboard
+```
+
+Do not infer the role from local state, phone number, or available screens.
+Always use `account_type` returned by the login API and store it beside the
+token.
+
+### Fleet Manager Shell
+
+Recommended primary navigation:
+
+```text
+Fleet Manager Shell
+  |
+  +-- Dashboard
+  +-- Riders
+  +-- Earnings
+  +-- Wallet
+  `-- Profile
+```
+
+The project may use tabs, a drawer, or its existing navigation pattern. Keep
+these logical destinations even if the visual navigation differs.
+
+### Required route names
+
+Adapt route syntax to the mobile framework, but keep stable logical names:
+
+```text
+fleetManager.dashboard
+fleetManager.riders
+fleetManager.riderDetails
+fleetManager.earnings
+fleetManager.wallet
+fleetManager.withdrawals
+fleetManager.requestWithdrawal
+fleetManager.profile
+fleetManager.editProfile
+```
+
+All `fleetManager.*` routes require:
+
+- a valid token; and
+- saved `account_type == fleet_manager`.
+
+A rider must never enter these routes through a deep link.
+
+---
+
+## 5. Required screens
+
+### 5.1 Dashboard
+
+Show:
+
+- assigned rider count;
+- active rider count;
+- offline rider count;
+- riders with payable balance;
+- total rider payable balance;
+- manager commission percentage;
+- total earnings;
+- available withdrawal balance;
+- pending withdrawal amount;
+- total withdrawn;
+- shortcuts to Due Riders, Earnings, and Request Withdrawal.
+
+Do not show shift, contract type, or primary area as operational controls.
+
+### 5.2 Assigned Riders
+
+Show a paginated list with:
+
+- rider image;
+- name;
+- phone;
+- area;
+- active/offline state;
+- current orders;
+- rating;
+- current payable balance;
+- call/contact action;
+- rider-detail action.
+
+Required controls:
+
+- search by rider name or phone;
+- "Due only" filter;
+- pagination/infinite scroll using the existing app pattern;
+- pull-to-refresh if the project already uses it.
+
+The payable balance is read-only.
+
+### 5.3 Rider Details
+
+Show:
+
+- name and image;
+- phone and email;
+- area;
+- vehicle;
+- account and availability status;
+- current orders;
+- average rating and rating count;
+- total orders;
+- delivered orders;
+- canceled orders;
+- member-since date;
+- current payable balance;
+- call/contact action.
+
+Do not add a "Recover Payment", "Paid", "Approve", or balance-edit button.
+
+### 5.4 Earnings Report
+
+Show:
+
+- wallet summary;
+- earnings total for the selected filter;
+- reversed earnings total;
+- eligible order count;
+- paginated earning transactions.
+
+Each transaction shows:
+
+- date;
+- order ID;
+- rider name;
+- delivery amount;
+- admin commission pool;
+- manager percentage snapshot;
+- manager earned amount;
+- `earned` or `reversed` status.
+
+Filters:
+
+- from date;
+- to date;
+- status: all, earned, reversed.
+
+### 5.5 Wallet and Withdrawals
+
+Show:
+
+- total earnings;
+- available balance;
+- pending withdrawal;
+- total withdrawn;
+- read-only configured payout methods;
+- withdrawal history;
+- request-withdrawal action.
+
+Withdrawal states:
+
+- `pending`: waiting for admin review;
+- `approved`: paid/accepted by admin;
+- `rejected`: declined and amount released back to available balance.
+
+Display `admin_note` when present, especially for rejected requests.
+
+### 5.6 Request Withdrawal
+
+Fields:
+
+- payout method, selected from saved read-only methods;
+- amount;
+- optional note.
+
+Rules:
+
+- method is required;
+- amount must be greater than zero;
+- amount cannot exceed `wallet.available_balance`;
+- disable repeated taps while submitting;
+- after success, refresh wallet and withdrawal history;
+- do not allow editing or canceling a submitted request.
+
+### 5.7 Profile
+
+Display:
+
+- name;
+- employee ID;
+- phone;
+- email;
+- image if available;
+- assigned areas;
+- assigned rider count;
+- manager commission percentage;
+- account status;
+- wallet summary.
+
+Editable fields:
+
+- first name;
+- last name;
+- phone;
+- email;
+- password.
+
+Read-only/admin-controlled fields:
+
+- employee ID;
+- commission percentage;
+- assigned areas;
+- rider capacity;
+- status;
+- leave status;
+- shift;
+- joining date;
+- contract type.
+
+The mobile UI does not need to display shift, primary area, or contract type
+unless the business later confirms a use for them.
+
+### 5.8 Existing rider profile: assigned fleet manager
+
+The normal rider application remains unchanged except for the rider profile or
+support area, which must show the currently assigned fleet manager when one
+exists.
+
+Show:
+
+- fleet-manager name;
+- phone;
+- email when available;
+- assigned area when available;
+- call/contact action.
+
+If `fleet_manager` is null, show a neutral "No fleet manager assigned" state.
+Do not block normal rider functionality.
+
+---
+
+## 6. API base, headers, and authentication
+
+Use the mobile project's existing base URL and environment configuration.
+
+All paths below are relative to:
+
+```text
+/api/v1
+```
+
+For fleet-manager endpoints, send the token using the same convention already
+used by the delivery-man app. The backend accepts:
+
+```http
+Authorization: Bearer <token>
+```
+
+It also accepts a `token` header or `token` request field, but Bearer
+authentication is preferred when compatible with the current API client.
+
+Expected content type for JSON mutations:
+
+```http
+Accept: application/json
+Content-Type: application/json
+```
+
+On HTTP `401`:
+
+1. clear the saved token and account type;
+2. clear fleet-manager state;
+3. unsubscribe from fleet-manager push topics if supported;
+4. return to the shared login route.
+
+---
+
+## 7. Required endpoint matrix
+
+| Type | Method | Endpoint | Required mobile use |
+|---|---|---|---|
+| Auth | POST | `/auth/delivery-man/login` | Shared rider/fleet-manager login |
+| Read | GET | `/delivery-man/profile` | Existing rider profile plus assigned manager |
+| Read | GET | `/fleet-manager/profile` | Profile and role restoration |
+| Write | PUT | `/fleet-manager/profile` | Update permitted profile fields |
+| Read | GET | `/fleet-manager/dashboard` | Dashboard cards |
+| Technical | PUT | `/fleet-manager/fcm-token` | Register current push token |
+| Read | GET | `/fleet-manager/riders` | Assigned rider list |
+| Read | GET | `/fleet-manager/riders/{id}` | Scoped rider details |
+| Read | GET | `/fleet-manager/earnings` | Earnings report |
+| Read | GET | `/fleet-manager/withdrawal-methods` | Read-only saved payout methods |
+| Read | GET | `/fleet-manager/withdrawals` | Wallet and withdrawal history |
+| Write | POST | `/fleet-manager/withdrawals` | Submit withdrawal request |
+
+### Existing backend endpoints not used by this minimal mobile version
+
+```text
+GET    /fleet-manager/withdrawal-method-templates
+POST   /fleet-manager/withdrawal-methods
+PUT    /fleet-manager/withdrawal-methods/{id}
+PUT    /fleet-manager/withdrawal-methods/{id}/default
+DELETE /fleet-manager/withdrawal-methods/{id}
+```
+
+### Removed/forbidden payment endpoints
+
+Do not call or recreate:
+
+```text
+GET  /fleet-manager/payment-collections
+POST /fleet-manager/payment-collections
+```
+
+---
+
+## 8. Shared login
 
 ```http
 POST /api/v1/auth/delivery-man/login
 ```
 
-Authentication: none.
-
-### JSON request
-
-| Field | Type | Required | Description |
-|---|---|---:|---|
-| `phone` | string | Yes | Rider or fleet-manager phone number |
-| `password` | string | Yes | Minimum six characters for the existing login contract |
+Request:
 
 ```json
 {
   "phone": "+923001234567",
-  "password": "ExamplePassword!1"
+  "password": "SecurePassword"
 }
 ```
 
-### Fleet-manager success — HTTP 200
+Fleet-manager success:
 
 ```json
 {
   "token": "120-character-token",
   "account_type": "fleet_manager",
-  "topic": "fleet_manager_17",
+  "topic": "fleet_manager_42",
   "zone_topic": ""
 }
 ```
 
-### Rider success — HTTP 200
+Rider success:
 
 ```json
 {
   "token": "120-character-token",
   "account_type": "rider",
-  "topic": "delivery_man_4_2",
-  "zone_topic": "delivery_man_zone_topic_push"
+  "topic": "delivery_man_1_2",
+  "zone_topic": "zone_topic_push"
 }
 ```
 
-### Mobile behavior
+Implementation rules:
 
-1. Save `token` securely.
-2. Save `account_type`.
-3. Subscribe to `topic` when push messaging is enabled.
-4. Route `rider` to the existing app.
-5. Route `fleet_manager` to the fleet dashboard.
-6. Unknown account types must show an upgrade-required error rather than
-   opening a privileged screen.
+- extend the existing login response model with `account_type`;
+- preserve all existing rider-login behavior;
+- store `token`, `account_type`, `topic`, and `zone_topic`;
+- subscribe to the returned `topic` using the app's existing notification
+  integration;
+- never show the role selector to the user;
+- the server determines the account type from the credentials.
 
-### Common errors
+Common errors:
 
-- `401`: incorrect credentials.
-- `401`: account suspended, unavailable, or awaiting approval.
-- `403`: missing/invalid request fields.
-
-### Backend implementation
-
-- Route: `routes/api/v1/api.php`
-- Controller:
-  `app/Http/Controllers/Api/V1/Auth/DeliveryManLoginController.php`
-- Models: `app/Models/DeliveryMan.php`, `app/Models/FleetManager.php`
+- `401`: invalid credentials, suspended manager, inactive manager, or manager
+  currently marked on leave;
+- `403`: invalid request fields.
 
 ---
 
-## 2. Rider profile: assigned fleet manager
+## 9. Rider profile fleet-manager field
 
 ```http
 GET /api/v1/delivery-man/profile
 ```
 
-Authentication: rider token through `dm.api`.
-
-This is an existing endpoint. The fleet feature adds:
+This is the existing rider profile endpoint. Preserve all existing fields and
+parse these additional fields:
 
 ```json
 {
   "account_type": "rider",
   "fleet_manager": {
-    "id": 17,
+    "id": 42,
     "name": "Ahmed Khan",
     "phone": "+923001234567",
     "email": "manager@example.com",
     "area": "North Zone",
-    "shift_start": "09:00:00",
-    "shift_end": "18:00:00"
+    "shift_start": null,
+    "shift_end": null
   }
 }
 ```
 
-`fleet_manager` is `null` when the rider is unassigned.
+`fleet_manager` may be null. Its `email`, `area`, `shift_start`, and
+`shift_end` may also be null.
 
-### Mobile behavior
-
-- Add a “My Fleet Manager” section to the rider profile.
-- Hide the section or show “Not assigned” when the value is `null`.
-- Do not treat phone/email as always present.
-- Ticket/chat actions should remain hidden until their APIs are introduced.
-
-### Backend implementation
-
-- Route: `routes/api/v1/api.php`
-- Controller: `app/Http/Controllers/Api/V1/DeliverymanController.php`
-- Relationship: `DeliveryMan::fleetManager()`
+The rider UI only needs name, contact details, and area. Do not build shift
+logic from `shift_start` or `shift_end`.
 
 ---
 
-## 3. Fleet-manager profile
+## 10. Fleet-manager profile
 
 ```http
 GET /api/v1/fleet-manager/profile
 ```
 
-Authentication: fleet-manager token.
-
-### Success — HTTP 200
+Response:
 
 ```json
 {
-  "id": 17,
+  "id": 42,
   "account_type": "fleet_manager",
-  "employee_id": "FM-0017",
+  "employee_id": "FM-0042",
   "name": "Ahmed Khan",
   "f_name": "Ahmed",
   "l_name": "Khan",
@@ -185,12 +557,12 @@ Authentication: fleet-manager token.
   "image": null,
   "status": true,
   "on_leave": false,
-  "rider_capacity": 50,
+  "rider_capacity": 100,
   "assigned_riders_count": 31,
-  "shift_start": "09:00:00",
-  "shift_end": "18:00:00",
-  "joining_date": "2026-07-30",
-  "contract_type": "employee",
+  "shift_start": null,
+  "shift_end": null,
+  "joining_date": "2026-07-01",
+  "contract_type": "contractor",
   "commission_percentage": 5,
   "wallet": {
     "total_earning": 12500,
@@ -199,13 +571,13 @@ Authentication: fleet-manager token.
     "available_balance": 4500
   },
   "primary_zone": {
-    "id": 4,
+    "id": 1,
     "name": "North Zone",
     "display_name": "North Zone"
   },
   "zones": [
     {
-      "id": 4,
+      "id": 1,
       "name": "North Zone",
       "display_name": "North Zone"
     }
@@ -213,29 +585,70 @@ Authentication: fleet-manager token.
 }
 ```
 
-### Nullable fields
+Nullable fields:
 
-`employee_id`, `l_name`, `email`, `image`, `shift_start`, `shift_end`,
-`joining_date`, and `primary_zone` may be `null`.
+- `employee_id`
+- `email`
+- `image`
+- `shift_start`
+- `shift_end`
+- `joining_date`
+- `primary_zone`
 
-### Backend implementation
-
-- Route: `routes/api/v1/api.php`
-- Middleware: `app/Http/Middleware/FleetManagerTokenIsValid.php`
-- Controller: `app/Http/Controllers/Api/V1/FleetManagerController.php`
-- Model: `app/Models/FleetManager.php`
+The mobile model may parse all fields, but the UI should follow the display
+rules in section 5.7.
 
 ---
 
-## 4. Fleet-manager dashboard
+## 11. Update profile
+
+```http
+PUT /api/v1/fleet-manager/profile
+```
+
+Request:
+
+```json
+{
+  "f_name": "Ahmed",
+  "l_name": "Khan",
+  "phone": "+923001234567",
+  "email": "manager@example.com",
+  "password": null
+}
+```
+
+Rules:
+
+- `f_name`: required, string, maximum 100;
+- `l_name`: nullable, string, maximum 100;
+- `phone`: required, unique across riders and fleet managers;
+- `email`: nullable, valid and unique across riders and fleet managers;
+- `password`: nullable; when provided it must contain uppercase, lowercase,
+  number, and symbol characters and be at least eight characters.
+
+Success:
+
+```json
+{
+  "message": "Profile updated successfully."
+}
+```
+
+After success, call `GET /fleet-manager/profile` and replace the locally cached
+profile.
+
+HTTP `422` uses the standard error envelope described in section 20.
+
+---
+
+## 12. Dashboard
 
 ```http
 GET /api/v1/fleet-manager/dashboard
 ```
 
-Authentication: fleet-manager token.
-
-### Success — HTTP 200
+Response:
 
 ```json
 {
@@ -254,143 +667,76 @@ Authentication: fleet-manager token.
 }
 ```
 
-### Field meanings
-
-| Field | Meaning |
-|---|---|
-| `assigned_riders` | Current riders assigned to this manager |
-| `active_riders` | Assigned riders currently marked active |
-| `offline_riders` | Assigned riders currently marked inactive/offline |
-| `riders_with_due` | Assigned riders whose `collected_cash` is greater than zero |
-| `total_due` | Total rider cash payable to the business |
-| `commission_percentage` | Current rate for future eligible order earnings |
-| `wallet` | Lifetime earnings and withdrawal balance summary |
-
-All monetary values are JSON numbers in the server’s configured currency.
-Format them using the app’s normal currency formatter.
-
-### Backend implementation
-
-- Route: `routes/api/v1/api.php`
-- Controller: `FleetManagerController::dashboard`
-- Due source: `DeliveryManWallet.collected_cash`
+`total_due` is informational. It must never be submitted back as a payment or
+used to mutate a rider wallet.
 
 ---
 
-## 5. Update fleet-manager FCM token
+## 13. Assigned-rider list
 
 ```http
-PUT /api/v1/fleet-manager/fcm-token
+GET /api/v1/fleet-manager/riders?search=Ali&due_only=1&page=1
 ```
 
-Authentication: fleet-manager token.
+Query parameters:
 
-### JSON request
-
-| Field | Type | Required |
-|---|---|---:|
-| `fcm_token` | string | Yes |
-
-```json
-{
-  "fcm_token": "firebase-device-token"
-}
-```
-
-### Success — HTTP 200
-
-```json
-{
-  "message": "FCM token updated successfully."
-}
-```
-
-Call after login, token refresh, or notification-permission changes.
-
-### Backend implementation
-
-- Route: `routes/api/v1/api.php`
-- Controller: `FleetManagerController::updateFcmToken`
-- Storage: `fleet_managers.fcm_token`
-
----
-
-## 6. Assigned-rider list
-
-```http
-GET /api/v1/fleet-manager/riders
-```
-
-Authentication: fleet-manager token.
-
-### Query parameters
-
-| Parameter | Type | Required | Description |
+| Parameter | Type | Required | Meaning |
 |---|---|---:|---|
-| `search` | string | No | Search by rider first name, last name, or phone |
-| `due_only` | boolean/int | No | Use `1` to return only riders with payment due |
+| `search` | string | No | Rider first name, last name, or phone |
+| `due_only` | boolean/int | No | Use `1` to return riders with payable balance |
 | `page` | integer | No | Pagination page |
 
-Example:
-
-```http
-GET /api/v1/fleet-manager/riders?due_only=1&search=Ali&page=1
-```
-
-### Success data item
+The response is a standard Laravel paginator:
 
 ```json
 {
-  "id": 81,
-  "name": "Ali Raza",
-  "phone": "+923111234567",
-  "image_full_url": "https://YOUR-DOMAIN.example/storage/rider.png",
-  "zone": "North Zone",
-  "active": true,
-  "status": true,
-  "current_orders": 1,
-  "rating": 4.7,
-  "payable_balance": 2500
+  "current_page": 1,
+  "data": [
+    {
+      "id": 81,
+      "name": "Ali Raza",
+      "phone": "+923111234567",
+      "image_full_url": "https://example.com/storage/rider.png",
+      "zone": "North Zone",
+      "active": true,
+      "status": true,
+      "current_orders": 1,
+      "rating": 4.7,
+      "payable_balance": 2500
+    }
+  ],
+  "first_page_url": "https://example.com/api/v1/fleet-manager/riders?page=1",
+  "from": 1,
+  "last_page": 3,
+  "last_page_url": "https://example.com/api/v1/fleet-manager/riders?page=3",
+  "links": [],
+  "next_page_url": "https://example.com/api/v1/fleet-manager/riders?page=2",
+  "path": "https://example.com/api/v1/fleet-manager/riders",
+  "per_page": 25,
+  "prev_page_url": null,
+  "to": 25,
+  "total": 61
 }
 ```
 
-### Payment-field meanings
+Do not hard-code `per_page`. Use `next_page_url` or `current_page < last_page`
+according to the app's pagination convention.
 
-- `payable_balance`: the current amount still due from the rider.
+Security behavior:
 
-Use `GET /riders?due_only=1` as the follow-up work queue. Show the payable
-amount and a phone/contact action on each row. Fleet managers can remind riders
-to pay, but they cannot submit payments or change this balance.
-
-### Security
-
-The backend only returns riders currently assigned to the authenticated fleet
-manager. A manager cannot query another manager’s rider by changing parameters.
-
-### Backend implementation
-
-- Route: `routes/api/v1/api.php`
-- Controller: `FleetManagerController::riders`
-- Models: `FleetManager`, `DeliveryMan`, `DeliveryManWallet`,
-  `FleetPaymentCollection`
+- only riders currently assigned to the authenticated manager are returned;
+- the mobile app must still handle `401` and empty lists;
+- the mobile app must not attempt to supply a manager ID.
 
 ---
 
-## 7. Assigned-rider details
+## 14. Assigned-rider details
 
 ```http
 GET /api/v1/fleet-manager/riders/{rider_id}
 ```
 
-Authentication: fleet-manager token.
-
-Example:
-
-```http
-GET /api/v1/fleet-manager/riders/81
-```
-
-### Success — HTTP 200
+Response:
 
 ```json
 {
@@ -399,10 +745,10 @@ GET /api/v1/fleet-manager/riders/81
   "f_name": "Ali",
   "l_name": "Raza",
   "phone": "+923111234567",
-  "email": "rider@example.com",
-  "image_full_url": "https://YOUR-DOMAIN.example/storage/rider.png",
+  "email": "ali@example.com",
+  "image_full_url": "https://example.com/storage/rider.png",
   "zone": {
-    "id": 4,
+    "id": 1,
     "name": "North Zone"
   },
   "vehicle": {
@@ -423,77 +769,30 @@ GET /api/v1/fleet-manager/riders/81
 }
 ```
 
-`email`, `zone`, and `vehicle` may be `null`. Vehicle subfields may also be
-`null`.
+`email`, `zone`, `vehicle`, and vehicle subfields may be null.
 
-### Errors
-
-- `404`: rider does not exist or is not assigned to this manager.
-- `401`: invalid/inactive fleet-manager token.
-
-Use the same UI message for an unavailable rider; do not reveal whether the
-rider belongs to another manager.
-
-### Backend implementation
-
-- Route: `routes/api/v1/api.php`
-- Controller: `FleetManagerController::rider`
+HTTP `404` means the rider does not exist or is not assigned to the
+authenticated manager. Show a generic unavailable-rider message and return to
+the manager's rider list.
 
 ---
 
-## 8. Rider payment responsibility
-
-Fleet managers do not collect or submit rider payments. Riders transfer money
-directly to the company bank account, and only the existing verified
-bank-payment workflow may reduce `DeliveryManWallet.collected_cash`.
-
-The fleet-manager app should use `GET /api/v1/fleet-manager/riders?due_only=1`
-to show the follow-up list. It may display the rider's `payable_balance` and
-phone action, but it must not display a recovery form or attempt to update the
-balance.
-
-The former `GET` and `POST /api/v1/fleet-manager/payment-collections`
-endpoints are not part of the API contract and have been removed.
-
----
-
-## 9. Update fleet-manager profile
-
-```http
-PUT /api/v1/fleet-manager/profile
-```
-
-Authentication: fleet-manager token. Content type: `application/json`.
-
-```json
-{
-  "f_name": "Ahmed",
-  "l_name": "Khan",
-  "phone": "+923001234567",
-  "email": "manager@example.com",
-  "password": null
-}
-```
-
-`f_name` and `phone` are required. `l_name`, `email`, and `password` are
-nullable. A supplied password must have at least eight characters and contain
-uppercase, lowercase, number, and symbol characters. The manager cannot update
-commission, areas, capacity, status, shift, contract type, or rider
-assignments; those remain admin-controlled.
-
-Success is HTTP `200` with `{"message":"Profile updated successfully."}`.
-Duplicate rider/manager phone or email values return HTTP `422`.
-
----
-
-## 10. Commission earnings
+## 15. Commission earnings
 
 ```http
 GET /api/v1/fleet-manager/earnings?from=2026-07-01&to=2026-07-31&status=earned&page=1
 ```
 
-Authentication: fleet-manager token. `from`, `to`, `status`, and `page` are
-optional. `status` accepts `earned` or `reversed`.
+Query parameters:
+
+| Parameter | Values | Required |
+|---|---|---:|
+| `from` | `YYYY-MM-DD` | No |
+| `to` | `YYYY-MM-DD`, not before `from` | No |
+| `status` | `earned`, `reversed` | No |
+| `page` | positive integer | No |
+
+Response:
 
 ```json
 {
@@ -528,65 +827,54 @@ optional. `status` accepts `earned` or `reversed`.
         "reversed_at": null
       }
     ],
+    "last_page": 1,
     "total": 1
   }
 }
 ```
 
-The calculation is:
+Commission calculation:
 
 ```text
-calculated amount = delivery amount × manager percentage / 100
-credited amount = minimum(calculated amount, admin commission amount)
+calculated manager amount = delivery amount x manager percentage / 100
+credited manager amount = minimum(calculated manager amount, admin commission pool)
 ```
 
-For delivery value `100`, admin commission pool `10`, and manager rate `5%`,
-the manager earns `5`. The percentage and values are snapshotted, so later
-settings changes do not rewrite history. One order can create only one earning.
-A full delivery-charge reversal marks the earning `reversed` and removes it
-from the wallet.
+Examples:
+
+```text
+Non-parcel:
+delivery amount = 100
+admin commission pool = 10
+manager percentage = 5%
+manager earns = 5
+admin retains = 5
+
+Parcel:
+parcel delivery amount = 100
+deliveryman commission setting = 90%
+rider earns = 90
+admin commission pool = 10
+manager percentage = 5%
+manager earns = 5
+admin retains = 5
+```
+
+The manager percentage and financial values are snapshots. Later settings
+changes do not rewrite old earning transactions.
+
+`reversed` means the earning was reversed by the backend, normally because the
+related order/refund flow reversed the commission.
 
 ---
 
-## 11. Available withdrawal-method templates
-
-```http
-GET /api/v1/fleet-manager/withdrawal-method-templates
-```
-
-```json
-[
-  {
-    "id": 3,
-    "method_name": "Bank Transfer",
-    "method_fields": [
-      {
-        "input_type": "string",
-        "input_name": "account_name",
-        "placeholder": "Account name",
-        "is_required": 1
-      },
-      {
-        "input_type": "string",
-        "input_name": "iban",
-        "placeholder": "IBAN",
-        "is_required": 1
-      }
-    ],
-    "is_default": 1
-  }
-]
-```
-
-Render these fields dynamically; do not hard-code bank field names.
-
----
-
-## 12. Saved withdrawal methods
+## 16. Read-only withdrawal methods
 
 ```http
 GET /api/v1/fleet-manager/withdrawal-methods
 ```
+
+Response:
 
 ```json
 [
@@ -603,61 +891,37 @@ GET /api/v1/fleet-manager/withdrawal-methods
 ]
 ```
 
-Only methods owned by the authenticated manager are returned.
+Critical distinction:
+
+- `id` is the saved manager-owned method ID;
+- `withdrawal_method_id` is the admin template ID;
+- `POST /withdrawals` requires the saved manager-owned `id`.
+
+The mobile app should:
+
+- select the default method automatically;
+- allow choosing another returned saved method;
+- display fields as read-only;
+- never log full banking fields;
+- mask sensitive account values where practical;
+- disable withdrawal submission when the array is empty.
 
 ---
 
-## 13. Create or update a saved withdrawal method
-
-Create:
-
-```http
-POST /api/v1/fleet-manager/withdrawal-methods
-```
-
-Update:
-
-```http
-PUT /api/v1/fleet-manager/withdrawal-methods/{saved_method_id}
-```
-
-```json
-{
-  "withdrawal_method_id": 3,
-  "fields": {
-    "account_name": "Ahmed Khan",
-    "iban": "PK00EXAMPLE0001"
-  },
-  "is_default": true
-}
-```
-
-The backend validates `fields` against the admin template. Missing required
-fields, invalid types, inactive templates, and records owned by another
-manager are rejected. Create returns HTTP `201`; update returns `200`.
-
----
-
-## 14. Set default or delete a withdrawal method
-
-```http
-PUT /api/v1/fleet-manager/withdrawal-methods/{saved_method_id}/default
-DELETE /api/v1/fleet-manager/withdrawal-methods/{saved_method_id}
-```
-
-Both are ownership-scoped. Setting a default clears the previous default.
-Deleting the default promotes the latest remaining method. Existing withdrawal
-requests keep a snapshot of their payout details.
-
----
-
-## 15. Withdrawal history
+## 17. Withdrawal history
 
 ```http
 GET /api/v1/fleet-manager/withdrawals?status=pending&page=1
 ```
 
-`status` is optional: `pending`, `approved`, or `rejected`.
+Query parameters:
+
+| Parameter | Values | Required |
+|---|---|---:|
+| `status` | `pending`, `approved`, `rejected` | No |
+| `page` | positive integer | No |
+
+Response:
 
 ```json
 {
@@ -685,20 +949,24 @@ GET /api/v1/fleet-manager/withdrawals?status=pending&page=1
         "reviewed_at": null
       }
     ],
+    "last_page": 1,
     "total": 1
   }
 }
 ```
 
-Show `admin_note` for rejected requests and refresh after admin decisions.
+The payout details are historical snapshots. Do not replace old request details
+with values from the current saved method.
 
 ---
 
-## 16. Submit withdrawal request
+## 18. Submit withdrawal request
 
 ```http
 POST /api/v1/fleet-manager/withdrawals
 ```
+
+Request:
 
 ```json
 {
@@ -708,110 +976,385 @@ POST /api/v1/fleet-manager/withdrawals
 }
 ```
 
-`withdrawal_method_id` is the manager-owned saved method ID, not the admin
-template ID. Success is HTTP `201` and returns `message`, updated `wallet`, and
-the created `withdrawal`.
+Remember: `withdrawal_method_id` here is the manager-owned saved method `id`
+returned by `GET /fleet-manager/withdrawal-methods`.
 
-- Requesting immediately moves the amount from available to pending.
-- Approval moves it from pending to `total_withdrawn`.
-- Rejection releases it back to available.
-- Amounts above `available_balance` return HTTP `422`.
-- A request cannot be reviewed twice.
+Rules:
 
-Mobile should prevent double submission, show all three states, display admin
-notes, and refresh the wallet/history after each request or status change.
+- amount must be greater than zero;
+- amount cannot exceed `available_balance`;
+- selected method must belong to the authenticated manager;
+- selected template must still be active;
+- note is nullable and has a maximum of 1,000 characters.
 
-### Finance backend files
+Success, HTTP `201`:
 
-- `app/Services/FleetManagerFinanceService.php`
-- `app/Models/FleetManagerWallet.php`
-- `app/Models/FleetManagerEarningTransaction.php`
-- `app/Models/FleetManagerWithdrawalMethod.php`
-- `app/Models/FleetManagerWithdrawalRequest.php`
-- `database/migrations/2026_07_31_000002_add_fleet_manager_finance_tables.php`
-- `database/migrations/2026_07_31_000003_add_fleet_manager_commission_to_order_transactions.php`
+```json
+{
+  "message": "Withdrawal request submitted successfully.",
+  "wallet": {
+    "total_earning": 12500,
+    "total_withdrawn": 7000,
+    "pending_withdraw": 2000,
+    "available_balance": 3500
+  },
+  "withdrawal": {
+    "id": 72,
+    "amount": 1000,
+    "method_name": "Bank Transfer",
+    "method_fields": {
+      "account_name": "Ahmed Khan",
+      "iban": "PK00EXAMPLE0001"
+    },
+    "manager_note": "July payout",
+    "status": "pending",
+    "admin_note": null,
+    "requested_at": "2026-07-31T12:30:00+00:00",
+    "reviewed_at": null
+  }
+}
+```
 
-The `order_transactions.fleet_manager_commission` column is the reconciliation
-amount used by admin reports. `admin_commission` remains the original gross
-commission for refunds and audits; report totals subtract the fleet-manager
-share to display the admin's net earnings.
+Financial state behavior:
+
+```text
+Request submitted:
+available_balance decreases
+pending_withdraw increases
+
+Admin approves:
+pending_withdraw decreases
+total_withdrawn increases
+
+Admin rejects:
+pending_withdraw decreases
+available_balance becomes available again
+```
+
+The client must trust the wallet object returned by the server rather than
+calculating and persisting its own authoritative balance.
 
 ---
 
-## Suggested mobile files
+## 19. Update FCM token
 
-Names can be adapted to the app’s architecture, but keep responsibilities
-separate:
-
-```text
-features/fleet_management/
-├── data/
-│   ├── fleet_manager_api_client
-│   ├── fleet_manager_repository
-│   └── models/
-│       ├── fleet_manager_profile
-│       ├── fleet_dashboard
-│       ├── managed_rider
-│       ├── managed_rider_details
-│       └── paginated_response
-├── domain/
-│   └── fleet_manager_service
-└── presentation/
-    ├── fleet_dashboard_screen
-    ├── assigned_riders_screen
-    └── rider_details_screen
+```http
+PUT /api/v1/fleet-manager/fcm-token
 ```
 
-Add mobile models for `fleet_manager_earning`, `fleet_manager_wallet`,
-`withdrawal_method`, and `withdrawal_request`, plus screens for commission
-history, payout-method management, and withdrawal history/status.
+Request:
 
-Existing authentication should add `account_type` to its login model and route
-guard. Existing rider profile should add a nullable `fleet_manager` model.
+```json
+{
+  "fcm_token": "device-fcm-token"
+}
+```
 
-## Mobile acceptance checklist
+Success:
 
-- Rider login still reaches the existing rider home.
-- Fleet-manager login reaches the fleet dashboard.
-- Invalid or inactive tokens return to login.
-- Manager cannot open an unassigned rider by manually changing the ID.
-- Rider profile handles a `null` fleet manager.
-- Rider search, due filter, and pagination work together.
-- Money is parsed as decimal/numeric data and formatted using configured
-  currency.
-- Rider payable balances are read-only in the fleet-manager app.
-- Due riders always expose a contact action for manager follow-up.
-- No payment-submission or balance-adjustment action is shown to managers.
-- FCM token is refreshed after login and device-token rotation.
-- Manager can update only self-service profile fields.
-- Commission history displays snapshotted rates and reversal state.
-- Withdrawal methods render from active backend templates.
-- Withdrawal requests cannot exceed `available_balance`.
-- Pending, approved, and rejected withdrawal states refresh correctly.
+```json
+{
+  "message": "FCM token updated successfully."
+}
+```
 
-## Server files for the complete feature
+Call this:
+
+- after fleet-manager login;
+- after device-token rotation;
+- after restoring a session when the local FCM token changed.
+
+Do not block the entire dashboard when FCM registration fails. Report/retry it
+using the project's existing notification error policy.
+
+---
+
+## 20. Error contract
+
+Validation and authentication errors normally use:
+
+```json
+{
+  "errors": [
+    {
+      "code": "amount",
+      "message": "The withdrawal amount exceeds the available balance."
+    }
+  ]
+}
+```
+
+Required handling:
+
+| HTTP status | Mobile behavior |
+|---|---|
+| `200`/`201` | Parse response and update state |
+| `401` | Clear session and return to shared login |
+| `404` | Show unavailable/not-found state without exposing other managers' data |
+| `422` | Show field errors; preserve entered non-sensitive form values |
+| `500` | Show retry state; do not duplicate a withdrawal automatically |
+
+For withdrawal submission:
+
+- prevent double taps;
+- do not automatically retry a timed-out POST;
+- if the result is uncertain, refresh withdrawal history before allowing
+  another submission.
+
+---
+
+## 21. Mobile models
+
+Use the project's naming and serialization conventions. The implementation
+needs logical equivalents of:
+
+```text
+AuthResponse
+  token
+  accountType
+  topic
+  zoneTopic
+
+FleetManagerProfile
+FleetManagerDashboard
+ManagedRiderSummary
+ManagedRiderDetails
+FleetManagerWallet
+FleetManagerEarning
+SavedWithdrawalMethod
+FleetManagerWithdrawal
+PaginatedResponse<T>
+ApiError
+```
+
+All money fields must be parsed as decimal/numeric values and formatted with
+the application's configured currency formatter. Do not concatenate a
+hard-coded currency symbol.
+
+All nullable API values must remain nullable in the mobile model.
+
+---
+
+## 22. Suggested mobile file placement
+
+The next Codex must first inspect the project and map these responsibilities to
+the existing architecture. Do not blindly create these exact directories if
+the application uses different conventions.
+
+Logical placement:
+
+```text
+authentication/
+  extend login response with account_type
+  add role-aware post-login routing
+
+fleet_manager/
+  data/
+    fleet_manager_api
+    fleet_manager_repository
+    models/
+  state/
+    dashboard state
+    riders state
+    earnings state
+    withdrawals state
+    profile state
+  presentation/
+    dashboard
+    riders list
+    rider details
+    earnings report
+    wallet/withdrawals
+    request withdrawal
+    profile/edit profile
+
+routing/
+  fleet-manager shell
+  fleet-manager route guard
+
+notifications/
+  fleet-manager topic subscription
+  FCM token synchronization
+```
+
+Reuse:
+
+- the existing HTTP client and interceptors;
+- existing secure token storage;
+- existing error parsing;
+- existing pagination utilities;
+- existing loading/empty/error widgets;
+- existing currency/date formatting;
+- existing phone/call launcher;
+- existing FCM integration;
+- existing dependency-injection and state-management approach.
+
+---
+
+## 23. State and refresh rules
+
+### On successful fleet-manager login
+
+1. save token and `account_type`;
+2. subscribe to returned topic;
+3. update FCM token;
+4. load profile;
+5. load dashboard;
+6. route to Fleet Manager Dashboard.
+
+### On dashboard refresh
+
+Refresh:
+
+- dashboard;
+- optionally profile if the project already refreshes identity data.
+
+### On withdrawal success
+
+Refresh:
+
+- withdrawal history;
+- dashboard wallet;
+- profile wallet if profile state caches it;
+- earnings summary if it displays the wallet.
+
+### On profile update success
+
+Refresh profile and any header/drawer identity widgets.
+
+### On logout or HTTP 401
+
+Clear:
+
+- token;
+- account type;
+- fleet-manager profile;
+- dashboard;
+- riders and rider details;
+- earnings;
+- saved methods;
+- withdrawals.
+
+Do not leave fleet-manager data visible when the next user logs in as a rider.
+
+---
+
+## 24. Security and privacy requirements
+
+- Store the token only in the project's secure-storage mechanism.
+- Never log passwords, tokens, full withdrawal fields, or banking details.
+- Mask sensitive payout details in UI where practical.
+- Never cache another manager's rider details across accounts.
+- Do not send manager ID or rider assignment changes from the mobile client.
+- Do not implement a wallet-balance update endpoint.
+- Do not implement payment collection/recovery submission.
+- Validate route access locally, but treat backend authorization as final.
+- Do not interpret `payable_balance` as money held by the manager.
+
+---
+
+## 25. Empty, loading, and failure states
+
+Required empty states:
+
+- no assigned riders;
+- no due riders;
+- no earnings in selected date range;
+- no withdrawal history;
+- no configured payout method.
+
+Required retry states:
+
+- dashboard load failure;
+- rider list/detail load failure;
+- earnings load failure;
+- withdrawal history load failure;
+- profile load failure.
+
+For paginated screens, a next-page failure must not remove already loaded
+records.
+
+---
+
+## 26. Acceptance checklist
+
+### Authentication and routing
+
+- Rider login still opens the unchanged rider application.
+- Fleet-manager login opens the fleet-manager dashboard.
+- Saved sessions restore the correct shell from `account_type`.
+- Rider deep links cannot open fleet-manager routes.
+- HTTP `401` clears the session and returns to login.
+- Rider profile shows the assigned manager and handles a null assignment.
+
+### Dashboard
+
+- All rider, due, commission, and wallet totals render correctly.
+- Dashboard shortcuts open the correct screens.
+- No rider payment mutation exists.
+
+### Riders
+
+- Search, due-only filter, refresh, and pagination work together.
+- A manager cannot open an unassigned rider.
+- Rider contact action works.
+- Payable balance is visible and read-only.
+- No recover/paid/approve button is present.
+
+### Earnings
+
+- Date and status filters work.
+- Pagination preserves filters.
+- Earned and reversed states are visually distinct.
+- Parcel and non-parcel earning rows use server-returned values.
+- The client does not recalculate authoritative commission.
+
+### Withdrawals
+
+- Saved payout methods load read-only.
+- Empty payout method disables request submission.
+- Amount above available balance is blocked locally and handled from HTTP `422`.
+- Double submission is blocked.
+- Successful request refreshes wallet/history.
+- Pending, approved, and rejected states render correctly.
+- Admin rejection notes are visible.
+
+### Profile
+
+- Only permitted fields are editable.
+- Admin-controlled fields cannot be submitted.
+- Password can be left empty.
+- Updated identity appears throughout the fleet-manager shell.
+
+### Quality
+
+- Existing rider tests continue to pass.
+- New parsing, role routing, repository, and state tests are added using current
+  project conventions.
+- No duplicate API client, router, theme, or state-management system is added.
+- Static analysis/lint/build/tests pass.
+
+---
+
+## 27. Backend source-of-truth files
+
+Use these only to verify the contract if the backend project is also available:
 
 ```text
 routes/api/v1/api.php
-bootstrap/app.php
-app/Http/Middleware/FleetManagerTokenIsValid.php
 app/Http/Controllers/Api/V1/Auth/DeliveryManLoginController.php
-app/Http/Controllers/Api/V1/DeliverymanController.php
 app/Http/Controllers/Api/V1/FleetManagerController.php
-app/Http/Controllers/Admin/DeliveryMan/FleetManagerController.php
-app/Services/FleetManagementService.php
+app/Http/Middleware/FleetManagerTokenIsValid.php
 app/Services/FleetManagerFinanceService.php
 app/Models/FleetManager.php
 app/Models/FleetManagerWallet.php
 app/Models/FleetManagerEarningTransaction.php
 app/Models/FleetManagerWithdrawalMethod.php
 app/Models/FleetManagerWithdrawalRequest.php
-app/Models/FleetManagerRiderAssignment.php
-app/Models/FleetPaymentCollection.php
 app/Models/DeliveryMan.php
 app/Models/DeliveryManWallet.php
-app/Models/DeliveryManWalletLedger.php
-database/migrations/2026_07_30_000001_create_fleet_management_tables.php
-database/migrations/2026_07_31_000002_add_fleet_manager_finance_tables.php
-database/migrations/2026_07_31_000003_add_fleet_manager_commission_to_order_transactions.php
 ```
+
+The API routes and controllers are the final backend source of truth. If the
+mobile project contains an older API document or older payment-recovery
+screens, this document replaces them.

@@ -253,9 +253,11 @@ Fleet management is part of the core delivery context:
   Transactions & Reports > Fleet Manager Reports. It includes searchable,
   date/status-filtered order earning transactions plus wallet and rider payable
   summaries.
-- Fleet managers save payout details from the shared `WithdrawalMethod`
-  templates and submit `FleetManagerWithdrawalRequest` records. Admin review
-  lives in the Transactions & Reports panel; approval/rejection moves the
+- The backend supports manager-owned payout details from shared
+  `WithdrawalMethod` templates and `FleetManagerWithdrawalRequest` records.
+  The minimal mobile panel treats saved payout methods as read-only and exposes
+  only withdrawal submission; admin/back office must provision a method first.
+  Admin review lives in Transactions & Reports; approval/rejection moves the
   reserved wallet balance atomically.
 
 Current fleet-manager app contract:
