@@ -764,7 +764,7 @@ class DashboardController extends Controller
                             return $q->where('zone_id', $params['zone_id']);
                         })
                         ->whereMonth('created_at', $i)->whereYear('created_at', now()->format('Y'))
-                        ->sum(DB::raw('admin_commission + admin_expense - delivery_fee_comission'));
+                        ->sum(DB::raw(OrderTransaction::NET_NON_DELIVERY_COMMISSION_SQL));
 
                     $delivery_commission[$i] = OrderTransaction::NotRefunded()
                         ->when(is_numeric($params['module_id']), function ($q) use ($params) {
@@ -774,7 +774,7 @@ class DashboardController extends Controller
                             return $q->where('zone_id', $params['zone_id']);
                         })
                         ->whereMonth('created_at', $i)->whereYear('created_at', now()->format('Y'))
-                        ->sum('delivery_fee_comission');
+                        ->sum(DB::raw(OrderTransaction::NET_DELIVERY_COMMISSION_SQL));
                 }
                 $label = $months;
                 break;
@@ -803,7 +803,7 @@ class DashboardController extends Controller
                             return $q->where('zone_id', $params['zone_id']);
                         })
                         ->whereDate('created_at', $currentDate->format('Y-m-d'))
-                        ->sum(DB::raw('admin_commission + admin_expense - delivery_fee_comission'));
+                        ->sum(DB::raw(OrderTransaction::NET_NON_DELIVERY_COMMISSION_SQL));
 
                     $delivery_commission[$i] = OrderTransaction::NotRefunded()
                         ->when(is_numeric($params['module_id']), function ($q) use ($params) {
@@ -813,7 +813,7 @@ class DashboardController extends Controller
                             return $q->where('zone_id', $params['zone_id']);
                         })
                         ->whereDate('created_at', $currentDate->format('Y-m-d'))
-                        ->sum('delivery_fee_comission');
+                        ->sum(DB::raw(OrderTransaction::NET_DELIVERY_COMMISSION_SQL));
                 }
 
                 $label = $days;
@@ -855,7 +855,7 @@ class DashboardController extends Controller
                             return $q->where('zone_id', $params['zone_id']);
                         })
                         ->whereBetween('created_at', ["{$start->format('Y-m-d')} 00:00:00", "{$end->format('Y-m-d')} 23:59:59"])
-                        ->sum(DB::raw('admin_commission + admin_expense - delivery_fee_comission'));
+                        ->sum(DB::raw(OrderTransaction::NET_NON_DELIVERY_COMMISSION_SQL));
 
                     $delivery_commission[$i] = OrderTransaction::NotRefunded()
                         ->when(is_numeric($params['module_id']), function ($q) use ($params) {
@@ -865,7 +865,7 @@ class DashboardController extends Controller
                             return $q->where('zone_id', $params['zone_id']);
                         })
                         ->whereBetween('created_at', ["{$start->format('Y-m-d')} 00:00:00", "{$end->format('Y-m-d')} 23:59:59"])
-                        ->sum('delivery_fee_comission');
+                        ->sum(DB::raw(OrderTransaction::NET_DELIVERY_COMMISSION_SQL));
 
                     // Move to the next week
                     $start = $end->copy()->addDay();
@@ -894,7 +894,7 @@ class DashboardController extends Controller
                             return $q->where('zone_id', $params['zone_id']);
                         })
                         ->whereMonth('created_at', $i)->whereYear('created_at', now()->format('Y'))
-                        ->sum(DB::raw('admin_commission + admin_expense - delivery_fee_comission'));
+                        ->sum(DB::raw(OrderTransaction::NET_NON_DELIVERY_COMMISSION_SQL));
 
                     $delivery_commission[$i] = OrderTransaction::NotRefunded()
                         ->when(is_numeric($params['module_id']), function ($q) use ($params) {
@@ -904,7 +904,7 @@ class DashboardController extends Controller
                             return $q->where('zone_id', $params['zone_id']);
                         })
                         ->whereMonth('created_at', $i)->whereYear('created_at', now()->format('Y'))
-                        ->sum('delivery_fee_comission');
+                        ->sum(DB::raw(OrderTransaction::NET_DELIVERY_COMMISSION_SQL));
                 }
                 $label = $months;
         }

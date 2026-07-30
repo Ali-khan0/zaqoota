@@ -13,17 +13,74 @@
             <div class="alert alert-danger">{{ $errors->first() }}</div>
         @endif
 
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5 class="mb-0">{{ __('fleet_management.manager_recovery_accountability') }}</h5>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover table-borderless mb-0">
+                    <thead class="thead-light">
+                    <tr>
+                        <th>{{ __('fleet_management.fleet_manager') }}</th>
+                        <th>{{ __('fleet_management.areas') }}</th>
+                        <th>{{ __('fleet_management.assigned_riders') }}</th>
+                        <th>{{ __('fleet_management.riders_with_due') }}</th>
+                        <th>{{ __('fleet_management.rider_payable_balance') }}</th>
+                        <th>{{ __('fleet_management.contact') }}</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @forelse($recoveryManagers as $manager)
+                        <tr class="{{ (float) $manager->rider_payable_balance > 0 ? 'table-warning' : '' }}">
+                            <td>
+                                <a href="{{ route('admin.users.delivery-man.fleet-manager.report', $manager->id) }}">
+                                    {{ $manager->full_name }}
+                                </a>
+                            </td>
+                            <td>{{ $manager->zones->pluck('name')->join(', ') }}</td>
+                            <td>{{ $manager->riders_count }}</td>
+                            <td>{{ $manager->riders_with_due_count }}</td>
+                            <td><strong>{{ \App\CentralLogics\Helpers::format_currency($manager->rider_payable_balance) }}</strong></td>
+                            <td>
+                                <a class="btn btn-sm btn-outline-primary" href="tel:{{ $manager->phone }}">
+                                    <i class="tio-call"></i> {{ $manager->phone }}
+                                </a>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="6" class="text-center py-4">{{ __('fleet_management.no_fleet_managers') }}</td></tr>
+                    @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <div class="card">
             <div class="card-header">
-                <form method="get">
-                    <select name="status" class="form-control" onchange="this.form.submit()">
-                        <option value="">{{ __('fleet_management.all_statuses') }}</option>
-                        @foreach(['pending', 'approved', 'rejected'] as $status)
-                            <option value="{{ $status }}" {{ request('status') === $status ? 'selected' : '' }}>
-                                {{ __('fleet_management.status_'.$status) }}
-                            </option>
-                        @endforeach
-                    </select>
+                <form method="get" class="row w-100">
+                    <div class="col-md-5 mb-2">
+                        <select name="fleet_manager_id" class="form-control">
+                            <option value="">{{ __('fleet_management.all_fleet_managers') }}</option>
+                            @foreach($recoveryManagers as $manager)
+                                <option value="{{ $manager->id }}" {{ (int) request('fleet_manager_id') === $manager->id ? 'selected' : '' }}>
+                                    {{ $manager->full_name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-md-5 mb-2">
+                        <select name="status" class="form-control">
+                            <option value="">{{ __('fleet_management.all_statuses') }}</option>
+                            @foreach(['pending', 'approved', 'rejected'] as $status)
+                                <option value="{{ $status }}" {{ request('status') === $status ? 'selected' : '' }}>
+                                    {{ __('fleet_management.status_'.$status) }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-md-2 mb-2">
+                        <button class="btn btn--primary btn-block" type="submit">{{ __('fleet_management.filter') }}</button>
+                    </div>
                 </form>
             </div>
             <div class="table-responsive">
@@ -33,7 +90,8 @@
                         <th>{{ __('fleet_management.submitted') }}</th>
                         <th>{{ __('fleet_management.fleet_manager') }}</th>
                         <th>{{ __('fleet_management.rider') }}</th>
-                        <th>{{ __('fleet_management.amount') }}</th>
+                        <th>{{ __('fleet_management.recovered_amount') }}</th>
+                        <th>{{ __('fleet_management.current_payable_balance') }}</th>
                         <th>{{ __('fleet_management.due_before_after') }}</th>
                         <th>{{ __('fleet_management.method') }}</th>
                         <th>{{ __('fleet_management.status') }}</th>
@@ -45,8 +103,28 @@
                         <tr>
                             <td>{{ $collection->submitted_at }}</td>
                             <td>{{ $collection->fleetManager?->full_name }}</td>
-                            <td>{{ $collection->deliveryMan?->full_name }}<br><small>{{ $collection->deliveryMan?->phone }}</small></td>
+                            <td>
+                                {{ $collection->deliveryMan?->full_name }}
+                                @if($collection->deliveryMan?->phone)
+                                    <br>
+                                    <a href="tel:{{ $collection->deliveryMan->phone }}">
+                                        {{ $collection->deliveryMan->phone }}
+                                    </a>
+                                @endif
+                            </td>
                             <td>{{ \App\CentralLogics\Helpers::format_currency($collection->amount) }}</td>
+                            <td>
+                                @php($currentPayable = max(0, (float) ($collection->deliveryMan?->wallet?->collected_cash ?? 0)))
+                                @php($pendingAmount = max(0, (float) ($collection->deliveryMan?->pending_collection_amount ?? 0)))
+                                <strong>{{ \App\CentralLogics\Helpers::format_currency($currentPayable) }}</strong>
+                                @if($pendingAmount > 0)
+                                    <br>
+                                    <small class="text-warning">
+                                        {{ __('fleet_management.pending_recovery_amount') }}:
+                                        {{ \App\CentralLogics\Helpers::format_currency($pendingAmount) }}
+                                    </small>
+                                @endif
+                            </td>
                             <td>
                                 {{ \App\CentralLogics\Helpers::format_currency($collection->due_before) }}
                                 /
@@ -89,7 +167,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="8" class="text-center py-5">{{ __('fleet_management.no_payment_recoveries') }}</td></tr>
+                        <tr><td colspan="9" class="text-center py-5">{{ __('fleet_management.no_payment_recoveries') }}</td></tr>
                     @endforelse
                     </tbody>
                 </table>

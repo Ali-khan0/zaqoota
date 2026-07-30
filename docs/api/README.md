@@ -18,7 +18,7 @@ applications.
 
 | Feature | Document | Status |
 |---|---|---|
-| Fleet management, rider assignment and payment recovery | [fleet-management.md](fleet-management.md) | Backend implemented |
+| Fleet management, rider assignment, recovery, commission and withdrawals | [fleet-management.md](fleet-management.md) | Backend implemented |
 
 ## Common conventions
 
@@ -98,4 +98,3 @@ Paginated endpoints use Laravel pagination:
 
 Treat pagination URLs as optional. The stable fields for mobile paging are
 `current_page`, `last_page`, `per_page`, `total`, and `data`.
-

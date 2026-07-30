@@ -399,6 +399,7 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
                         Route::get('create', [FleetManagerController::class, 'create'])->name('create');
                         Route::post('/', [FleetManagerController::class, 'store'])->name('store');
                         Route::get('{id}/edit', [FleetManagerController::class, 'edit'])->name('edit');
+                        Route::get('{id}/report', [FleetManagerController::class, 'report'])->name('report');
                         Route::put('{id}', [FleetManagerController::class, 'update'])->name('update');
                         Route::put('{id}/status', [FleetManagerController::class, 'status'])->name('status');
 
@@ -410,6 +411,7 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
                         Route::get('payment/collections/{id}/proof', [FleetManagerController::class, 'collectionProof'])->name('collections.proof');
                         Route::put('payment/collections/{id}/approve', [FleetManagerController::class, 'approveCollection'])->name('collections.approve');
                         Route::put('payment/collections/{id}/reject', [FleetManagerController::class, 'rejectCollection'])->name('collections.reject');
+
                     });
 
 

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\DeliveryMan\DeliveryManController;
+use App\Http\Controllers\Admin\DeliveryMan\FleetManagerController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Admin\BusinessSettingsController;
 
@@ -837,6 +838,15 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
                 Route::get('withdraw-view/{withdraw_id}/{seller_id}', [DeliveryManController::class, 'withdraw_view'])->name('withdraw_view');
                 Route::get('get-Withdraw-Details', [DeliveryManController::class, 'getWithdrawDetails'])->name('getWithdrawDetails');
 
+            });
+
+            Route::group([
+                'prefix' => 'fleet-manager',
+                'as' => 'fleet-manager.',
+                'middleware' => ['module:withdraw_list'],
+            ], function () {
+                Route::get('withdrawals', [FleetManagerController::class, 'withdrawals'])->name('withdrawals');
+                Route::put('withdrawals/{id}/review', [FleetManagerController::class, 'reviewWithdrawal'])->name('withdrawals.review');
             });
 
             Route::group(['prefix' => 'withdraw-method', 'as' => 'withdraw-method.'], function () {

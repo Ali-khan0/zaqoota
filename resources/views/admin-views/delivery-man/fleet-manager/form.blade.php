@@ -62,22 +62,26 @@
             <div class="card mb-3">
                 <div class="card-header"><h5 class="mb-0">{{ __('fleet_management.operational_scope') }}</h5></div>
                 <div class="card-body">
-                    @php($selectedZones = old('zone_ids', $fleetManager->exists ? $fleetManager->zones->pluck('id')->all() : []))
+                    @php($selectedZones = array_map('intval', (array) old('zone_ids', $fleetManager->exists ? $fleetManager->zones->pluck('id')->all() : [])))
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label>{{ __('fleet_management.assigned_areas') }} *</label>
-                            <select name="zone_ids[]" class="form-control" multiple required size="6">
+                            <select name="zone_ids[]" id="fleet-manager-areas"
+                                    class="form-control js-select2-custom" multiple required
+                                    data-placeholder="{{ __('fleet_management.search_and_select_areas') }}">
                                 @foreach($zones as $zone)
                                     <option value="{{ $zone->id }}" {{ in_array($zone->id, $selectedZones) ? 'selected' : '' }}>
                                         {{ $zone->name }}
                                     </option>
                                 @endforeach
                             </select>
-                            <small class="text-muted">{{ __('fleet_management.multi_area_hint') }}</small>
+                            <small class="text-muted">{{ __('fleet_management.area_search_hint') }}</small>
                         </div>
                         <div class="col-md-3 mb-3">
                             <label>{{ __('fleet_management.primary_area') }}</label>
-                            <select name="primary_zone_id" class="form-control">
+                            <select name="primary_zone_id" id="fleet-manager-primary-area"
+                                    class="form-control js-select2-custom"
+                                    data-placeholder="{{ __('fleet_management.use_first_selected_area') }}">
                                 <option value="">{{ __('fleet_management.use_first_selected_area') }}</option>
                                 @foreach($zones as $zone)
                                     <option value="{{ $zone->id }}" {{ (int) old('primary_zone_id', $fleetManager->primary_zone_id) === $zone->id ? 'selected' : '' }}>
@@ -115,6 +119,13 @@
                             </select>
                         </div>
                         <div class="col-md-3 mb-3">
+                            <label>{{ __('fleet_management.commission_percentage') }} (%) *</label>
+                            <input name="commission_percentage" type="number" min="0" max="100" step="0.01"
+                                   class="form-control" required
+                                   value="{{ old('commission_percentage', $fleetManager->commission_percentage ?? 0) }}">
+                            <small class="text-muted">{{ __('fleet_management.commission_percentage_hint') }}</small>
+                        </div>
+                        <div class="col-md-3 mb-3">
                             <input type="hidden" name="status" value="0">
                             <label class="d-block">
                                 <input type="checkbox" name="status" value="1" {{ old('status', $fleetManager->exists ? $fleetManager->status : true) ? 'checked' : '' }}>
@@ -139,3 +150,39 @@
         </form>
     </div>
 @endsection
+
+@push('script_2')
+    <script>
+        "use strict";
+
+        $(function () {
+            const $areas = $('#fleet-manager-areas');
+            const $primaryArea = $('#fleet-manager-primary-area');
+
+            if (!$areas.hasClass('select2-hidden-accessible')) {
+                $.HSCore.components.HSSelect2.init($areas);
+            }
+            if (!$primaryArea.hasClass('select2-hidden-accessible')) {
+                $.HSCore.components.HSSelect2.init($primaryArea);
+            }
+
+            function syncPrimaryAreaOptions() {
+                const selectedAreaIds = ($areas.val() || []).map(String);
+                const currentPrimaryArea = String($primaryArea.val() || '');
+
+                $primaryArea.find('option[value!=""]').each(function () {
+                    $(this).prop('disabled', !selectedAreaIds.includes(String(this.value)));
+                });
+
+                if (currentPrimaryArea && !selectedAreaIds.includes(currentPrimaryArea)) {
+                    $primaryArea.val('').trigger('change.select2');
+                } else {
+                    $primaryArea.trigger('change.select2');
+                }
+            }
+
+            $areas.on('change', syncPrimaryAreaOptions);
+            syncPrimaryAreaOptions();
+        });
+    </script>
+@endpush

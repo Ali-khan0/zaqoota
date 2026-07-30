@@ -237,6 +237,23 @@ Fleet management is part of the core delivery context:
   `FleetPaymentCollection` records recovery attempts; only admin approval
   reduces the due and writes a `fleet_payment_recovery` row to
   `DeliveryManWalletLedger`.
+- Fleet-manager commission is configured per manager and snapshotted per
+  completed order in `FleetManagerEarningTransaction`. The amount is calculated
+  from the delivery-value base and capped by the admin delivery-commission
+  amount. `FleetManagerWallet` tracks earned, pending-withdrawal, withdrawn,
+  and available balances.
+- `OrderTransaction.fleet_manager_commission` stores the fleet payout allocated
+  to that order. Gross `admin_commission` remains unchanged for refund/audit
+  compatibility; admin dashboards and financial reports subtract the fleet
+  payout to show net admin earnings.
+- The manager report is available from Fleet Managers > Report and from
+  Transactions & Reports > Fleet Manager Reports. It includes searchable,
+  date/status-filtered order earning transactions plus wallet and rider recovery
+  summaries.
+- Fleet managers save payout details from the shared `WithdrawalMethod`
+  templates and submit `FleetManagerWithdrawalRequest` records. Admin review
+  lives in the Transactions & Reports panel; approval/rejection moves the
+  reserved wallet balance atomically.
 
 Current fleet-manager app contract:
 
@@ -244,12 +261,19 @@ Current fleet-manager app contract:
 |---|---|---|
 | POST | `/api/v1/auth/delivery-man/login` | Shared login; branch UI using `account_type` |
 | GET | `/api/v1/fleet-manager/profile` | Manager profile, zones and rider count |
+| PUT | `/api/v1/fleet-manager/profile` | Update manager-owned profile fields |
 | GET | `/api/v1/fleet-manager/dashboard` | Rider availability, due and recovery totals |
 | PUT | `/api/v1/fleet-manager/fcm-token` | Register manager push token |
+| GET | `/api/v1/fleet-manager/earnings` | Paginated commission earnings and wallet summary |
 | GET | `/api/v1/fleet-manager/riders` | Assigned riders; supports search and `due_only` |
 | GET | `/api/v1/fleet-manager/riders/{id}` | Scoped rider operational details |
 | GET | `/api/v1/fleet-manager/payment-collections` | Manager recovery history |
 | POST | `/api/v1/fleet-manager/payment-collections` | Submit auditable recovery for admin approval |
+| GET | `/api/v1/fleet-manager/withdrawal-method-templates` | Active admin payout templates |
+| GET/POST | `/api/v1/fleet-manager/withdrawal-methods` | List or save manager payout methods |
+| PUT/DELETE | `/api/v1/fleet-manager/withdrawal-methods/{id}` | Update/delete an owned payout method |
+| PUT | `/api/v1/fleet-manager/withdrawal-methods/{id}/default` | Set the default payout method |
+| GET/POST | `/api/v1/fleet-manager/withdrawals` | List or submit withdrawal requests |
 
 Fleet-manager API requests use the login token in `token`, a Bearer token, or
 the `token` header, matching the existing delivery-man token convention.

@@ -33,6 +33,8 @@
                         <th>{{ __('fleet_management.manager') }}</th>
                         <th>{{ __('fleet_management.areas') }}</th>
                         <th>{{ __('fleet_management.riders') }}</th>
+                        <th>{{ __('fleet_management.commission') }}</th>
+                        <th>{{ __('fleet_management.earned_available') }}</th>
                         <th>{{ __('fleet_management.shift') }}</th>
                         <th>{{ __('fleet_management.status') }}</th>
                         <th class="text-center">{{ __('fleet_management.actions') }}</th>
@@ -54,6 +56,15 @@
                             <td>
                                 {{ $manager->riders_count }} / {{ $manager->rider_capacity }}
                             </td>
+                            <td>{{ number_format((float) $manager->commission_percentage, 2) }}%</td>
+                            <td>
+                                <strong>{{ \App\CentralLogics\Helpers::format_currency($manager->wallet?->total_earning ?? 0) }}</strong>
+                                <br>
+                                <small>
+                                    {{ __('fleet_management.available') }}:
+                                    {{ \App\CentralLogics\Helpers::format_currency($manager->wallet?->available_balance ?? 0) }}
+                                </small>
+                            </td>
                             <td>
                                 {{ $manager->shift_start ?: '—' }} – {{ $manager->shift_end ?: '—' }}
                             </td>
@@ -63,9 +74,13 @@
                                 </span>
                             </td>
                             <td class="text-center">
+                                <a class="btn btn-sm btn-outline-info"
+                                   href="{{ route('admin.users.delivery-man.fleet-manager.report', $manager->id) }}">
+                                    <i class="tio-chart-bar-1"></i> {{ __('fleet_management.report') }}
+                                </a>
                                 <a class="btn btn-sm btn-outline-primary"
                                    href="{{ route('admin.users.delivery-man.fleet-manager.edit', $manager->id) }}">
-                                    {{ __('fleet_management.edit') }}
+                                    <i class="tio-edit"></i> {{ __('fleet_management.edit') }}
                                 </a>
                                 <form method="post"
                                       action="{{ route('admin.users.delivery-man.fleet-manager.status', $manager->id) }}"
@@ -80,7 +95,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="text-center py-5">{{ __('fleet_management.no_fleet_managers') }}</td>
+                            <td colspan="8" class="text-center py-5">{{ __('fleet_management.no_fleet_managers') }}</td>
                         </tr>
                     @endforelse
                     </tbody>

@@ -32,6 +32,7 @@ class FleetManager extends Authenticatable
         'shift_end',
         'joining_date',
         'contract_type',
+        'commission_percentage',
         'notes',
     ];
 
@@ -47,6 +48,7 @@ class FleetManager extends Authenticatable
         'on_leave' => 'boolean',
         'rider_capacity' => 'integer',
         'joining_date' => 'date',
+        'commission_percentage' => 'float',
     ];
 
     public function getFullNameAttribute(): string
@@ -77,6 +79,26 @@ class FleetManager extends Authenticatable
     public function paymentCollections(): HasMany
     {
         return $this->hasMany(FleetPaymentCollection::class);
+    }
+
+    public function wallet()
+    {
+        return $this->hasOne(FleetManagerWallet::class);
+    }
+
+    public function earningTransactions(): HasMany
+    {
+        return $this->hasMany(FleetManagerEarningTransaction::class);
+    }
+
+    public function withdrawalMethods(): HasMany
+    {
+        return $this->hasMany(FleetManagerWithdrawalMethod::class);
+    }
+
+    public function withdrawalRequests(): HasMany
+    {
+        return $this->hasMany(FleetManagerWithdrawalRequest::class);
     }
 
     public function scopeAvailable($query)

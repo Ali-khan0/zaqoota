@@ -247,6 +247,19 @@ class OrderLogic
                     $dm_over_flow =  true;
                 }
 
+                $fleetCommissionAmount = app(\App\Services\FleetManagerFinanceService::class)
+                    ->creditOrderCommission(
+                        $order,
+                        (float) ($type === 'parcel' ? $order_amount : $order->original_delivery_charge),
+                        (float) ($type === 'parcel' ? $comission_amount : $comission_on_actual_delivery_fee)
+                    );
+                if ($fleetCommissionAmount > 0) {
+                    $adminWallet->total_commission_earning = max(
+                        0,
+                        (float) $adminWallet->total_commission_earning - $fleetCommissionAmount
+                    );
+                }
+
                 $adminWallet->save();
                 if ($type != 'parcel') {
                     $vendorWallet->save();
@@ -524,6 +537,12 @@ class OrderLogic
             // }
             $order_transaction->status = $status;
             $order_transaction->save();
+            if ($status === 'refunded_with_delivery_charge') {
+                $restoredFleetCommission = app(\App\Services\FleetManagerFinanceService::class)
+                    ->reverseOrderCommission($order->id);
+                $adminWallet->total_commission_earning =
+                    (float) $adminWallet->total_commission_earning + $restoredFleetCommission;
+            }
             $adminWallet->save();
             $vendorWallet->save();
             DB::commit();

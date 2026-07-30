@@ -82,6 +82,16 @@
                                 <span class="navbar-vertical-aside-mini-mode-hidden-elements text-truncate">{{ translate('customer_withdraws') }}</span>
                             </a>
                         </li>
+                        <li class="navbar-vertical-aside-has-menu {{ Request::is('admin/transactions/fleet-manager/withdrawals*') ? 'active' : '' }}">
+                            <a class="js-navbar-vertical-aside-menu-link nav-link"
+                               href="{{ route('admin.transactions.fleet-manager.withdrawals') }}"
+                               title="{{ __('fleet_management.fleet_manager_withdrawals') }}">
+                                <i class="tio-savings nav-icon"></i>
+                                <span class="navbar-vertical-aside-mini-mode-hidden-elements text-truncate">
+                                    {{ __('fleet_management.fleet_manager_withdrawals') }}
+                                </span>
+                            </a>
+                        </li>
                     @endif
                     <!-- End withdraw -->
                     @if (\App\CentralLogics\Helpers::module_permission_check('disbursement'))
@@ -165,6 +175,15 @@
                                 title="{{ translate('messages.transection_report') }}">
                                 <span class="tio-chart-pie-1 nav-icon"></span>
                                 <span class="text-truncate">{{ translate('messages.transection_report') }}</span>
+                            </a>
+                        </li>
+
+                        <li class="navbar-vertical-aside-has-menu {{ Request::is('admin/users/delivery-man/fleet-manager') || Request::is('admin/users/delivery-man/fleet-manager/*/report') ? 'active' : '' }}">
+                            <a class="nav-link"
+                               href="{{ route('admin.users.delivery-man.fleet-manager.index') }}"
+                               title="{{ __('fleet_management.fleet_manager_reports') }}">
+                                <span class="tio-chart-bar-1 nav-icon"></span>
+                                <span class="text-truncate">{{ __('fleet_management.fleet_manager_reports') }}</span>
                             </a>
                         </li>
 

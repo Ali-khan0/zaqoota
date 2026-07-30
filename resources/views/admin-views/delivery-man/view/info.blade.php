@@ -323,6 +323,27 @@
                             </div>
                             <div class="col-md-6 col-xl-4 col-xxl-3">
                                 <div class="d-flex justify-content-center justify-content-md-start gap-3">
+                                    <span class="rounded-circle bg-light d-flex align-items-center justify-content-center"
+                                          style="width:35px;height:35px">
+                                        <i class="tio-group-senior"></i>
+                                    </span>
+                                    <div>
+                                        <h6 class="mb-1">{{ __('fleet_management.fleet_manager') }}</h6>
+                                        @if($deliveryMan->fleetManager)
+                                            <a href="{{ route('admin.users.delivery-man.fleet-manager.report', $deliveryMan->fleetManager->id) }}">
+                                                {{ $deliveryMan->fleetManager->full_name }}
+                                            </a>
+                                            <p class="mb-0 font-weight-normal">
+                                                <a href="tel:{{ $deliveryMan->fleetManager->phone }}">{{ $deliveryMan->fleetManager->phone }}</a>
+                                            </p>
+                                        @else
+                                            <p class="mb-0 font-weight-normal">{{ __('fleet_management.unassigned') }}</p>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 col-xl-4 col-xxl-3">
+                                <div class="d-flex justify-content-center justify-content-md-start gap-3">
                                     <img class="rounded-circle"
                                         src="{{ asset('public/assets/admin/img/icons/vehicle-type.png') }}"
                                         width="35" height="35" alt="">

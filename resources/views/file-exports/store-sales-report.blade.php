@@ -42,7 +42,7 @@
                     <br>
                     {{ translate('total_tax')  }}- {{ \App\CentralLogics\Helpers::number_format_short($data['orders']->sum('total_tax_amount')) }}
                     <br>
-                    {{ translate('total_commission')  }}- {{ \App\CentralLogics\Helpers::number_format_short($data['orders']->sum('transaction_sum_admin_commission')+$data['orders']->sum('transaction_sum_delivery_fee_comission')-$data['orders']->sum('transaction_sum_admin_expense')) }}
+                    {{ translate('total_commission')  }}- {{ \App\CentralLogics\Helpers::number_format_short($data['orders']->sum('transaction_sum_admin_commission')+$data['orders']->sum('transaction_sum_delivery_fee_comission')-$data['orders']->sum('transaction_sum_admin_expense')-$data['orders']->sum('transaction_sum_fleet_manager_commission')) }}
                     <br>
                     {{ translate('total_store_earning')  }}- {{ \App\CentralLogics\Helpers::number_format_short($data['orders']->sum('transaction_sum_store_amount')) }}
                 </th>

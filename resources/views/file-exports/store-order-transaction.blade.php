@@ -48,7 +48,7 @@
             {{ \App\CentralLogics\Helpers::format_currency($tr->store_amount - $tr->tax) }}
         </td>
         <td>
-            {{ \App\CentralLogics\Helpers::format_currency($tr->admin_commission) }}
+            {{ \App\CentralLogics\Helpers::format_currency($data['is_provider'] ? $tr->admin_commission : $tr->net_admin_commission) }}
         </td>
         <td>
             {{ \App\CentralLogics\Helpers::format_currency($data['is_provider'] ? $tr->additional_charge : $tr->delivery_charge) }}

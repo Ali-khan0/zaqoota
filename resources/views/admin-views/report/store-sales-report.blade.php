@@ -136,7 +136,7 @@
                     <img src="{{ asset('/public/assets/admin/img/report/commission.svg') }}" alt="">
                     <div class="info">
                         <h4 class="subtitle">
-                            {{ \App\CentralLogics\Helpers::number_format_short($orders->sum('transaction_sum_admin_commission')+$orders->sum('transaction_sum_delivery_fee_comission')-$orders->sum('transaction_sum_admin_expense')) }}
+                            {{ \App\CentralLogics\Helpers::number_format_short($orders->sum('transaction_sum_admin_commission')+$orders->sum('transaction_sum_delivery_fee_comission')-$orders->sum('transaction_sum_admin_expense')-$orders->sum('transaction_sum_fleet_manager_commission')) }}
                         </h4>
                         <h6 class="subtext">{{ translate('Total Commission') }}</h6>
                     </div>
