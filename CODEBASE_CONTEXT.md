@@ -83,6 +83,11 @@ When adding a route, put it in the route file for the consuming client. Match
 the surrounding prefix, name, authentication, permission, subscription, and
 module-context middleware.
 
+Route names must be globally unique so `php artisan route:cache` and
+`php artisan optimize` can serialize the route collection. When GET and POST
+share one form URL, keep the GET route named for links/form URL generation and
+leave the POST route unnamed unless it has a distinct route name and consumers.
+
 ## 4. Core source layout
 
 | Path | Responsibility |
