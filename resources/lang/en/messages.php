@@ -9012,4 +9012,6 @@ Smartly or Earn. ',
   'minimum_value_can_not_be_greater_then_maximum_value' => 'Minimum value can not be greater then maximum value',
   'Top_ratings' => 'Top ratings',
   'Latest_ratings' => 'Latest ratings',
+  'Failed_to_update_Rental_addon_status._Check_the_server_log_for_details.' => 'Failed to update Rental addon status. Check the server log for details.',
+  'Unable_to_delete_addon._Check_file_permissions_and_the_server_log.' => 'Unable to delete addon. Check file permissions and the server log.',
 );

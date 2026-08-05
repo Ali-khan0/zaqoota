@@ -200,27 +200,50 @@ class AddonController extends Controller
         ]);
     }
 
-    public function delete_theme(Request $request){
+    public function delete_theme(Request $request): JsonResponse|RedirectResponse
+    {
         if (env('APP_MODE') == 'demo') {
             Toastr::info(translate('messages.update_option_is_disable_for_demo'));
             return back();
         }
-        $path = $request->path;
 
-        $full_path = base_path($path);
+        $request->validate([
+            'path' => ['required', 'string', 'regex:/^Modules\/[A-Za-z0-9_-]+$/'],
+        ]);
 
-        if(File::deleteDirectory($full_path)){
-            return response()->json([
-                'status' => 'success',
-                'message'=> translate('file_delete_successfully')
-            ]);
-        }else{
+        $path = $request->string('path')->toString();
+        $fullPath = base_path($path);
+        $infoPath = $fullPath . '/Addon/info.php';
+
+        if (! File::exists($infoPath)) {
             return response()->json([
                 'status' => 'error',
-                'message'=> translate('file_delete_fail')
-            ]);
+                'message' => translate('file_delete_fail'),
+            ], 404);
         }
 
+        try {
+            $info = include $infoPath;
+            if (($info['name'] ?? null) === 'Rental' && ! $this->rentalPublish(false)) {
+                throw new \RuntimeException('Rental could not be deactivated before deletion.');
+            }
+
+            if (! File::deleteDirectory($fullPath)) {
+                throw new \RuntimeException("Addon directory could not be deleted: {$path}");
+            }
+
+            return response()->json([
+                'status' => 'success',
+                'message' => translate('file_delete_successfully'),
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => translate('Unable_to_delete_addon._Check_file_permissions_and_the_server_log.'),
+            ], 500);
+        }
     }
 
     //helper functions

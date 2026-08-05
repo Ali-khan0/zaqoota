@@ -452,6 +452,12 @@
                         });
                     }
                 },
+                error: function (xhr) {
+                    toastr.error(xhr.responseJSON?.message || '{{ translate("Unable_to_delete_addon._Check_file_permissions_and_the_server_log.") }}', {
+                        CloseButton: true,
+                        ProgressBar: true
+                    });
+                },
                 complete: function () {
                     $('#loading').hide();
                 },

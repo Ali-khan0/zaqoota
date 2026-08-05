@@ -347,6 +347,10 @@ Order commission reporting convention:
   together and must surface migration or persistence failures instead of
   displaying a false success state. It clears the serialized route cache after
   changing module status so the next request loads the Rental route surface.
+  Because upload, activation and deletion modify deployed module files, the PHP
+  web-server user needs write access to `Modules/` and `modules_statuses.json`;
+  keep that access narrowly scoped rather than making the application tree
+  world-writable.
 - Stored settings: `BusinessSetting`, `Setting`, `ExternalConfiguration`,
   `MailConfig`, `NotificationSetting`, `DataSetting`, `AnalyticScript`,
   `SocialMedia`, and related models.
