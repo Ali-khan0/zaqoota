@@ -351,6 +351,12 @@ Order commission reporting convention:
   web-server user needs write access to `Modules/` and `modules_statuses.json`;
   keep that access narrowly scoped rather than making the application tree
   world-writable.
+- Rental is addon-owned and is therefore intentionally excluded from the
+  `/admin/business-settings/module/store` manual module-type choices. Successful
+  addon activation creates/enables its core `Module` row; it appears on the
+  Business Module List at `/admin/business-settings/module`. Shared
+  `addon_published_status()` checks must resolve addon metadata with `base_path()`
+  so PHP-FPM working-directory differences do not hide Rental.
 - Stored settings: `BusinessSetting`, `Setting`, `ExternalConfiguration`,
   `MailConfig`, `NotificationSetting`, `DataSetting`, `AnalyticScript`,
   `SocialMedia`, and related models.

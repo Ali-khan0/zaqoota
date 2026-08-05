@@ -83,9 +83,9 @@ Route::get('payment-cancel', 'PaymentController@cancel')->name('payment-cancel')
 
 $is_published = 0;
 try {
-$full_data = include('Modules/Gateways/Addon/info.php');
+$full_data = include base_path('Modules/Gateways/Addon/info.php');
 $is_published = $full_data['is_published'] == 1 ? 1 : 0;
-} catch (\Exception $exception) {}
+} catch (\Throwable $exception) {}
 
 if (!$is_published) {
     Route::group(['prefix' => 'payment'], function () {
