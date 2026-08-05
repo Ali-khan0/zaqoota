@@ -18,6 +18,10 @@ class FleetManagerFinanceService
         float $deliveryAmount,
         float $adminCommissionAmount
     ): float {
+        if (($order->order_type ?? null) !== 'parcel' && (float) ($order->delivery_charge ?? 0) <= 0) {
+            return 0;
+        }
+
         $fleetManager = $order->delivery_man?->fleetManager;
         $percentage = max(0, (float) ($fleetManager?->commission_percentage ?? 0));
         $deliveryAmount = max(0, $deliveryAmount);

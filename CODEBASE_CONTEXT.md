@@ -243,8 +243,12 @@ Fleet management is part of the core delivery context:
 - Fleet-manager commission is configured per manager and snapshotted per
   completed order in `FleetManagerEarningTransaction`. The amount is calculated
   from the delivery-value base and capped by the admin delivery-commission
-  amount. `FleetManagerWallet` tracks earned, pending-withdrawal, withdrawn,
-  and available balances.
+  amount. Only customer-paid deliveries with positive admin delivery commission
+  qualify; admin- and vendor-sponsored free delivery do not create a fleet
+  earning transaction. This exclusion does not change the existing rider/admin
+  delivery percentage: rider earnings still use the preserved original delivery
+  value minus the configured admin delivery commission. `FleetManagerWallet`
+  tracks earned, pending-withdrawal, withdrawn, and available balances.
 - `OrderTransaction.fleet_manager_commission` stores the fleet payout allocated
   to that order. Gross `admin_commission` remains unchanged for refund/audit
   compatibility; admin dashboards and financial reports subtract the fleet

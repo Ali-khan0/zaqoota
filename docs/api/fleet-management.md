@@ -840,6 +840,21 @@ calculated manager amount = delivery amount x manager percentage / 100
 credited manager amount = minimum(calculated manager amount, admin commission pool)
 ```
 
+Commission eligibility:
+
+- The customer-facing delivery charge must be greater than zero.
+- The admin delivery-commission pool must be greater than zero.
+- Admin-sponsored and vendor-sponsored free delivery do not create a fleet
+  earning transaction, even though the rider can still receive delivery
+  earnings from the preserved original delivery value.
+- The existing rider/admin delivery percentage remains in effect for
+  admin-sponsored free delivery; this fleet-manager exclusion does not change
+  rider earnings.
+- Mobile clients must not calculate fleet commission locally or treat the
+  absence of a free-delivery order from this endpoint as a missing earning.
+- This endpoint returns commission transactions, not a complete list of the
+  assigned riders' completed deliveries.
+
 Examples:
 
 ```text

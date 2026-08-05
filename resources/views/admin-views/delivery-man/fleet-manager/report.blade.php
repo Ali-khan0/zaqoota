@@ -68,6 +68,7 @@
             <div class="card-header">
                 <div class="w-100">
                     <h5>{{ __('fleet_management.commission_earning_history') }}</h5>
+                    <p class="text-muted mb-3">{{ __('fleet_management.commission_eligibility_hint') }}</p>
                     <form method="get" class="row align-items-end">
                         <div class="col-md-3 mb-2">
                             <label>{{ __('fleet_management.search') }}</label>
