@@ -341,6 +341,12 @@ Order commission reporting convention:
   shortcut redirects to that canonical route. Addon discovery and `Addon/info.php`
   loading must use `base_path('Modules/...')` because the web-server working
   directory is not guaranteed to be the Laravel project root.
+- Rental is considered active on the System Addons page only when its
+  `Addon/info.php` published flag, `modules_statuses.json` entry, and core
+  `Module` database row are all active. Activation updates those sources
+  together and must surface migration or persistence failures instead of
+  displaying a false success state. It clears the serialized route cache after
+  changing module status so the next request loads the Rental route surface.
 - Stored settings: `BusinessSetting`, `Setting`, `ExternalConfiguration`,
   `MailConfig`, `NotificationSetting`, `DataSetting`, `AnalyticScript`,
   `SocialMedia`, and related models.
