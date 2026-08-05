@@ -308,6 +308,24 @@ A monetary change must preserve decimal/currency handling and ledger symmetry.
 Update transaction creation, balance mutation, reports, exports, invoices, and
 refund/reversal paths together.
 
+Order commission reporting convention:
+
+- `OrderTransaction.admin_commission` is the authoritative gross admin result
+  stored for an order. At transaction creation it already includes product/store
+  commission, delivery commission and applicable additional charges, and already
+  deducts admin-funded free delivery, coupons, referral bonuses and discounts.
+- `OrderTransaction.delivery_fee_comission` and `admin_expense` are breakdown
+  fields for presentation and reconciliation. Do not add the delivery field to,
+  or subtract the expense field from, `admin_commission` again when calculating
+  total admin earnings.
+- Net admin earnings are `admin_commission - fleet_manager_commission`, matching
+  `OrderTransaction::NET_ADMIN_COMMISSION_SQL` and the `net_admin_commission`
+  accessor. Store Sales Report totals and exports follow this convention.
+- For admin-sponsored free delivery, the customer-facing delivery charge is
+  zero, the original rider/admin percentage split remains intact, the original
+  delivery value is recorded as an admin free-delivery expense, and no fleet
+  manager commission is created.
+
 ### Business settings and integrations
 
 - Admin settings: `routes/admin.php` and `Admin/BusinessSettingsController`,
