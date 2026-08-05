@@ -22,7 +22,7 @@ use Illuminate\Contracts\Foundation\Application;
 class AddonController extends Controller
 {
     public function __construct(){
-        if (is_dir('Modules\Gateways\Traits') && trait_exists('Modules\Gateways\Traits\SmsGateway')) {
+        if (is_dir(base_path('Modules/Gateways/Traits')) && trait_exists('Modules\Gateways\Traits\SmsGateway')) {
             $this->extendWithSmsGatewayTrait();
         }
     }
@@ -49,12 +49,12 @@ class AddonController extends Controller
 
     public function index(): Factory|View|Application
     {
-        $dir = 'Modules';
+        $dir = base_path('Modules');
         $directories = self::getDirectories($dir);
         $addons = [];
         foreach ($directories as $directory) {
             if($directory !== 'TaxModule'){
-                $sub_dirs = self::getDirectories('Modules/' . $directory);
+                $sub_dirs = self::getDirectories($dir . '/' . $directory);
                 if (in_array('Addon', $sub_dirs)) {
                     $addons[] = 'Modules/' . $directory;
                 }
@@ -69,7 +69,7 @@ class AddonController extends Controller
             Toastr::info(translate('messages.update_option_is_disable_for_demo'));
             return back();
         }
-        $full_data = include($request['path'] . '/Addon/info.php');
+        $full_data = include base_path($request['path'] . '/Addon/info.php');
         $path = $request['path'];
         $addon_name = $full_data['name'];
         if ($full_data['purchase_code'] == null || $full_data['username'] == null) {
@@ -100,7 +100,7 @@ class AddonController extends Controller
         }
         $remove = ["http://", "https://", "www."];
         $url = str_replace($remove, "", url('/'));
-        $full_data = include($request['path'] . '/Addon/info.php');
+        $full_data = include base_path($request['path'] . '/Addon/info.php');
 
         $post = [
             base64_decode('dXNlcm5hbWU=') => $request['username'],
@@ -204,7 +204,11 @@ class AddonController extends Controller
     function getDirectories(string $path): array
     {
         $directories = [];
-        $items = scandir($path);
+        if (! is_dir($path) || ! is_readable($path)) {
+            return $directories;
+        }
+
+        $items = scandir($path) ?: [];
         foreach ($items as $item) {
             if ($item == '..' || $item == '.')
                 continue;

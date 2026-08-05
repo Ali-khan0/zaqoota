@@ -331,6 +331,11 @@ Order commission reporting convention:
 - Admin settings: `routes/admin.php` and `Admin/BusinessSettingsController`,
   `ExternalConfigurationController`, `SMSModuleController`,
   `OfflinePaymentMethodController`.
+- System Addons are managed at `/admin/business-settings/system-addon` by
+  `Admin/System/AddonController`; the legacy `/admin/addon/system-addons`
+  shortcut redirects to that canonical route. Addon discovery and `Addon/info.php`
+  loading must use `base_path('Modules/...')` because the web-server working
+  directory is not guaranteed to be the Laravel project root.
 - Stored settings: `BusinessSetting`, `Setting`, `ExternalConfiguration`,
   `MailConfig`, `NotificationSetting`, `DataSetting`, `AnalyticScript`,
   `SocialMedia`, and related models.
