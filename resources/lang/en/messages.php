@@ -9014,4 +9014,7 @@ Smartly or Earn. ',
   'Latest_ratings' => 'Latest ratings',
   'Failed_to_update_Rental_addon_status._Check_the_server_log_for_details.' => 'Failed to update Rental addon status. Check the server log for details.',
   'Unable_to_delete_addon._Check_file_permissions_and_the_server_log.' => 'Unable to delete addon. Check file permissions and the server log.',
+  'Action button' => 'Action button',
+  'Show the action button only when this email has a valid destination link.' => 'Show the action button only when this email has a valid destination link.',
+  'View_details' => 'View details',
 );

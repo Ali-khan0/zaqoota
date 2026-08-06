@@ -7061,6 +7061,9 @@ class BusinessSettingsController extends Controller
     public function email_index(Request $request, $type, $tab)
     {
         $template = $request->query('template');
+        if (in_array($type, ['store', 'dm', 'user'], true)) {
+            $template = '12';
+        }
         $exceptions = [
             'new-order' => 'place-order-format',
             'forgot-password' => 'forgot-pass-format',
@@ -7176,6 +7179,7 @@ class BusinessSettingsController extends Controller
         $template->email_type = $email_type;
         $template->type = $type;
         $template->button_url = $request->button_url ?? '';
+        $template->button_enabled = $request->boolean('button_enabled');
         $template->email_template = $request->email_template;
         $template->privacy = $request->privacy ? '1' : 0;
         $template->refund = $request->refund ? '1' : 0;

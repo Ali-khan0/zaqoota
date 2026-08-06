@@ -29,6 +29,10 @@ $('input[data-id="mail-copyright"]').on('keyup', function() {
     $('#'+dataId).text(value);
 });
 
+$('.js-email-button-toggle').on('change', function() {
+    $('#action-button-preview').toggle(this.checked);
+});
+
 function readURL(input, viewer) {
     if (input.files && input.files[0]) {
         let reader = new FileReader();
@@ -99,5 +103,4 @@ if( document.getElementById('mail-route-selector')){
         location.href = baseUrl + '/admin/business-settings/email-setup/' + value + '/' + (value === 'admin' ? 'forgot-password' : 'registration');
     });
 }
-
 
