@@ -19,7 +19,7 @@ class EmailTemplate extends Model
 
     public function getEmailTemplateAttribute($value)
     {
-        return in_array($this->type, ['store', 'dm', 'user'], true) ? '12' : $value;
+        return '12';
     }
 
     public function getImageFullUrlAttribute(){

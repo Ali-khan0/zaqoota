@@ -360,14 +360,17 @@ Order commission reporting convention:
 - Stored settings: `BusinessSetting`, `Setting`, `ExternalConfiguration`,
   `MailConfig`, `NotificationSetting`, `DataSetting`, `AnalyticScript`,
   `SocialMedia`, and related models.
-- Core Store, Delivery Man, and Customer email templates use the unified
+- All core Admin, Store, Delivery Man, and Customer email templates use the unified
   Zaqoota recipient layout in
   `resources/views/email-templates/new-email-format-12.blade.php`, regardless
-  of an older saved theme number. Admin and Rental email themes retain their
-  existing layouts. Recipient action buttons are controlled per
+  of an older saved theme number. Rental email themes retain their existing
+  layouts. Core action buttons are controlled per
   `EmailTemplate` by `button_enabled` and render only when a valid dynamic or
-  configured URL exists; empty generated-link placeholders and fallback
-  icon/banner assets must not be sent.
+  configured URL exists; URLs are never printed as email text. Empty
+  generated-link placeholders, the legacy per-template icon, and fallback
+  icon/banner assets must not be sent. The teal header uses the configured
+  business-logo URL with a white presentation, and the compact footer retains
+  enabled policy, contact, social, footer-text, and copyright settings.
 - Runtime configuration: `config/*.php` + `.env`/`.env.example`.
 - Shared access: `app/Utils/settings.php`, `app/CentralLogics/Helpers.php`.
 

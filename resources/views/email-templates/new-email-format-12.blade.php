@@ -8,6 +8,15 @@
     $candidateUrl = $dynamicUrl !== '' ? $dynamicUrl : $configuredUrl;
     $actionUrl = filter_var($candidateUrl, FILTER_VALIDATE_URL) ? $candidateUrl : '';
     $buttonName = trim((string) ($data?->button_name ?? '')) ?: translate('View_details');
+    $businessLogo = \App\Models\BusinessSetting::where('key', 'logo')->first();
+    $businessLogoUrl = $businessLogo?->value
+        ? \App\CentralLogics\Helpers::get_full_url('business', $businessLogo->value, $businessLogo?->storage[0]?->value ?? 'public', 'favicon')
+        : '';
+    $landingData = \App\Models\DataSetting::where('type', 'admin_landing_page')
+        ->whereIn('key', ['shipping_policy_status', 'refund_policy_status', 'cancellation_policy_status'])
+        ->pluck('value', 'key')
+        ->toArray();
+    $socialMedia = \App\Models\SocialMedia::active()->get();
 @endphp
 <html lang="{{ $lang }}" dir="{{ $siteDirection }}">
 <head>
@@ -15,25 +24,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ $title ?? translate('Email_Template') }}</title>
 </head>
-<body style="margin:0;padding:20px;background:#f3f6f8;color:#46556d;font-family:Arial,sans-serif;font-size:14px;line-height:1.55;">
+<body style="margin:0;padding:0;background:#f4f6f8;color:#4a5568;font-family:Verdana,Geneva,sans-serif;font-size:14px;line-height:1.6;">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
     <tr>
-        <td align="center">
-            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:560px;background:#ffffff;border:1px solid #dce4e8;">
+        <td align="center" style="padding:30px 15px;">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;background:#ffffff;border:1px solid #e1e5ea;border-radius:8px;box-shadow:0 4px 6px rgba(0,0,0,0.02);">
                 <tr>
-                    <td style="padding:22px 32px;background:#149b94;color:#ffffff;text-align:center;font-size:21px;font-weight:700;letter-spacing:0;">
-                        {{ strtoupper($company_name) }}
+                    <td style="padding:25px 40px;background:#0d988d;color:#ffffff;text-align:center;border-radius:7px 7px 0 0;">
+                        @if ($businessLogoUrl !== '')
+                            <img src="{{ $businessLogoUrl }}" alt="{{ $company_name }}" width="170" style="display:inline-block;max-width:170px;max-height:58px;width:auto;height:auto;border:0;filter:brightness(0) invert(1);">
+                        @else
+                            <strong style="font-size:26px;color:#ffffff;">{{ strtoupper($company_name) }}</strong>
+                        @endif
                     </td>
                 </tr>
                 <tr>
-                    <td style="padding:30px 32px;">
-                        @if ($data?->icon)
-                            <div style="margin-bottom:18px;text-align:center;">
-                                <img src="{{ $data->icon_full_url }}" alt="" style="display:inline-block;max-width:64px;max-height:64px;border:0;">
-                            </div>
-                        @endif
-
-                        <h1 style="margin:0 0 14px;color:#222222;font-size:19px;line-height:1.35;font-weight:700;letter-spacing:0;">
+                    <td style="padding:40px;">
+                        <h1 style="margin:0 0 20px;color:#111111;font-size:20px;line-height:1.4;font-weight:600;letter-spacing:0;">
                             {{ $title ?? translate('Main_Title_or_Subject_of_the_Mail') }}
                         </h1>
                         <div style="margin:0 0 18px;color:#46556d;">{!! $body ?? '' !!}</div>
@@ -90,18 +97,43 @@
 
                         @if ($buttonEnabled && $actionUrl !== '')
                             <div style="margin:24px 0;">
-                                <a href="{{ $actionUrl }}" style="display:inline-block;padding:12px 20px;background:#149b94;color:#ffffff;text-decoration:none;font-weight:700;border-radius:4px;">{{ $buttonName }}</a>
+                                <a href="{{ $actionUrl }}" style="display:inline-block;padding:13px 25px;background:#0d988d;color:#ffffff;text-decoration:none;font-size:15px;font-weight:600;border-radius:6px;">{{ $buttonName }}</a>
                             </div>
                         @endif
 
-                        <div style="margin-top:26px;padding-top:20px;border-top:1px solid #d7e2e7;color:#65758d;">
+                        <div style="margin-top:30px;padding-top:22px;border-top:1px solid #e2e8f0;color:#718096;">
                             <div>{{ $footer_text ?? translate('Please_contact_us_for_any_queries,_we’re_always_happy_to_help.') }}</div>
                             <div style="margin-top:12px;">{{ translate('Thanks_&_Regards') }},<br>{{ $company_name }}</div>
                         </div>
                     </td>
                 </tr>
                 <tr>
-                    <td style="padding:18px 32px;background:#f7fafb;color:#748196;text-align:center;font-size:12px;">
+                    <td style="padding:20px 40px;background:#f8fafc;color:#a0aec0;text-align:center;font-size:12px;border-top:1px solid #e2e8f0;border-radius:0 0 7px 7px;">
+                        <div style="margin-bottom:10px;">
+                            @if ($data?->privacy)
+                                <a href="{{ route('privacy-policy') }}" style="margin:0 7px;color:#718096;text-decoration:none;">{{ translate('Privacy_Policy') }}</a>
+                            @endif
+                            @if ($data?->refund && ($landingData['refund_policy_status'] ?? 0) == 1)
+                                <a href="{{ route('refund') }}" style="margin:0 7px;color:#718096;text-decoration:none;">{{ translate('Refund_Policy') }}</a>
+                            @endif
+                            @if ($data?->cancelation && ($landingData['cancellation_policy_status'] ?? 0) == 1)
+                                <a href="{{ route('cancelation') }}" style="margin:0 7px;color:#718096;text-decoration:none;">{{ translate('Cancelation_Policy') }}</a>
+                            @endif
+                            @if ($data?->contact)
+                                <a href="{{ route('contact-us') }}" style="margin:0 7px;color:#718096;text-decoration:none;">{{ translate('Contact_us') }}</a>
+                            @endif
+                        </div>
+                        @if ($socialMedia->isNotEmpty())
+                            <div style="margin-bottom:10px;">
+                                @foreach ($socialMedia as $social)
+                                    @if ($data?->{$social->name})
+                                        <a href="{{ $social->link }}" style="margin:0 5px;text-decoration:none;">
+                                            <img src="{{ asset('/public/assets/admin/img/img/'.$social->name.'.png') }}" alt="{{ $social->name }}" width="22" height="22" style="display:inline-block;border:0;">
+                                        </a>
+                                    @endif
+                                @endforeach
+                            </div>
+                        @endif
                         <div>{{ $copyright_text ?? '' }}</div>
                     </td>
                 </tr>

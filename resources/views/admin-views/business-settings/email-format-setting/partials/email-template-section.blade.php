@@ -1,6 +1,11 @@
 
 <input type="hidden" value="{{ $template }}" name="email_template">
-@if (in_array(request()->route('type'), ['store', 'dm', 'user'], true))
+<style>
+    .email-format-wrapper div:has(> label.custom-file > #mail-icon) {
+        display: none !important;
+    }
+</style>
+@if (in_array(request()->route('type'), ['store', 'dm', 'user', 'admin'], true))
     <div class="__bg-F8F9FC-card mb-3">
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
             <div>

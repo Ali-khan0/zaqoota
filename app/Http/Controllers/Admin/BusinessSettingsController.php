@@ -7061,9 +7061,7 @@ class BusinessSettingsController extends Controller
     public function email_index(Request $request, $type, $tab)
     {
         $template = $request->query('template');
-        if (in_array($type, ['store', 'dm', 'user'], true)) {
-            $template = '12';
-        }
+        $template = '12';
         $exceptions = [
             'new-order' => 'place-order-format',
             'forgot-password' => 'forgot-pass-format',

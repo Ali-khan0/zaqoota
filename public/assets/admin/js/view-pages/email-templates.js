@@ -33,6 +33,12 @@ $('.js-email-button-toggle').on('change', function() {
     $('#action-button-preview').toggle(this.checked);
 });
 
+// The unified email shell uses the business logo and its own content hierarchy.
+$('#mail-icon').closest('div').hide();
+$('h5.card-title').filter(function() {
+    return $(this).text().trim().replace(/_/g, ' ').toLowerCase() === 'header content';
+}).hide();
+
 function readURL(input, viewer) {
     if (input.files && input.files[0]) {
         let reader = new FileReader();
@@ -103,4 +109,3 @@ if( document.getElementById('mail-route-selector')){
         location.href = baseUrl + '/admin/business-settings/email-setup/' + value + '/' + (value === 'admin' ? 'forgot-password' : 'registration');
     });
 }
-
