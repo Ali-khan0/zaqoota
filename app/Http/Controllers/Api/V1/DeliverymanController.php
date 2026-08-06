@@ -46,7 +46,7 @@ class DeliverymanController extends Controller
 {
     public function get_profile(Request $request)
     {
-        $dm = DeliveryMan::with(['rating'])->where(['auth_token' => $request['token']])->first();
+        $dm = DeliveryMan::with(['rating', 'fleetManager.primaryZone'])->where(['auth_token' => $request['token']])->first();
         $min_amount_to_pay_dm = BusinessSetting::where('key', 'min_amount_to_pay_dm')->first()->value ?? 0;
         $dm['avg_rating'] = (float) (! empty($dm->rating[0]) ? $dm->rating[0]->average : 0);
         $dm['rating_count'] = (float) (! empty($dm->rating[0]) ? $dm->rating[0]->rating_count : 0);
@@ -54,6 +54,18 @@ class DeliverymanController extends Controller
         $dm['todays_order_count'] = (int) $dm->todaysorders->count();
         $dm['this_week_order_count'] = (int) $dm->this_week_orders->count();
         $dm['member_since_days'] = (int) $dm->created_at->diffInDays();
+        $fleetManager = $dm->fleetManager;
+        $dm->unsetRelation('fleetManager');
+        $dm['account_type'] = 'rider';
+        $dm['fleet_manager'] = $fleetManager ? [
+            'id' => $fleetManager->id,
+            'name' => $fleetManager->full_name,
+            'phone' => $fleetManager->phone,
+            'email' => $fleetManager->email,
+            'area' => $fleetManager->primaryZone?->name,
+            'shift_start' => $fleetManager->shift_start,
+            'shift_end' => $fleetManager->shift_end,
+        ] : null;
 
         // Added DM TIPS
         $dm['todays_earning'] = (float) ($dm->todays_earning()->sum('original_delivery_charge') + $dm->todays_earning()->sum('dm_tips'));

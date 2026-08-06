@@ -155,6 +155,24 @@ Route::group(['namespace' => 'Api\V1', 'middleware'=>'localization'], function (
         });
     });
 
+    Route::group(['prefix' => 'fleet-manager', 'middleware' => ['actch:deliveryman_app', 'fleet-manager.api']], function () {
+        Route::get('profile', 'FleetManagerController@profile');
+        Route::put('profile', 'FleetManagerController@updateProfile');
+        Route::get('dashboard', 'FleetManagerController@dashboard');
+        Route::put('fcm-token', 'FleetManagerController@updateFcmToken');
+        Route::get('earnings', 'FleetManagerController@earnings');
+        Route::get('riders', 'FleetManagerController@riders');
+        Route::get('riders/{id}', 'FleetManagerController@rider');
+        Route::get('withdrawal-method-templates', 'FleetManagerController@withdrawalMethodTemplates');
+        Route::get('withdrawal-methods', 'FleetManagerController@withdrawalMethods');
+        Route::post('withdrawal-methods', 'FleetManagerController@storeWithdrawalMethod');
+        Route::put('withdrawal-methods/{id}', 'FleetManagerController@storeWithdrawalMethod');
+        Route::put('withdrawal-methods/{id}/default', 'FleetManagerController@makeDefaultWithdrawalMethod');
+        Route::delete('withdrawal-methods/{id}', 'FleetManagerController@deleteWithdrawalMethod');
+        Route::get('withdrawals', 'FleetManagerController@withdrawals');
+        Route::post('withdrawals', 'FleetManagerController@requestWithdrawal');
+    });
+
     Route::group(['prefix' => 'vendor', 'namespace' => 'Vendor', 'middleware'=>['vendor.api','actch:vendor_app']], function () {
         Route::get('notifications', 'VendorController@get_notifications');
         Route::get('profile', 'VendorController@get_profile');
@@ -529,4 +547,3 @@ Route::group(['namespace' => 'Api\V1', 'middleware'=>'localization'], function (
     Route::get('get-vehicles', 'ConfigController@get_vehicles');
     Route::get('get-parcel-cancellation-reasons', 'ConfigController@parcel_cancellation_reason');
 });
-

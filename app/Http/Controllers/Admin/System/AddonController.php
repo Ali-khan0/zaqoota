@@ -22,7 +22,7 @@ use Illuminate\Contracts\Foundation\Application;
 class AddonController extends Controller
 {
     public function __construct(){
-        if (is_dir('Modules\Gateways\Traits') && trait_exists('Modules\Gateways\Traits\SmsGateway')) {
+        if (is_dir(base_path('Modules/Gateways/Traits')) && trait_exists('Modules\Gateways\Traits\SmsGateway')) {
             $this->extendWithSmsGatewayTrait();
         }
     }
@@ -49,14 +49,28 @@ class AddonController extends Controller
 
     public function index(): Factory|View|Application
     {
-        $dir = 'Modules';
+        $dir = base_path('Modules');
         $directories = self::getDirectories($dir);
+        $statusesPath = config('modules.activators.file.statuses-file');
+        $moduleStatuses = File::exists($statusesPath)
+            ? (json_decode(File::get($statusesPath), true) ?: [])
+            : [];
         $addons = [];
         foreach ($directories as $directory) {
             if($directory !== 'TaxModule'){
-                $sub_dirs = self::getDirectories('Modules/' . $directory);
+                $sub_dirs = self::getDirectories($dir . '/' . $directory);
                 if (in_array('Addon', $sub_dirs)) {
-                    $addons[] = 'Modules/' . $directory;
+                    $path = 'Modules/' . $directory;
+                    $data = include base_path($path . '/Addon/info.php');
+                    $isActive = (bool) ($data['is_published'] ?? false);
+
+                    if (($data['name'] ?? null) === 'Rental') {
+                        $isActive = $isActive
+                            && (bool) ($moduleStatuses['Rental'] ?? false)
+                            && Module::query()->where('module_type', 'rental')->where('status', 1)->exists();
+                    }
+
+                    $addons[] = compact('path', 'data', 'isActive');
                 }
             }
         }
@@ -69,7 +83,7 @@ class AddonController extends Controller
             Toastr::info(translate('messages.update_option_is_disable_for_demo'));
             return back();
         }
-        $full_data = include($request['path'] . '/Addon/info.php');
+        $full_data = include base_path($request['path'] . '/Addon/info.php');
         $path = $request['path'];
         $addon_name = $full_data['name'];
         if ($full_data['purchase_code'] == null || $full_data['username'] == null) {
@@ -78,13 +92,17 @@ class AddonController extends Controller
                 'view' => view('admin-views.system.addon.partials.activation-modal-data', compact('full_data', 'path', 'addon_name'))->render(),
             ]);
         }
-        $full_data['is_published'] = $full_data['is_published'] ? 0 : 1;
+        $full_data['is_published'] = $request->boolean('status');
+
+        if ($full_data['name'] == 'Rental' && ! $this->rentalPublish($full_data['is_published'])) {
+            return response()->json([
+                'status' => 'error',
+                'message' => translate('Failed_to_update_Rental_addon_status._Check_the_server_log_for_details.'),
+            ], 500);
+        }
+
         $str = "<?php return " . var_export($full_data, true) . ";";
         file_put_contents(base_path($request['path'] . '/Addon/info.php'), $str);
-
-        if ($full_data['name'] == 'Rental') {
-            $this->rentalPublish($full_data['is_published']);
-        }
 
         return response()->json([
             'status' => 'success',
@@ -100,7 +118,7 @@ class AddonController extends Controller
         }
         $remove = ["http://", "https://", "www."];
         $url = str_replace($remove, "", url('/'));
-        $full_data = include($request['path'] . '/Addon/info.php');
+        $full_data = include base_path($request['path'] . '/Addon/info.php');
 
         $post = [
             base64_decode('dXNlcm5hbWU=') => $request['username'],
@@ -117,9 +135,14 @@ class AddonController extends Controller
             $full_data['is_published'] = 1;
             $full_data['username'] = $request['username'];
             $full_data['purchase_code'] = $request['purchase_code'];
+
+            if ($full_data['name'] == 'Rental' && ! $this->rentalPublish(true)) {
+                Toastr::error(translate('Failed_to_update_Rental_addon_status._Check_the_server_log_for_details.'));
+                return back();
+            }
+
             $str = "<?php return " . var_export($full_data, true) . ";";
             file_put_contents(base_path($request['path'] . '/Addon/info.php'), $str);
-            $this->rentalPublish($full_data['is_published']);
 
             Toastr::success(translate('activated_successfully'));
             return back();
@@ -177,34 +200,61 @@ class AddonController extends Controller
         ]);
     }
 
-    public function delete_theme(Request $request){
+    public function delete_theme(Request $request): JsonResponse|RedirectResponse
+    {
         if (env('APP_MODE') == 'demo') {
             Toastr::info(translate('messages.update_option_is_disable_for_demo'));
             return back();
         }
-        $path = $request->path;
 
-        $full_path = base_path($path);
+        $request->validate([
+            'path' => ['required', 'string', 'regex:/^Modules\/[A-Za-z0-9_-]+$/'],
+        ]);
 
-        if(File::deleteDirectory($full_path)){
-            return response()->json([
-                'status' => 'success',
-                'message'=> translate('file_delete_successfully')
-            ]);
-        }else{
+        $path = $request->string('path')->toString();
+        $fullPath = base_path($path);
+        $infoPath = $fullPath . '/Addon/info.php';
+
+        if (! File::exists($infoPath)) {
             return response()->json([
                 'status' => 'error',
-                'message'=> translate('file_delete_fail')
-            ]);
+                'message' => translate('file_delete_fail'),
+            ], 404);
         }
 
+        try {
+            $info = include $infoPath;
+            if (($info['name'] ?? null) === 'Rental' && ! $this->rentalPublish(false)) {
+                throw new \RuntimeException('Rental could not be deactivated before deletion.');
+            }
+
+            if (! File::deleteDirectory($fullPath)) {
+                throw new \RuntimeException("Addon directory could not be deleted: {$path}");
+            }
+
+            return response()->json([
+                'status' => 'success',
+                'message' => translate('file_delete_successfully'),
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => translate('Unable_to_delete_addon._Check_file_permissions_and_the_server_log.'),
+            ], 500);
+        }
     }
 
     //helper functions
     function getDirectories(string $path): array
     {
         $directories = [];
-        $items = scandir($path);
+        if (! is_dir($path) || ! is_readable($path)) {
+            return $directories;
+        }
+
+        $items = scandir($path) ?: [];
         foreach ($items as $item) {
             if ($item == '..' || $item == '.')
                 continue;
@@ -230,8 +280,18 @@ class AddonController extends Controller
             }
 
             $module->save();
+
+            $statusesPath = config('modules.activators.file.statuses-file');
+            $moduleStatuses = File::exists($statusesPath)
+                ? (json_decode(File::get($statusesPath), true) ?: [])
+                : [];
+            $moduleStatuses['Rental'] = (bool) $is_published;
+            File::put($statusesPath, json_encode($moduleStatuses, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL);
+            Artisan::call('route:clear');
+
             return true;
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            report($e);
             return false;
         }
     }

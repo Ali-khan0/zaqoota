@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\DeliveryMan\DeliveryManController;
+use App\Http\Controllers\Admin\DeliveryMan\FleetManagerController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Admin\BusinessSettingsController;
 
@@ -262,7 +263,7 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
 
 
         Route::get('addon/system-addons', function () {
-            return to_route('admin.system-addon.index');
+            return to_route('admin.business-settings.system-addon.index');
         })->name('addon.index');
 
         Route::get('order/generate-invoice/{id}', 'OrderController@generate_invoice')->name('order.generate-invoice');
@@ -334,9 +335,9 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
             Route::post('update-order', 'BusinessSettingsController@update_order')->name('update-order');
             Route::post('update-priority', 'BusinessSettingsController@update_priority')->name('update-priority');
             Route::get('app-settings', 'BusinessSettingsController@app_settings')->name('app-settings');
-            Route::POST('app-settings', 'BusinessSettingsController@update_app_settings')->name('app-settings');
+            Route::post('app-settings', 'BusinessSettingsController@update_app_settings');
             Route::get('pages/admin-landing-page-settings/{tab?}', 'BusinessSettingsController@admin_landing_page_settings')->name('admin-landing-page-settings');
-            Route::POST('pages/admin-landing-page-settings/{tab}', 'BusinessSettingsController@update_admin_landing_page_settings')->name('admin-landing-page-settings');
+            Route::post('pages/admin-landing-page-settings/{tab}', 'BusinessSettingsController@update_admin_landing_page_settings');
             Route::get('promotional-status/{id}/{status}', 'BusinessSettingsController@promotional_status')->name('promotional-status');
             Route::get('pages/admin-landing-page-settings/promotional-section/edit/{id}', 'BusinessSettingsController@promotional_edit')->name('promotional-edit');
             Route::post('promotional-section/update/{id}', 'BusinessSettingsController@promotional_update')->name('promotional-update');
@@ -354,8 +355,8 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
             Route::post('review-section/update/{id}', 'BusinessSettingsController@review_update')->name('review-update');
             Route::delete('review/delete/{review}', 'BusinessSettingsController@review_destroy')->name('review-delete');
             Route::get('pages/react-landing-page-settings/{tab?}', 'BusinessSettingsController@react_landing_page_settings')->name('react-landing-page-settings');
-            Route::POST('pages/react-landing-page-settings/{tab?}',
-                'BusinessSettingsController@update_react_landing_page_settings')->name('react-landing-page-settings');
+            Route::post('pages/react-landing-page-settings/{tab?}',
+                'BusinessSettingsController@update_react_landing_page_settings');
             Route::DELETE('react-landing-page-settings/{tab}/{key}', 'BusinessSettingsController@delete_react_landing_page_settings')->name('react-landing-page-settings-delete');
             Route::get('review-react-status/{id}/{status}', 'BusinessSettingsController@review_react_status')->name('review-react-status');
             Route::get('pages/react-landing-page-settings/testimonials/review-react-list/edit/{id}', 'BusinessSettingsController@review_react_edit')->name('review-react-edit');
@@ -377,13 +378,13 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
             Route::post('review-react-section/update/{id}', 'BusinessSettingsController@review_react_update')->name('review-react-update');
             Route::delete('review-react/delete/{review}', 'BusinessSettingsController@review_react_destroy')->name('review-react-delete');
             Route::get('pages/flutter-landing-page-settings/{tab?}', 'BusinessSettingsController@flutter_landing_page_settings')->name('flutter-landing-page-settings');
-            Route::POST('pages/flutter-landing-page-settings/{tab}', 'BusinessSettingsController@update_flutter_landing_page_settings')->name('flutter-landing-page-settings');
+            Route::post('pages/flutter-landing-page-settings/{tab}', 'BusinessSettingsController@update_flutter_landing_page_settings');
             Route::get('flutter-criteria-status/{id}/{status}', 'BusinessSettingsController@flutter_criteria_status')->name('flutter-criteria-status');
             Route::get('pages/flutter-landing-page-settings/special-criteria/edit/{id}', 'BusinessSettingsController@flutter_criteria_edit')->name('flutter-criteria-edit');
             Route::post('flutter-criteria-section/update/{id}', 'BusinessSettingsController@flutter_criteria_update')->name('flutter-criteria-update');
             Route::delete('flutter/criteria/delete/{criteria}', 'BusinessSettingsController@flutter_criteria_destroy')->name('flutter-criteria-delete');
             Route::get('landing-page-settings/{tab?}', 'BusinessSettingsController@landing_page_settings')->name('landing-page-settings');
-            Route::POST('landing-page-settings/{tab}', 'BusinessSettingsController@update_landing_page_settings')->name('landing-page-settings');
+            Route::post('landing-page-settings/{tab}', 'BusinessSettingsController@update_landing_page_settings');
             Route::DELETE('landing-page-settings/{tab}/{key}', 'BusinessSettingsController@delete_landing_page_settings')->name('landing-page-settings-delete');
 
             Route::group(['prefix' => 'marketing', 'as' => 'marketing.'], function () {
@@ -415,7 +416,7 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
             Route::post('login-url-setup/update', 'BusinessSettingsController@login_url_page_update')->name('login_url_update');
 
             Route::get('email-setup/{type}/{tab?}', 'BusinessSettingsController@email_index')->name('email-setup');
-            Route::POST('email-setup/{type}/{tab?}', 'BusinessSettingsController@update_email_index')->name('email-setup');
+            Route::post('email-setup/{type}/{tab?}', 'BusinessSettingsController@update_email_index');
             Route::get('email-status/{type}/{tab}/{status}', 'BusinessSettingsController@update_email_status')->name('email-status');
 
             Route::get('toggle-settings/{key}/{value}', 'BusinessSettingsController@toggle_settings')->name('toggle-settings');
@@ -837,6 +838,15 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
                 Route::get('withdraw-view/{withdraw_id}/{seller_id}', [DeliveryManController::class, 'withdraw_view'])->name('withdraw_view');
                 Route::get('get-Withdraw-Details', [DeliveryManController::class, 'getWithdrawDetails'])->name('getWithdrawDetails');
 
+            });
+
+            Route::group([
+                'prefix' => 'fleet-manager',
+                'as' => 'fleet-manager.',
+                'middleware' => ['module:withdraw_list'],
+            ], function () {
+                Route::get('withdrawals', [FleetManagerController::class, 'withdrawals'])->name('withdrawals');
+                Route::put('withdrawals/{id}/review', [FleetManagerController::class, 'reviewWithdrawal'])->name('withdrawals.review');
             });
 
             Route::group(['prefix' => 'withdraw-method', 'as' => 'withdraw-method.'], function () {

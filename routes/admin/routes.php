@@ -37,6 +37,7 @@ use App\Http\Controllers\Admin\DeliveryMan\DmVehicleController;
 use App\Http\Controllers\Admin\DeliveryMan\DeliveryManController;
 use App\Http\Controllers\Admin\DeliveryMan\DmRegistrationFeeController;
 use App\Http\Controllers\Admin\DeliveryMan\DmMilestoneBonusController;
+use App\Http\Controllers\Admin\DeliveryMan\FleetManagerController;
 use App\Http\Controllers\Admin\Item\AddonCategoryController;
 use App\Http\Controllers\Admin\Promotion\AdvertisementController;
 use App\Http\Controllers\Admin\Notification\NotificationController;
@@ -391,6 +392,24 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
                     Route::post('registration-fee/settings', [DmRegistrationFeeController::class, 'updateSettings'])->name('registration-fee.settings');
                     Route::get('registration-fee/ledger/{delivery_man_id}', function () {
                         return redirect()->route('admin.users.delivery-man.registration-fee');
+                    });
+
+                    Route::group(['prefix' => 'fleet-manager', 'as' => 'fleet-manager.'], function () {
+                        Route::get('/', [FleetManagerController::class, 'index'])->name('index');
+                        Route::get('create', [FleetManagerController::class, 'create'])->name('create');
+                        Route::post('/', [FleetManagerController::class, 'store'])->name('store');
+                        Route::get('{id}/edit', [FleetManagerController::class, 'edit'])->name('edit');
+                        Route::get('{id}/report', [FleetManagerController::class, 'report'])->name('report');
+                        Route::get('{id}/riders', [FleetManagerController::class, 'riders'])->name('riders');
+                        Route::put('{id}', [FleetManagerController::class, 'update'])->name('update');
+                        Route::put('{id}/status', [FleetManagerController::class, 'status'])->name('status');
+
+                        Route::get('rider/assignments', [FleetManagerController::class, 'assignments'])->name('assignments');
+                        Route::post('rider/assignments', [FleetManagerController::class, 'assign'])->name('assign');
+                        Route::delete('rider/{riderId}/assignment', [FleetManagerController::class, 'unassign'])->name('unassign');
+
+                        Route::get('payment/collections', [FleetManagerController::class, 'collections'])->name('collections');
+
                     });
 
 

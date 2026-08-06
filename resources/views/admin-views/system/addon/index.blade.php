@@ -86,7 +86,7 @@
                             <div class="mt-5 card px-3 py-2 d--none" id="progress-bar">
                                 <div class="d-flex flex-wrap align-items-center gap-3">
                                     <div class="">
-                                        <img width="24" src="{{asset('/public/assets/admin/img/zip.png')}}" alt="">
+                                        <img width="24" src="{{asset('/public/assets/admin/img/upload.png')}}" alt="">
                                     </div>
                                     <div class="flex-grow-1 text-start">
                                         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
@@ -132,9 +132,11 @@
 
         <!-- Theme Items -->
         <div class="row g-1 g-sm-2">
-            @foreach($addons as $key => $addon)
+            @foreach($addons as $key => $addonEntry)
             <?php
-            $data= include $addon.'/Addon/info.php';
+            $addon = $addonEntry['path'];
+            $data = $addonEntry['data'];
+            $isPublished = $addonEntry['isActive'];
             ?>
             <div class="col-6 col-md-4 col-xxl-3">
                 <div class="card theme-card">
@@ -144,7 +146,7 @@
                         </h3>
 
                         <div class="d-flex gap-2 gap-sm-3 align-items-center">
-                            @if ($data['is_published'] == 0)
+                            @if (! $isPublished)
                                 <button class="text-danger bg-transparent p-0 border-0 mr-2" data-toggle="modal" data-target="#deleteThemeModal_{{$key}}"><img src="{{asset('public/assets/admin/img/delete.svg')}}" class="svg" alt=""></button>
                                 <!-- Delete Theme Modal -->
                                 <div class="modal fade" id="deleteThemeModal_{{$key}}" tabindex="-1" aria-labelledby="deleteThemeModal_{{$key}}" aria-hidden="true">
@@ -175,7 +177,7 @@
                                 </div>
                             @endif
 
-                                <button class="{{$data['is_published'] == 1 ? 'checkbox-color-primary' : 'text-muted'}} bg-transparent p-0 border-0" data-toggle="modal" data-target="#shiftThemeModal_{{$key}}"><img src="{{asset('public/assets/admin/img/check.svg')}}" class="svg" alt=""></button>
+                                <button class="{{$isPublished ? 'checkbox-color-primary' : 'text-muted'}} bg-transparent p-0 border-0" data-toggle="modal" data-target="#shiftThemeModal_{{$key}}"><img src="{{asset('public/assets/admin/img/check.svg')}}" class="svg" alt=""></button>
 
                                 <div class="modal fade" id="shiftThemeModal_{{$key}}" tabindex="-1" aria-labelledby="shiftThemeModalLabel_{{$key}}" aria-hidden="true">
                                     <div class="modal-dialog status-warning-modal">
@@ -190,18 +192,18 @@
                                             </div>
                                             <div class="modal-body px-4 pt-0 px-sm-5 text-center">
                                                 <div class="mb-3 text-center">
-                                                    <img width="75" src="{{asset('public/assets/admin/img/shift.png')}}" alt="">
+                                                    <img width="75" src="{{asset('public/assets/admin/img/addon.png')}}" alt="">
                                                 </div>
 
                                                 <h3>{{ translate('are_you_sure?') }}</h3>
-                                                @if ($data['is_published'])
+                                                @if ($isPublished)
                                                 <p class="mb-5">{{ translate('want_to_disabled_this_'.' '.$data['name']) }}</p>
                                                 @else
                                                 <p class="mb-5">{{ translate('want_to_activate_this_'.' '.$data['name']) }}</p>
                                                 @endif
                                                 <div class="btn--container justify-content-center mb-3">
                                                     <button type="button" class="fs-16 btn btn-secondary px-sm-5" data-dismiss="modal">{{ translate('no') }}</button>
-                                                    <button type="button" class="fs-16 btn btn--primary px-sm-5 publish-addon" data-path="{{$addon}}" data-dismiss="modal">{{ translate('yes') }}</button>
+                                                    <button type="button" class="fs-16 btn btn--primary px-sm-5 publish-addon" data-path="{{$addon}}" data-status="{{$isPublished ? 0 : 1}}" data-dismiss="modal">{{ translate('yes') }}</button>
                                                 </div>
                                             </div>
                                         </div>
@@ -234,7 +236,7 @@
                         <div class="aspect-ration-3:2 border border-color-primary-light radius-10">
                             <img class="img-fit radius-10 onerror-image"
                             data-onerror-image="{{asset('public/assets/admin/img/placeholder.png')}}"
-                                src="{{asset($addon.'/public/addon.png')}}">
+                                src="{{asset('public/assets/admin/img/addon.png')}}">
                         </div>
                     </div>
                 </div>
@@ -248,7 +250,7 @@
 @endsection
 
 @push('script_2')
-<script href="{{ asset('public/assets/admin/vendor/swiper/swiper-bundle.min.js')}}"></script>
+<script src="{{ asset('public/assets/admin/vendor/swiper/swiper-bundle.min.js')}}"></script>
 
 <script>
     $("img.svg").each(function () {
@@ -365,6 +367,7 @@
 
     $('.publish-addon').on('click', function () {
         let path = $(this).data('path');
+        let status = $(this).data('status');
             $.ajaxSetup({
                 headers: {
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
@@ -373,9 +376,18 @@
             $.post({
                     url: '{{route('admin.business-settings.system-addon.publish')}}',
                     data: {
-                        'path': path
+                        'path': path,
+                        'status': status
                     },
                     success: function (data) {
+                        if (data.status === 'error') {
+                            toastr.error(data.message, {
+                                CloseButton: true,
+                                ProgressBar: true
+                            });
+                            return;
+                        }
+
                         if (data.flag === 'inactive') {
                             // console.log(data.view)
                             $('#activatedThemeModal').modal('show');
@@ -398,6 +410,12 @@
                                 }, 2000);
                             }
                         }
+                    },
+                    error: function (xhr) {
+                        toastr.error(xhr.responseJSON?.message || '{{ translate("Failed_to_update_Rental_addon_status._Check_the_server_log_for_details.") }}', {
+                            CloseButton: true,
+                            ProgressBar: true
+                        });
                     }
                 });
             })
@@ -433,6 +451,12 @@
                             ProgressBar: true
                         });
                     }
+                },
+                error: function (xhr) {
+                    toastr.error(xhr.responseJSON?.message || '{{ translate("Unable_to_delete_addon._Check_file_permissions_and_the_server_log.") }}', {
+                        CloseButton: true,
+                        ProgressBar: true
+                    });
                 },
                 complete: function () {
                     $('#loading').hide();

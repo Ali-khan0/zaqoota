@@ -370,11 +370,11 @@
                 </tr>
                 <tr>
                     <td>{{translate('messages.admin_commission')}}</td>
-                    <td>{{ \App\CentralLogics\Helpers::format_currency(($order_transaction->admin_commission + $order_transaction->admin_expense) - $order_transaction->delivery_fee_comission -$order_transaction->additional_charge  - $order_transaction->order['flash_admin_discount_amount']) }}</td>
+                    <td>{{ \App\CentralLogics\Helpers::format_currency($order_transaction->net_non_delivery_commission - $order_transaction->additional_charge - $order_transaction->order['flash_admin_discount_amount']) }}</td>
                 </tr>
                 <tr>
                     <td>{{translate('messages.admin_net_income')}}</td>
-                    <td>{{ \App\CentralLogics\Helpers::format_currency($order_transaction->admin_commission-$order_transaction->order['flash_admin_discount_amount']) }}</td>
+                    <td>{{ \App\CentralLogics\Helpers::format_currency($order_transaction->net_admin_commission - $order_transaction->order['flash_admin_discount_amount']) }}</td>
                 </tr>
                 <tr>
                     <td>{{translate('messages.store_net_income')}}</td>

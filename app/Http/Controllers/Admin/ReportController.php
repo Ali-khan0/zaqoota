@@ -140,7 +140,7 @@ class ReportController extends Controller
                 return $query->whereBetween('created_at', [now()->startOfWeek()->format('Y-m-d H:i:s'), now()->endOfWeek()->format('Y-m-d H:i:s')]);
             })->orderBy('created_at', 'desc')
             ->notRefunded()
-            ->sum(DB::raw('admin_commission'));
+            ->sum(DB::raw(OrderTransaction::NET_ADMIN_COMMISSION_SQL));
 
         $admin_earned_delivery_commission = OrderTransaction::with('order', 'order.details', 'order.customer', 'order.store')->when(isset($zone), function ($query) use ($zone) {
             return $query->where('zone_id', $zone->id);
@@ -178,7 +178,7 @@ class ReportController extends Controller
             ->when(isset($filter) && $filter == 'this_week', function ($query) {
                 return $query->whereBetween('created_at', [now()->startOfWeek()->format('Y-m-d H:i:s'), now()->endOfWeek()->format('Y-m-d H:i:s')]);
             })->orderBy('created_at', 'desc')
-            ->sum('delivery_fee_comission');
+            ->sum(DB::raw(OrderTransaction::NET_DELIVERY_COMMISSION_SQL));
 
         $store_earned = OrderTransaction::with('order', 'order.details', 'order.customer', 'order.store')->when(isset($zone), function ($query) use ($zone) {
             return $query->where('zone_id', $zone->id);
@@ -351,7 +351,7 @@ class ReportController extends Controller
                     return $query->whereBetween('created_at', [now()->startOfWeek()->format('Y-m-d H:i:s'), now()->endOfWeek()->format('Y-m-d H:i:s')]);
                 })->orderBy('created_at', 'desc')
                 ->notRefunded()
-                ->sum(DB::raw('admin_commission -  delivery_fee_comission'));
+                ->sum(DB::raw(OrderTransaction::NET_NON_DELIVERY_COMMISSION_SQL));
             // ->sum(DB::raw('(admin_commission + admin_expense) - delivery_fee_comission'));
 
             $admin_earned_delivery_commission = OrderTransaction::with('order', 'order.details', 'order.customer', 'order.store')->when(isset($zone), function ($query) use ($zone) {
@@ -390,7 +390,7 @@ class ReportController extends Controller
                 ->when(isset($filter) && $filter == 'this_week', function ($query) {
                     return $query->whereBetween('created_at', [now()->startOfWeek()->format('Y-m-d H:i:s'), now()->endOfWeek()->format('Y-m-d H:i:s')]);
                 })->orderBy('created_at', 'desc')
-                ->sum('delivery_fee_comission');
+                ->sum(DB::raw(OrderTransaction::NET_DELIVERY_COMMISSION_SQL));
 
             $store_earned = OrderTransaction::with('order', 'order.details', 'order.customer', 'order.store')->when(isset($zone), function ($query) use ($zone) {
                 return $query->where('zone_id', $zone->id);
@@ -1607,6 +1607,7 @@ class ReportController extends Controller
             ->withSum('transaction', 'admin_commission')
             ->withSum('transaction', 'admin_expense')
             ->withSum('transaction', 'delivery_fee_comission')
+            ->withSum('transaction', 'fleet_manager_commission')
             ->withSum('transaction', 'store_amount')
             ->get();
 
@@ -1697,6 +1698,7 @@ class ReportController extends Controller
             ->withSum('transaction', 'admin_commission')
             ->withSum('transaction', 'admin_expense')
             ->withSum('transaction', 'delivery_fee_comission')
+            ->withSum('transaction', 'fleet_manager_commission')
             ->orderBy('schedule_at', 'desc')->paginate(config('default_pagination'));
 
         // order card values calculation
@@ -1729,6 +1731,7 @@ class ReportController extends Controller
             ->withSum('transaction', 'admin_commission')
             ->withSum('transaction', 'admin_expense')
             ->withSum('transaction', 'delivery_fee_comission')
+            ->withSum('transaction', 'fleet_manager_commission')
             ->orderBy('schedule_at', 'desc')->get();
 
         $total_order_amount = $orders_list->sum('order_amount');
@@ -2020,6 +2023,7 @@ class ReportController extends Controller
             ->withSum('transaction', 'admin_commission')
             ->withSum('transaction', 'admin_expense')
             ->withSum('transaction', 'delivery_fee_comission')
+            ->withSum('transaction', 'fleet_manager_commission')
             ->StoreOrder()->NotRefunded()
             ->orderBy('schedule_at', 'desc')
             ->limit(25)->get();
@@ -2079,6 +2083,7 @@ class ReportController extends Controller
             ->withSum('transaction', 'admin_commission')
             ->withSum('transaction', 'admin_expense')
             ->withSum('transaction', 'delivery_fee_comission')
+            ->withSum('transaction', 'fleet_manager_commission')
             ->orderBy('schedule_at', 'desc')->get();
 
             $orders_list = Order::with(['customer', 'store'])
@@ -2110,6 +2115,7 @@ class ReportController extends Controller
             ->withSum('transaction', 'admin_commission')
             ->withSum('transaction', 'admin_expense')
             ->withSum('transaction', 'delivery_fee_comission')
+            ->withSum('transaction', 'fleet_manager_commission')
             ->orderBy('schedule_at', 'desc')->get();
 
         $total_order_amount = $orders_list->sum('order_amount');
@@ -2489,6 +2495,7 @@ class ReportController extends Controller
             ->withSum('transaction', 'admin_commission')
             ->withSum('transaction', 'admin_expense')
             ->withSum('transaction', 'delivery_fee_comission')
+            ->withSum('transaction', 'fleet_manager_commission')
             ->orderBy('schedule_at', 'desc')->paginate(config('default_pagination'))->withQueryString();
 
         // order card values calculation
@@ -2603,6 +2610,7 @@ class ReportController extends Controller
             ->withSum('transaction', 'admin_commission')
             ->withSum('transaction', 'admin_expense')
             ->withSum('transaction', 'delivery_fee_comission')
+            ->withSum('transaction', 'fleet_manager_commission')
             ->orderBy('schedule_at', 'desc')->paginate(config('default_pagination'));
 
         return response()->json([
@@ -2671,6 +2679,7 @@ class ReportController extends Controller
             ->withSum('transaction', 'admin_commission')
             ->withSum('transaction', 'admin_expense')
             ->withSum('transaction', 'delivery_fee_comission')
+            ->withSum('transaction', 'fleet_manager_commission')
             ->orderBy('schedule_at', 'desc')->get();
 
         $data = [
