@@ -40,15 +40,15 @@
     --body-fonts: "Lato", sans-serif;
 }
 
-*[stroke="#039D55"] {
+*[stroke="#0d988d"] {
     stroke: var(--base-1);
 }
 
-*[fill="#039D55"] {
+*[fill="#0d988d"] {
     fill: var(--base-1);
 }
 
-*[stop-color="#039D55"] {
+*[stop-color="#0d988d"] {
     stop-color: var(--base-1);
 }
 
@@ -212,15 +212,15 @@
     stop-color: var(--base-11);
 }
 
-*[stroke="#039D55"] {
+*[stroke="#0d988d"] {
     stroke: var(--base-1);
 }
 
-*[fill="#039D55"] {
+*[fill="#0d988d"] {
     fill: var(--base-1);
 }
 
-*[stop-color="#039D55"] {
+*[stop-color="#0d988d"] {
     stop-color: var(--base-1);
 }
 
@@ -3467,7 +3467,7 @@ input::-webkit-inner-spin-button {
 }
 .__plan-item {
     --border-clr: #f2f5f9;
-    --success: #039d55;
+    --success: #0d988d;
     --primary-clr: #00868f;
     background: #ffffff;
     border: 0.721461px solid #f4f4f4;
@@ -3800,7 +3800,7 @@ input[type="text"] ~ .show-password .icon-1 {
         text-decoration: none;
         &:hover {
             box-shadow: 0px 4px 12px 0px rgba(0, 0, 0, 0.1);
-            color: #039d55;
+            color: #0d988d;
         }
     }
     max-width: 543px;

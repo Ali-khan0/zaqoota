@@ -6554,7 +6554,7 @@ strong {
 .auth-wrapper-right .auth-header a {
     font-weight: 700;
     text-decoration: underline;
-    color: #039d55;
+    color: #0d988d;
 }
 
 .auth-wrapper-right .auth-header .title {
@@ -6566,7 +6566,7 @@ strong {
 .auth-wrapper-right .auth-header .badge {
     font-weight: 400;
     font-size: 14px;
-    color: #039d55;
+    color: #0d988d;
     background-color: rgba(3, 157, 85, 0.1);
     border-radius: 15px;
     padding: 7px 13px 6px;
@@ -6582,7 +6582,7 @@ strong {
 }
 
 .auth-wrapper-right .btn--primary {
-    background: #039d55;
+    background: #0d988d;
     font-weight: 500;
 }
 
@@ -6750,7 +6750,7 @@ strong {
     }
 }
 .text--039D55 {
-    color: #039d55 !important;
+    color: #0d988d !important;
 }
 
 @media (min-width: 1650px) {
@@ -6768,7 +6768,7 @@ strong {
 
 .toggle-login .toggle-login-btn {
     cursor: pointer;
-    color: #039d55;
+    color: #0d988d;
 }
 
 a:hover .text--title {
@@ -9452,7 +9452,7 @@ body > .initial-38-1 {
 }
 
 .forget-pass-content .btn--primary {
-    background: #039d55;
+    background: #0d988d;
 }
 
 .forget-pass-content {
@@ -11733,7 +11733,7 @@ body > .initial-38-1 {
 }
 
 .color-card.color-2 .title {
-    color: #039d55;
+    color: #0d988d;
 }
 
 .color-card.color-3 {
@@ -12237,7 +12237,7 @@ label.position-relative {
 }
 
 .__bg-8 .title {
-    color: #039d55;
+    color: #0d988d;
 }
 
 .w--85px {
@@ -12497,7 +12497,7 @@ label.position-relative {
 }
 .__plan-item {
     --border-clr: #f2f5f9;
-    --success: #039d55;
+    --success: #0d988d;
     --primary-clr: #00868f;
     background: #ffffff;
     border: 0.721461px solid #f4f4f4;
@@ -12814,7 +12814,7 @@ label.position-relative {
 .free-trial .right .btn-light {
     padding: 12px 20px;
     box-shadow: 5px 5px 10px 0px rgba(0, 0, 0, 0.1);
-    color: #039d55;
+    color: #0d988d;
     font-size: 12px;
     font-weight: 600;
 }
@@ -12839,7 +12839,7 @@ label.position-relative {
 }
 
 .success-bg {
-    background: linear-gradient(0deg, #039d55 0%, #039d55 100%), #fff;
+    background: linear-gradient(0deg, #0d988d 0%, #0d988d 100%), #fff;
 }
 
 .danger-bg {
@@ -13479,7 +13479,7 @@ video#VisaChipCardVideo {
     right: 15px;
     border: 2px solid #fff;
     border-radius: 55px;
-    background: #039d55;
+    background: #0d988d;
     color: white;
     z-index: 9;
     display: flex;
@@ -13612,7 +13612,7 @@ video#VisaChipCardVideo {
     position: absolute;
     width: 126px;
     height: 115px;
-    background: #039d551a;
+    background: #0d988d1a;
     border-radius: 50%;
 }
 
@@ -16752,7 +16752,7 @@ img{
 }
 
 .highlight-gradient{
-    background: linear-gradient(93.56deg, rgba(3, 157, 85, 0.7) 14.14%, #039D55 72.19%), #FFFFFF;
+    background: linear-gradient(93.56deg, rgba(3, 157, 85, 0.7) 14.14%, #0d988d 72.19%), #FFFFFF;
     box-shadow: 0px 5px 20px rgba(88, 110, 125, 0.05);
 }
 
