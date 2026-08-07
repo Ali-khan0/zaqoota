@@ -50,7 +50,8 @@
                 <div class="row g-3">
                     <div class="col-md-6 col-lg-4">
                         <label class="input-label" for="invoice_number">{{ translate('Invoice Number') }}</label>
-                        <input type="text" name="invoice_number" id="invoice_number" class="form-control" value="{{ old('invoice_number') }}" maxlength="100" placeholder="{{ translate('Ex: ONB-2026-0001') }}" required>
+                        <input type="text" id="invoice_number" class="form-control" value="{{ $invoiceNumber }}" readonly>
+                        <small class="form-text text-muted">{{ translate('Generated automatically when the invoice is created.') }}</small>
                     </div>
                     <div class="col-md-6 col-lg-4">
                         <label class="input-label" for="invoice_type">{{ translate('Invoice Type') }}</label>
@@ -99,6 +100,9 @@
         const $store = $('#store_id');
 
         function setupStoreSearch() {
+            if ($store.hasClass('select2-hidden-accessible')) {
+                $store.select2('destroy');
+            }
             $store.prop('disabled', !$module.val()).empty().trigger('change');
             if (!$module.val()) return;
             $store.select2({
@@ -119,6 +123,10 @@
         }
 
         $module.on('change', setupStoreSearch);
+        $store.on('select2:select', function (event) {
+            const email = event.params.data.email || '';
+            $('#additional_emails').val(email);
+        });
         setupStoreSearch();
         $('#invoice_date').on('change', function () { $('#due_date').attr('min', this.value); }).trigger('change');
     });

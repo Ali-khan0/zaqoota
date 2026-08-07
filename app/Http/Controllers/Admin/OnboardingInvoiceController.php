@@ -14,6 +14,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\View;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -45,8 +46,9 @@ class OnboardingInvoiceController extends Controller
     public function create()
     {
         $modules = Module::query()->active()->notRental()->orderBy('module_name')->get(['id', 'module_name']);
+        $invoiceNumber = $this->nextInvoiceNumber();
 
-        return view('admin-views.onboarding-invoice.create', compact('modules'));
+        return view('admin-views.onboarding-invoice.create', compact('modules', 'invoiceNumber'));
     }
 
     public function stores(Request $request): JsonResponse
@@ -62,7 +64,6 @@ class OnboardingInvoiceController extends Controller
         $stores = Store::withoutGlobalScopes()->query()
             ->where('module_id', $module->id)
             ->where('status', 1)
-            ->where('active', 1)
             ->when($term !== '', fn ($query) => $query->where('name', 'like', "%{$term}%"))
             ->orderBy('name')
             ->paginate(20, ['id', 'name', 'email']);
@@ -71,6 +72,7 @@ class OnboardingInvoiceController extends Controller
             'results' => collect($stores->items())->map(fn (Store $store) => [
                 'id' => $store->id,
                 'text' => $store->name . ($store->email ? " ({$store->email})" : ''),
+                'email' => $store->email,
             ]),
             'pagination' => ['more' => $stores->hasMorePages()],
         ]);
@@ -80,15 +82,20 @@ class OnboardingInvoiceController extends Controller
     {
         $module = Module::query()->active()->notRental()->findOrFail($request->integer('module_id'));
         $store = Store::withoutGlobalScopes()->where('module_id', $module->id)->findOrFail($request->integer('store_id'));
-        $invoice = OnboardingInvoice::create([
-            ...$request->safe()->except('submit_action', 'additional_emails'),
-            'module_name' => $module->module_name,
-            'store_name' => $store->name,
-            'store_email' => $store->email,
-            'recipient_emails' => $request->recipientEmails(),
-            'store_address' => $store->address,
-            'created_by' => auth('admin')->id(),
-        ]);
+        $invoice = DB::transaction(function () use ($request, $module, $store) {
+            OnboardingInvoice::query()->lockForUpdate()->latest('id')->first();
+
+            return OnboardingInvoice::create([
+                ...$request->safe()->except('submit_action', 'additional_emails'),
+                'invoice_number' => $this->nextInvoiceNumber(),
+                'module_name' => $module->module_name,
+                'store_name' => $store->name,
+                'store_email' => $store->email,
+                'recipient_emails' => $request->recipientEmails(),
+                'store_address' => $store->address,
+                'created_by' => auth('admin')->id(),
+            ]);
+        });
 
         if ($request->input('submit_action') === 'create_and_send') {
             $this->sendInvoice($invoice);
@@ -176,5 +183,16 @@ class OnboardingInvoiceController extends Controller
         $business = BusinessSetting::whereIn('key', ['business_name', 'address', 'phone', 'email_address'])->pluck('value', 'key');
 
         return compact('invoice', 'business');
+    }
+
+    private function nextInvoiceNumber(): string
+    {
+        $highest = OnboardingInvoice::query()
+            ->where('invoice_number', 'like', 'ZQ-%')
+            ->pluck('invoice_number')
+            ->map(fn ($number) => preg_match('/^ZQ-(\d+)$/', $number, $matches) ? (int) $matches[1] : 0)
+            ->max() ?? 0;
+
+        return 'ZQ-' . str_pad((string) max(40, $highest + 1), 4, '0', STR_PAD_LEFT);
     }
 }

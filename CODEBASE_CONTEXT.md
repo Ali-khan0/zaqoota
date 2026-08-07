@@ -323,7 +323,9 @@ due date, amount, payment state, and email-delivery audit fields. The create
 form loads active modules directly but discovers active stores through the
 paginated `onboarding-invoices/stores` Select2 endpoint after a module is
 chosen, so it never loads all stores into one dropdown. Admins can create only
-or create-and-send, view the saved invoice, download its shared mPDF document,
+or create-and-send; invoice numbers are generated atomically from `ZQ-0040`.
+Selecting a store copies its saved email into the editable additional-recipient
+field. Admins can view the saved invoice, download its shared mPDF document,
 retry email delivery, and change paid/unpaid status. Dashboard summaries track
 the total invoiced, paid, and unpaid amounts plus collection progress. The
 first transition from

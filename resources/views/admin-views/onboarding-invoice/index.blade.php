@@ -3,7 +3,7 @@
 @section('title', translate('Onboarding Invoices'))
 
 @section('content')
-<div class="content container-fluid">
+<div class="content container-fluid onboarding-invoice-history">
     <div class="page-header d-flex justify-content-between align-items-center">
         <h1 class="page-header-title">
             <span class="page-header-icon"><i class="tio-receipt"></i></span>
@@ -24,7 +24,7 @@
         <div class="col-sm-6 col-xl-3"><div class="card h-100"><div class="card-body"><p class="text-muted mb-2">{{ translate('Collection Progress') }}</p>@php($collectionRate = (float) $totals->total_amount > 0 ? ((float) $totals->paid_amount / (float) $totals->total_amount) * 100 : 0)<h3 class="mb-1">{{ number_format($collectionRate, 1) }}%</h3><div class="progress" style="height:6px;"><div class="progress-bar bg-success" style="width:{{ min(100, $collectionRate) }}%"></div></div></div></div>
     </div>
 
-    <div class="card">
+    <div class="card w-100">
         <div class="card-header border-0">
             <form class="w-100">
                 <div class="row g-2">
@@ -54,7 +54,7 @@
             </form>
         </div>
         <div class="table-responsive">
-            <table class="table table-hover table-borderless table-thead-bordered table-nowrap table-align-middle card-table">
+            <table class="table table-hover table-borderless table-thead-bordered table-align-middle card-table w-100 onboarding-invoice-table">
                 <thead class="thead-light"><tr>
                     <th>{{ translate('Invoice') }}</th><th>{{ translate('Store') }}</th><th>{{ translate('Module') }}</th>
                     <th>{{ translate('Date / Due') }}</th><th>{{ translate('Amount') }}</th><th>{{ translate('Payment') }}</th>
@@ -85,3 +85,12 @@
     </div>
 </div>
 @endsection
+
+@push('css_or_js')
+<style>
+    .onboarding-invoice-history { width: 100%; max-width: none; }
+    .onboarding-invoice-history .card { min-width: 0; }
+    .onboarding-invoice-table { min-width: 1050px; }
+    .onboarding-invoice-table td { white-space: normal; }
+</style>
+@endpush

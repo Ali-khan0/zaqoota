@@ -20,7 +20,6 @@ class OnboardingInvoiceStoreRequest extends FormRequest
         return [
             'module_id' => ['required', Rule::exists('modules', 'id')->where(fn ($query) => $query->where('status', 1)->where('module_type', '!=', 'rental'))],
             'store_id' => ['required', 'integer', 'exists:stores,id'],
-            'invoice_number' => ['required', 'string', 'max:100', 'unique:onboarding_invoices,invoice_number'],
             'invoice_type' => ['required', Rule::in(['onboarding', 'other'])],
             'invoice_date' => ['required', 'date'],
             'due_date' => ['required', 'date', 'after_or_equal:invoice_date'],
