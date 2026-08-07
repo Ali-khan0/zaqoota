@@ -368,9 +368,10 @@ Order commission reporting convention:
   `EmailTemplate` by `button_enabled` and render only when a valid dynamic or
   configured URL exists; URLs are never printed as email text. Empty
   generated-link placeholders, the legacy per-template icon, and fallback
-  icon/banner assets must not be sent. The teal header uses the configured
-  business-logo URL with a white presentation, and the compact footer retains
-  enabled policy, contact, social, footer-text, and copyright settings.
+  icon/banner assets must not be sent. The teal header renders `ZAQOOTA` as
+  white text rather than a remote logo or CSS-filtered image, ensuring reliable
+  rendering across email clients. The compact footer retains enabled policy,
+  contact, social, footer-text, and copyright settings.
 - Core template titles and bodies are branded for Zaqoota by
   `2026_08_07_000001_brand_email_templates_for_zaqoota.php`. The migration
   covers current and optional Admin, Store, Delivery Man, and Customer events,

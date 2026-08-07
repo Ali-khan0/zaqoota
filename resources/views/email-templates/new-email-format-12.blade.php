@@ -8,10 +8,6 @@
     $candidateUrl = $dynamicUrl !== '' ? $dynamicUrl : $configuredUrl;
     $actionUrl = filter_var($candidateUrl, FILTER_VALIDATE_URL) ? $candidateUrl : '';
     $buttonName = trim((string) ($data?->button_name ?? '')) ?: translate('View_details');
-    $businessLogo = \App\Models\BusinessSetting::where('key', 'logo')->first();
-    $businessLogoUrl = $businessLogo?->value
-        ? \App\CentralLogics\Helpers::get_full_url('business', $businessLogo->value, $businessLogo?->storage[0]?->value ?? 'public', 'favicon')
-        : '';
     $landingData = \App\Models\DataSetting::where('type', 'admin_landing_page')
         ->whereIn('key', ['shipping_policy_status', 'refund_policy_status', 'cancellation_policy_status'])
         ->pluck('value', 'key')
@@ -31,11 +27,7 @@
             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;background:#ffffff;border:1px solid rgba(13,152,141,0.16);border-radius:4px;box-shadow:0 3px 10px rgba(24,45,58,0.06);">
                 <tr>
                     <td style="padding:25px 40px;background:#0d988d;color:#ffffff;text-align:center;border-radius:3px 3px 0 0;">
-                        @if ($businessLogoUrl !== '')
-                            <img src="{{ $businessLogoUrl }}" alt="{{ $company_name }}" width="170" style="display:inline-block;max-width:170px;max-height:58px;width:auto;height:auto;border:0;filter:brightness(0) invert(1);">
-                        @else
-                            <strong style="font-size:26px;color:#ffffff;">{{ strtoupper($company_name) }}</strong>
-                        @endif
+                        <strong style="display:inline-block;color:#ffffff;font-family:Verdana,Geneva,sans-serif;font-size:26px;line-height:1.2;font-weight:700;letter-spacing:0;">ZAQOOTA</strong>
                     </td>
                 </tr>
                 <tr>
