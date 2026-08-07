@@ -61,18 +61,19 @@ class OnboardingInvoiceController extends Controller
 
         $module = Module::query()->active()->notRental()->findOrFail($validated['module_id']);
         $term = trim((string) ($validated['q'] ?? ''));
-        $stores = Store::withoutGlobalScopes()->query()
+        $stores = Store::withoutGlobalScopes()
+            ->with('vendor:id,f_name,l_name,email')
             ->where('module_id', $module->id)
-            ->where('status', 1)
             ->when($term !== '', fn ($query) => $query->where('name', 'like', "%{$term}%"))
             ->orderBy('name')
-            ->paginate(20, ['id', 'name', 'email']);
+            ->paginate(20, ['id', 'vendor_id', 'name', 'email']);
 
         return response()->json([
             'results' => collect($stores->items())->map(fn (Store $store) => [
                 'id' => $store->id,
                 'text' => $store->name . ($store->email ? " ({$store->email})" : ''),
                 'email' => $store->email,
+                'owner_name' => trim(($store->vendor?->f_name ?? '') . ' ' . ($store->vendor?->l_name ?? '')),
             ]),
             'pagination' => ['more' => $stores->hasMorePages()],
         ]);
@@ -81,7 +82,7 @@ class OnboardingInvoiceController extends Controller
     public function store(OnboardingInvoiceStoreRequest $request): RedirectResponse
     {
         $module = Module::query()->active()->notRental()->findOrFail($request->integer('module_id'));
-        $store = Store::withoutGlobalScopes()->where('module_id', $module->id)->findOrFail($request->integer('store_id'));
+        $store = Store::withoutGlobalScopes()->with('vendor')->where('module_id', $module->id)->findOrFail($request->integer('store_id'));
         $invoice = DB::transaction(function () use ($request, $module, $store) {
             OnboardingInvoice::query()->lockForUpdate()->latest('id')->first();
 
@@ -90,10 +91,12 @@ class OnboardingInvoiceController extends Controller
                 'invoice_number' => $this->nextInvoiceNumber(),
                 'module_name' => $module->module_name,
                 'store_name' => $store->name,
+                'store_owner_name' => trim(($store->vendor?->f_name ?? '') . ' ' . ($store->vendor?->l_name ?? '')) ?: null,
                 'store_email' => $store->email,
                 'recipient_emails' => $request->recipientEmails(),
                 'store_address' => $store->address,
                 'created_by' => auth('admin')->id(),
+                'generated_by_name' => trim((auth('admin')->user()?->f_name ?? '') . ' ' . (auth('admin')->user()?->l_name ?? '')) ?: auth('admin')->user()?->email,
             ]);
         });
 

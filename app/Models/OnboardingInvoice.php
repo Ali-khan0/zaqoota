@@ -17,9 +17,9 @@ class OnboardingInvoice extends Model
 
     protected $fillable = [
         'module_id', 'store_id', 'invoice_number', 'invoice_type', 'invoice_date',
-        'due_date', 'amount', 'module_name', 'store_name', 'store_email', 'recipient_emails',
+        'due_date', 'amount', 'module_name', 'store_name', 'store_owner_name', 'store_email', 'recipient_emails',
         'store_address', 'payment_status', 'send_status', 'sent_at', 'paid_at',
-        'last_send_error', 'created_by',
+        'last_send_error', 'created_by', 'generated_by_name',
     ];
 
     protected $casts = [

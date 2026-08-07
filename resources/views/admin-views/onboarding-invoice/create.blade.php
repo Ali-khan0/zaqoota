@@ -38,7 +38,7 @@
                         <select name="store_id" id="store_id" class="form-control" data-placeholder="{{ translate('Search store by name') }}" required disabled>
                             @if(old('store_id'))<option value="{{ old('store_id') }}" selected>{{ translate('Previously selected store') }}</option>@endif
                         </select>
-                        <small class="form-text text-muted">{{ translate('Start typing to find an active store in the selected module.') }}</small>
+                        <small class="form-text text-muted">{{ translate('Start typing to find a store in the selected module.') }}</small>
                     </div>
                 </div>
             </div>
