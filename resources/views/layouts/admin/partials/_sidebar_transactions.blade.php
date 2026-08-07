@@ -214,6 +214,14 @@
                             </a>
                         </li>
 
+                        <li class="navbar-vertical-aside-has-menu {{ Request::is('admin/transactions/onboarding-invoices*') ? 'active' : '' }}">
+                            <a class="nav-link" href="{{ route('admin.transactions.onboarding-invoices.index') }}"
+                                title="{{ translate('Onboarding Invoices') }}">
+                                <span class="tio-receipt nav-icon"></span>
+                                <span class="text-truncate">{{ translate('Onboarding Invoices') }}</span>
+                            </a>
+                        </li>
+
                         <li
                             class="navbar-vertical-aside-has-menu {{ Request::is('admin/transactions/report/disbursement-report') ? 'active' : '' }}">
                             <a class="nav-link " href="{{ route('admin.transactions.report.disbursement_report') }}"

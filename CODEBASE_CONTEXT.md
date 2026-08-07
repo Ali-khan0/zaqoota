@@ -313,6 +313,25 @@ A monetary change must preserve decimal/currency handling and ledger symmetry.
 Update transaction creation, balance mutation, reports, exports, invoices, and
 refund/reversal paths together.
 
+Admin-created onboarding invoices are a standalone receivables workflow under
+`/admin/transactions/onboarding-invoices`; they do not mutate order,
+subscription, wallet, commission, expense, or disbursement ledgers.
+`OnboardingInvoice` stores the selected active non-Rental module and store IDs
+plus immutable module/store/email/address snapshots, optional additional
+recipient emails, invoice number/type/date,
+due date, amount, payment state, and email-delivery audit fields. The create
+form loads active modules directly but discovers active stores through the
+paginated `onboarding-invoices/stores` Select2 endpoint after a module is
+chosen, so it never loads all stores into one dropdown. Admins can create only
+or create-and-send, view the saved invoice, download its shared mPDF document,
+retry email delivery, and change paid/unpaid status. Dashboard summaries track
+the total invoiced, paid, and unpaid amounts plus collection progress. The
+first transition from
+unpaid to paid automatically emails a paid PDF copy to the snapshotted store
+email. Mail/PDF generation is implemented by `OnboardingInvoiceMail` and
+`resources/views/{email-templates,admin-views/onboarding-invoice}`; authorized
+signature support is intentionally deferred.
+
 Order commission reporting convention:
 
 - `OrderTransaction.admin_commission` is the authoritative gross admin result

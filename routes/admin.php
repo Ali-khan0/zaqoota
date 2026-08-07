@@ -748,6 +748,16 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
             Route::get('order/generate-invoice/{id}', 'OrderController@generate_invoice')->name('order.generate-invoice');
             Route::get('customer/view/{user_id}', 'CustomerController@view')->name('customer.view');
             Route::get('item/view/{id}', 'ItemController@view')->name('item.view');
+            Route::group(['prefix' => 'onboarding-invoices', 'as' => 'onboarding-invoices.', 'middleware' => ['module:report']], function () {
+                Route::get('/', 'OnboardingInvoiceController@index')->name('index');
+                Route::get('create', 'OnboardingInvoiceController@create')->name('create');
+                Route::get('stores', 'OnboardingInvoiceController@stores')->name('stores');
+                Route::post('/', 'OnboardingInvoiceController@store')->name('store');
+                Route::get('{onboarding_invoice}', 'OnboardingInvoiceController@show')->name('show');
+                Route::get('{onboarding_invoice}/download', 'OnboardingInvoiceController@download')->name('download');
+                Route::post('{onboarding_invoice}/send', 'OnboardingInvoiceController@send')->name('send');
+                Route::patch('{onboarding_invoice}/payment-status', 'OnboardingInvoiceController@paymentStatus')->name('payment-status');
+            });
             Route::group(['prefix' => 'report', 'as' => 'report.', 'middleware' => ['module:report']], function () {
                 Route::get('order', 'ReportController@order_index')->name('order');
                 Route::get('day-wise-report', 'ReportController@day_wise_report')->name('day-wise-report');
