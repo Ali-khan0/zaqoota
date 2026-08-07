@@ -28,6 +28,13 @@ $countryCode= strtolower($country?$country:'auto');
     <link rel="stylesheet" href="{{asset('public/assets/admin/css/bootstrap-tour-standalone.min.css')}}">
     <link rel="stylesheet" href="{{asset('public/assets/admin/css/emogi-area.css')}}">
     <link rel="stylesheet" href="{{asset('public/assets/admin/css/style.css')}}">
+    <style>
+        :root {
+            --primary-clr: #0d988d;
+            --primary: #0d988d;
+            --dark-clr: #087a72;
+        }
+    </style>
 
     <link rel="stylesheet" href="{{asset('public/assets/admin/intltelinput/css/intlTelInput.css')}}">
     <link rel="stylesheet" href="{{asset('public/assets/admin/css/upload-single-image.css')}}">

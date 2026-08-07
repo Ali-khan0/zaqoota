@@ -24,6 +24,15 @@
     <link rel="stylesheet" href="{{asset('public/assets/admin/css/bootstrap.min.css')}}">
     <link rel="stylesheet" href="{{asset('public/assets/admin/css/theme.minc619.css?v=1.0')}}">
     <link rel="stylesheet" href="{{asset('public/assets/admin/css/style.css')}}">
+    @if (($role ?? null) === 'admin')
+        <style>
+            :root {
+                --primary-clr: #0d988d;
+                --primary: #0d988d;
+                --dark-clr: #087a72;
+            }
+        </style>
+    @endif
     <link rel="stylesheet" href="{{asset('public/assets/admin')}}/css/toastr.css">
 </head>
 
