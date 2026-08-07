@@ -189,6 +189,7 @@
 
                                     </div>
                                     <br>
+                                    @include('admin-views.business-settings.email-format-setting.partials.action-button-fields')
                                     <div>
                                         <h5 class="card-title mb-3">
                                             <img src="{{asset('public/assets/admin/img/pointer.png')}}" class="mr-2" alt="">

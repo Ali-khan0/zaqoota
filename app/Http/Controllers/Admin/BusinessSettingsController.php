@@ -7090,64 +7090,26 @@ class BusinessSettingsController extends Controller
             return back();
         }
 
-        $request->validate([
+        $validationRules = [
             'title.*' => 'nullable|max:255',
             'button_name.*' => 'nullable|max:255',
             'footer_text.*' => 'nullable|max:255',
             'copyright_text.*' => 'nullable|max:255',
-        ], [
+        ];
+
+        if ($type === 'store' && in_array($tab, ['registration', 'approve'], true)) {
+            $validationRules['button_name.0'] = 'required_if:button_enabled,1|max:255';
+            $validationRules['button_url'] = 'required_if:button_enabled,1|nullable|url|max:2048';
+        }
+
+        $request->validate($validationRules, [
             'title.*.max' => 'The title may not be greater than 255 characters.',
             'button_name.*.max' => 'The button_name may not be greater than 255 characters.',
             'footer_text.*.max' => 'The footer_text may not be greater than 255 characters.',
             'copyright_text.*.max' => 'The copyright_text may not be greater than 255 characters.',
         ]);
 
-        $email_types = [
-            'new-order' => 'new_order',
-            'forget-password' => 'forget_password',
-            'store-registration' => 'store_registration',
-            'dm-registration' => 'dm_registration',
-            'withdraw-request' => 'withdraw_request',
-            'dm-withdraw-request' => 'dm_withdraw_request',
-            'withdraw-approve' => 'withdraw_approve',
-            'withdraw-deny' => 'withdraw_deny',
-            'campaign-request' => 'campaign_request',
-            'campaign-approve' => 'campaign_approve',
-            'campaign-deny' => 'campaign_deny',
-            'refund-request' => 'refund_request',
-            'refund-request-deny' => 'refund_request_deny',
-            'add-fund' => 'add_fund',
-            'refund-order' => 'refund_order',
-            'product-deny' => 'product_deny',
-            'product-approved' => 'product_approved',
-            'offline-payment-deny' => 'offline_payment_deny',
-            'offline-payment-approve' => 'offline_payment_approve',
-            'pos-registration' => 'pos_registration',
-            'registration-otp' => 'registration_otp',
-            'login-otp' => 'login_otp',
-            'order-verification' => 'order_verification',
-            'cash-collect' => 'cash_collect',
-            'subscription-successful' => 'subscription-successful',
-            'subscription-renew' => 'subscription-renew',
-            'subscription-shift' => 'subscription-shift',
-            'subscription-cancel' => 'subscription-cancel',
-            'subscription-deadline' => 'subscription-deadline',
-            'subscription-plan_upadte' => 'subscription-plan_upadte',
-            'new-advertisement' => 'new_advertisement',
-            'update-advertisement' => 'update_advertisement',
-            'advertisement-pause' => 'advertisement_pause',
-            'advertisement-approved' => 'advertisement_approved',
-            'advertisement-create' => 'advertisement_create',
-            'advertisement-deny' => 'advertisement_deny',
-            'advertisement-resume' => 'advertisement_resume',
-            'unsuspend' => 'unsuspend',
-            'suspend' => 'suspend',
-            'approve' => 'approve',
-            'deny' => 'deny',
-            'registration' => 'registration',
-        ];
-
-        $email_type = $email_types[$tab] ?? null;
+        $email_type = $this->resolveEmailTemplateType($tab);
 
         if (!$email_type) {
             Toastr::error(translate('messages.not_found'));
@@ -7202,6 +7164,108 @@ class BusinessSettingsController extends Controller
         Toastr::success(translate('messages.template_added_successfully'));
 
         return back();
+    }
+
+    public function send_email_template_test(Request $request, string $type, string $tab)
+    {
+        if (env('APP_MODE') === 'demo') {
+            return response()->json(['message' => translate('messages.update_option_is_disable_for_demo')], 403);
+        }
+
+        $validated = $request->validate([
+            'email' => 'required|email:rfc|max:255',
+        ]);
+
+        if (!in_array($type, ['admin', 'store', 'dm', 'user'], true)) {
+            return response()->json(['message' => translate('messages.not_found')], 404);
+        }
+
+        $emailType = $this->resolveEmailTemplateType($tab);
+        $template = $emailType ? EmailTemplate::where('type', $type)->where('email_type', $emailType)->first() : null;
+
+        if (!$template) {
+            return response()->json(['message' => translate('messages.not_found')], 404);
+        }
+
+        $title = Helpers::text_variable_data_format($template->title, 'Sample Customer', 'Sample Store', 'Sample Rider', 'TXN-1001', '1001', 'AD-1001');
+        $body = Helpers::text_variable_data_format($template->body, 'Sample Customer', 'Sample Store', 'Sample Rider', 'TXN-1001', '1001', 'AD-1001');
+        $footerText = Helpers::text_variable_data_format($template->footer_text, 'Sample Customer', 'Sample Store', 'Sample Rider', 'TXN-1001', '1001', 'AD-1001');
+        $copyrightText = Helpers::text_variable_data_format($template->copyright_text, 'Sample Customer', 'Sample Store', 'Sample Rider', 'TXN-1001', '1001', 'AD-1001');
+        $companyName = BusinessSetting::where('key', 'business_name')->value('value') ?? 'Zaqoota';
+        $otpTypes = ['registration_otp', 'login_otp', 'order_verification', 'forget_password'];
+
+        try {
+            Mail::send('email-templates.new-email-format-12', [
+                'company_name' => $companyName,
+                'data' => $template,
+                'title' => $title,
+                'body' => $body,
+                'footer_text' => $footerText,
+                'copyright_text' => $copyrightText,
+                'url' => $template->button_url,
+                'code' => in_array($emailType, $otpTypes, true) && $type !== 'admin' ? '123456' : null,
+            ], function ($message) use ($validated, $title) {
+                $message->to($validated['email'])->subject('[TEST] '.$title);
+            });
+        } catch (\Throwable $exception) {
+            Log::error('Email template test failed', [
+                'type' => $type,
+                'email_type' => $emailType,
+                'error' => $exception->getMessage(),
+            ]);
+
+            return response()->json(['message' => translate('messages.Failed_to_send_mail')], 422);
+        }
+
+        return response()->json(['message' => translate('messages.test_mail_sent_successfully')]);
+    }
+
+    private function resolveEmailTemplateType(string $tab): ?string
+    {
+        return [
+            'new-order' => 'new_order',
+            'forget-password' => 'forget_password',
+            'store-registration' => 'store_registration',
+            'dm-registration' => 'dm_registration',
+            'withdraw-request' => 'withdraw_request',
+            'dm-withdraw-request' => 'dm_withdraw_request',
+            'withdraw-approve' => 'withdraw_approve',
+            'withdraw-deny' => 'withdraw_deny',
+            'campaign-request' => 'campaign_request',
+            'campaign-approve' => 'campaign_approve',
+            'campaign-deny' => 'campaign_deny',
+            'refund-request' => 'refund_request',
+            'refund-request-deny' => 'refund_request_deny',
+            'add-fund' => 'add_fund',
+            'refund-order' => 'refund_order',
+            'product-deny' => 'product_deny',
+            'product-approved' => 'product_approved',
+            'offline-payment-deny' => 'offline_payment_deny',
+            'offline-payment-approve' => 'offline_payment_approve',
+            'pos-registration' => 'pos_registration',
+            'registration-otp' => 'registration_otp',
+            'login-otp' => 'login_otp',
+            'order-verification' => 'order_verification',
+            'cash-collect' => 'cash_collect',
+            'subscription-successful' => 'subscription-successful',
+            'subscription-renew' => 'subscription-renew',
+            'subscription-shift' => 'subscription-shift',
+            'subscription-cancel' => 'subscription-cancel',
+            'subscription-deadline' => 'subscription-deadline',
+            'subscription-plan_upadte' => 'subscription-plan_upadte',
+            'new-advertisement' => 'new_advertisement',
+            'update-advertisement' => 'update_advertisement',
+            'advertisement-pause' => 'advertisement_pause',
+            'advertisement-approved' => 'advertisement_approved',
+            'advertisement-create' => 'advertisement_create',
+            'advertisement-deny' => 'advertisement_deny',
+            'advertisement-resume' => 'advertisement_resume',
+            'unsuspend' => 'unsuspend',
+            'suspend' => 'suspend',
+            'approve' => 'approve',
+            'deny' => 'deny',
+            'registration' => 'registration',
+        ][$tab] ?? null;
     }
 
     public function update_email_status($type, $tab, $status)

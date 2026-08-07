@@ -24,11 +24,9 @@
             @if ($data?->image)
                 <img id="bannerViewer" src="{{ $data->image_full_url }}" alt="" style="display:block;width:100%;height:auto;margin:18px 0;">
             @endif
-            @if ($previewButtonEnabled)
-                <div id="action-button-preview" style="margin:22px 0;">
-                    <span id="mail-button" style="display:inline-block;padding:11px 18px;background:#149b94;color:#fff;font-weight:700;border-radius:4px;">{{ $data?->button_name ?: translate('View_details') }}</span>
-                </div>
-            @endif
+            <div id="action-button-preview" style="margin:22px 0;{{ $previewButtonEnabled ? '' : 'display:none;' }}">
+                <span id="mail-button" style="display:inline-block;padding:11px 18px;background:#149b94;color:#fff;font-weight:700;border-radius:4px;">{{ $data?->button_name ?: translate('View_details') }}</span>
+            </div>
             <div style="margin-top:24px;padding-top:18px;border-top:1px solid #d7e2e7;color:#65758d;">
                 <div id="mail-footer">{{ $data?->footer_text ?? translate('Please_contact_us_for_any_queries,_we’re_always_happy_to_help.') }}</div>
             </div>

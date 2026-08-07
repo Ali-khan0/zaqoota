@@ -119,3 +119,18 @@
   1 => 824,
   2 => 'SQLSTATE[HY000] [2002] Unknown error while connecting (Connection: mysql, SQL: select * from `business_settings` where (`key` = mail_config) limit 1)',
 )  
+[2026-08-07 20:08:32] local.INFO: array (
+  0 => '/home/ali/Documents/xaqoota/vps_backup_before_the_migration/zaqoota/vendor/laravel/framework/src/Illuminate/Database/Connection.php',
+  1 => 824,
+  2 => 'SQLSTATE[HY000] [2002] Unknown error while connecting (Connection: mysql, SQL: select * from `business_settings` where (`key` = mail_config) limit 1)',
+)  
+[2026-08-07 20:08:33] local.INFO: array (
+  0 => '/home/ali/Documents/xaqoota/vps_backup_before_the_migration/zaqoota/vendor/laravel/framework/src/Illuminate/Database/Connection.php',
+  1 => 824,
+  2 => 'SQLSTATE[HY000] [2002] Unknown error while connecting (Connection: mysql, SQL: select * from `business_settings` where (`key` = mail_config) limit 1)',
+)  
+[2026-08-07 20:13:19] local.INFO: array (
+  0 => '/home/ali/Documents/xaqoota/vps_backup_before_the_migration/zaqoota/vendor/laravel/framework/src/Illuminate/Database/Connection.php',
+  1 => 824,
+  2 => 'SQLSTATE[HY000] [2002] Unknown error while connecting (Connection: mysql, SQL: select * from `business_settings` where (`key` = mail_config) limit 1)',
+)  

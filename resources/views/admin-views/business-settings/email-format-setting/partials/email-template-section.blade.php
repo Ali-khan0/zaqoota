@@ -21,4 +21,20 @@
             </label>
         </div>
     </div>
+    <div class="card mt-3 js-email-template-test-panel"
+        data-url="{{ route('admin.business-settings.email-setup.send-test', ['type' => request()->route('type'), 'tab' => request()->route('tab')]) }}">
+        <div class="card-body">
+            <h5 class="mb-3">{{ translate('Send Test Email') }}</h5>
+            <div class="input-group">
+                <input type="email" class="form-control js-template-test-email"
+                    placeholder="name@example.com" aria-label="{{ translate('Test Email Address') }}">
+                <div class="input-group-append">
+                    <button type="button" class="btn btn--primary js-send-template-test">
+                        <i class="tio-email-outlined mr-1"></i>{{ translate('Send Test') }}
+                    </button>
+                </div>
+            </div>
+            <div class="small mt-2 d-none js-template-test-feedback" role="status"></div>
+        </div>
+    </div>
 @endif

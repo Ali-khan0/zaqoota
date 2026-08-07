@@ -417,6 +417,9 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
 
             Route::get('email-setup/{type}/{tab?}', 'BusinessSettingsController@email_index')->name('email-setup');
             Route::post('email-setup/{type}/{tab?}', 'BusinessSettingsController@update_email_index');
+            Route::post('email-setup/{type}/{tab}/send-test', 'BusinessSettingsController@send_email_template_test')
+                ->middleware('throttle:10,1')
+                ->name('email-setup.send-test');
             Route::get('email-status/{type}/{tab}/{status}', 'BusinessSettingsController@update_email_status')->name('email-status');
 
             Route::get('toggle-settings/{key}/{value}', 'BusinessSettingsController@toggle_settings')->name('toggle-settings');

@@ -383,6 +383,22 @@ Order commission reporting convention:
   renders the real `$code`. Store-approval mail uses the optional action button
   labeled `Sign in to Partner Panel` with
   `https://zaqoota.com/login/vendor`; do not restore the legacy 6amMart URL.
+  Store registration, approval, and denial dispatchers must pass the canonical
+  `Store::name` into `{storeName}`, never the vendor owner's first/last name.
+  The Registration and Approval editor pages expose button label and absolute
+  URL fields whenever their action-button toggle is enabled; the preview button
+  remains in the DOM for live toggling, and delivered buttons render after all
+  body content and immediately before the footer. Migration
+  `2026_08_08_000001_fix_store_registration_email_content.php` removes the
+  legacy approval instructions and obsolete `body_2` content from deployed
+  databases.
+  Every core Admin, Store, Delivery Man, and Customer template editor includes
+  a shared test-email panel below its preview. It posts to the authenticated,
+  rate-limited `admin.business-settings.email-setup.send-test` route, sends the
+  currently saved template with safe sample placeholder values (and `123456`
+  for OTP templates), prefixes the subject with `[TEST]`, and returns inline
+  success/failure feedback. The SMTP connection tester under Third Party
+  settings remains separate and does not render a selected template.
 - Runtime configuration: `config/*.php` + `.env`/`.env.example`.
 - Shared access: `app/Utils/settings.php`, `app/CentralLogics/Helpers.php`.
 
