@@ -42,14 +42,14 @@
     <div class="auth-wrapper">
         <div class="auth-wrapper-left">
             <div class="auth-left-cont">
-                @php($store_logo = \App\Models\BusinessSetting::where(['key' => 'logo'])->first())
-                <img class="onerror-image"  data-onerror-image="{{asset('/public/assets/admin/img/favicon.png')}}"
-                src="{{\App\CentralLogics\Helpers::get_full_url('business', $store_logo?->value?? '', $store_logo?->storage[0]?->value ?? 'public','favicon')}}"  alt="public/img">
-                <h2 class="title">
+                {{-- @php($store_logo = \App\Models\BusinessSetting::where(['key' => 'logo'])->first())
+                <img class="onerror-image" data-onerror-image="{{ asset('/public/assets/admin/img/favicon.png') }}"
+                    src="{{ \App\CentralLogics\Helpers::get_full_url('business', $store_logo?->value ?? '', $store_logo?->storage[0]?->value ?? 'public', 'favicon') }}" alt="public/img"> --}}
+                {{-- <h2 class="title">
                     <span class="auth-slogan-kicker">{{ translate('Your') }}</span>
                     <span class="auth-slogan-brand">{{ translate('All Service') }}</span>
                     <strong class="auth-slogan-tagline">{{ translate('in one field') }}</strong>
-                </h2>
+                </h2> --}}
             </div>
         </div>
         <div class="auth-wrapper-right">
