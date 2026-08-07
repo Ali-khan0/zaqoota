@@ -378,7 +378,11 @@ Order commission reporting convention:
   `Helpers::text_variable_data_format`: `{userName}`, `{storeName}`,
   `{deliveryManName}`, `{orderId}`, `{transactionId}`, and where applicable
   `{advertisementId}`. OTP values remain separate mail view data (`$code`) and
-  must not be hard-coded into editable body copy.
+  must not be hard-coded into editable body copy. The Admin preview displays
+  `123456` only as a visual sample for actual OTP template types; sent mail
+  renders the real `$code`. Store-approval mail uses the optional action button
+  labeled `Sign in to Partner Panel` with
+  `https://zaqoota.com/login/vendor`; do not restore the legacy 6amMart URL.
 - Runtime configuration: `config/*.php` + `.env`/`.env.example`.
 - Shared access: `app/Utils/settings.php`, `app/CentralLogics/Helpers.php`.
 

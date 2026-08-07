@@ -1,4 +1,5 @@
 @php($previewButtonEnabled = (bool) ($data?->button_enabled ?? false))
+@php($previewShowsOtp = in_array(($data?->type ?? '').':'.($data?->email_type ?? ''), ['user:registration_otp', 'user:login_otp', 'user:order_verification', 'user:forget_password', 'dm:forget_password'], true))
 @php($previewLogo = \App\Models\BusinessSetting::where('key', 'logo')->first())
 @php($previewLogoUrl = $previewLogo?->value ? \App\CentralLogics\Helpers::get_full_url('business', $previewLogo->value, $previewLogo?->storage[0]?->value ?? 'public', 'favicon') : '')
 <table role="presentation" style="width:100%;max-width:600px;margin:0 auto;border:1px solid rgba(13,152,141,0.16);border-radius:4px;background:#fff;color:#4a5568;font-family:Verdana,Geneva,sans-serif;box-shadow:0 3px 10px rgba(24,45,58,0.06);">
@@ -15,6 +16,11 @@
         <td style="padding:40px;text-align:start;">
             <h2 id="mail-title" style="margin:0 0 14px;color:#222;font-size:19px;">{{ $data?->title ?? translate('Main_Title_or_Subject_of_the_Mail') }}</h2>
             <div id="mail-body" style="margin-bottom:18px;">{!! $data?->body ?? translate('Mail Body Message') !!}</div>
+            @if ($previewShowsOtp)
+                <div style="margin:20px 0;padding:16px;border:1px solid rgba(13,152,141,0.18);background:#f7fafb;color:#222;text-align:center;font-size:26px;font-weight:700;letter-spacing:4px;">
+                    123456
+                </div>
+            @endif
             @if ($data?->image)
                 <img id="bannerViewer" src="{{ $data->image_full_url }}" alt="" style="display:block;width:100%;height:auto;margin:18px 0;">
             @endif
