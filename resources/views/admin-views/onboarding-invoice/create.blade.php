@@ -20,6 +20,7 @@
 
     <form action="{{ route('admin.transactions.onboarding-invoices.store') }}" method="post">
         @csrf
+        <input type="hidden" name="submit_action" id="submit_action" value="create">
         <div class="card mb-3">
             <div class="card-header"><h4 class="card-title mb-0">{{ translate('Store Details') }}</h4></div>
             <div class="card-body">
@@ -80,10 +81,10 @@
                 </div>
             </div>
             <div class="card-footer d-flex flex-wrap justify-content-end gap-2">
-                <button type="submit" name="submit_action" value="create" class="btn btn-outline-primary">
+                <button type="submit" class="btn btn-outline-primary" data-submit-action="create">
                     <i class="tio-add-circle mr-1"></i>{{ translate('Create Invoice') }}
                 </button>
-                <button type="submit" name="submit_action" value="create_and_send" class="btn btn-primary">
+                <button type="submit" class="btn btn-primary" data-submit-action="create_and_send">
                     <i class="tio-send mr-1"></i>{{ translate('Create and Send to Store') }}
                 </button>
             </div>
@@ -123,6 +124,9 @@
         }
 
         $module.on('change', setupStoreSearch);
+        $('[data-submit-action]').on('click', function () {
+            $('#submit_action').val($(this).data('submit-action'));
+        });
         $store.on('select2:select', function (event) {
             const email = event.params.data.email || '';
             $('#additional_emails').val(email);

@@ -10,6 +10,13 @@ use Illuminate\Validation\Validator;
 
 class OnboardingInvoiceStoreRequest extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        if (!$this->filled('submit_action')) {
+            $this->merge(['submit_action' => 'create']);
+        }
+    }
+
     public function authorize(): bool
     {
         return true;
