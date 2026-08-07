@@ -28,9 +28,9 @@
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
     <tr>
         <td align="center" style="padding:30px 15px;">
-            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;background:#ffffff;border:1px solid #e1e5ea;border-radius:8px;box-shadow:0 4px 6px rgba(0,0,0,0.02);">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;background:#ffffff;border:1px solid rgba(13,152,141,0.16);border-radius:4px;box-shadow:0 3px 10px rgba(24,45,58,0.06);">
                 <tr>
-                    <td style="padding:25px 40px;background:#0d988d;color:#ffffff;text-align:center;border-radius:7px 7px 0 0;">
+                    <td style="padding:25px 40px;background:#0d988d;color:#ffffff;text-align:center;border-radius:3px 3px 0 0;">
                         @if ($businessLogoUrl !== '')
                             <img src="{{ $businessLogoUrl }}" alt="{{ $company_name }}" width="170" style="display:inline-block;max-width:170px;max-height:58px;width:auto;height:auto;border:0;filter:brightness(0) invert(1);">
                         @else
@@ -108,7 +108,7 @@
                     </td>
                 </tr>
                 <tr>
-                    <td style="padding:20px 40px;background:#f8fafc;color:#a0aec0;text-align:center;font-size:12px;border-top:1px solid #e2e8f0;border-radius:0 0 7px 7px;">
+                    <td style="padding:20px 40px;background:#f8fafc;color:#a0aec0;text-align:center;font-size:12px;border-top:1px solid rgba(13,152,141,0.12);border-radius:0 0 3px 3px;">
                         <div style="margin-bottom:10px;">
                             @if ($data?->privacy)
                                 <a href="{{ route('privacy-policy') }}" style="margin:0 7px;color:#718096;text-decoration:none;">{{ translate('Privacy_Policy') }}</a>

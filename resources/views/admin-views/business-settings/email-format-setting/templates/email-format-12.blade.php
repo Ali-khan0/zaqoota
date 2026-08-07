@@ -1,9 +1,9 @@
 @php($previewButtonEnabled = (bool) ($data?->button_enabled ?? false))
 @php($previewLogo = \App\Models\BusinessSetting::where('key', 'logo')->first())
 @php($previewLogoUrl = $previewLogo?->value ? \App\CentralLogics\Helpers::get_full_url('business', $previewLogo->value, $previewLogo?->storage[0]?->value ?? 'public', 'favicon') : '')
-<table role="presentation" style="width:100%;max-width:600px;margin:0 auto;border:1px solid #e1e5ea;border-radius:8px;background:#fff;color:#4a5568;font-family:Verdana,Geneva,sans-serif;box-shadow:0 4px 6px rgba(0,0,0,0.02);">
+<table role="presentation" style="width:100%;max-width:600px;margin:0 auto;border:1px solid rgba(13,152,141,0.16);border-radius:4px;background:#fff;color:#4a5568;font-family:Verdana,Geneva,sans-serif;box-shadow:0 3px 10px rgba(24,45,58,0.06);">
     <tr>
-        <td style="padding:25px 40px;background:#0d988d;color:#fff;text-align:center;border-radius:7px 7px 0 0;">
+        <td style="padding:25px 40px;background:#0d988d;color:#fff;text-align:center;border-radius:3px 3px 0 0;">
             @if ($previewLogoUrl !== '')
                 <img src="{{ $previewLogoUrl }}" alt="Zaqoota" style="display:inline-block;max-width:170px;max-height:58px;width:auto;height:auto;filter:brightness(0) invert(1);">
             @else
@@ -29,8 +29,21 @@
         </td>
     </tr>
     <tr>
-        <td id="mail-copyright" style="padding:16px 30px;background:#f7fafb;color:#748196;text-align:center;font-size:12px;">
-            {{ $data?->copyright_text ?? '' }}
+        <td style="padding:18px 30px;background:#f7fafb;color:#748196;text-align:center;font-size:12px;border-top:1px solid rgba(13,152,141,0.12);border-radius:0 0 3px 3px;">
+            <div style="margin-bottom:10px;line-height:1.8;">
+                <a href="#" id="privacy-check" style="margin:0 6px;color:#65758d;text-decoration:none;{{ ($data?->privacy ?? false) ? '' : 'display:none;' }}">{{ translate('Privacy_Policy') }}</a>
+                <a href="#" id="refund-check" style="margin:0 6px;color:#65758d;text-decoration:none;{{ ($data?->refund ?? false) ? '' : 'display:none;' }}">{{ translate('Refund_Policy') }}</a>
+                <a href="#" id="cancelation-check" style="margin:0 6px;color:#65758d;text-decoration:none;{{ ($data?->cancelation ?? false) ? '' : 'display:none;' }}">{{ translate('Cancelation_Policy') }}</a>
+                <a href="#" id="contact-check" style="margin:0 6px;color:#65758d;text-decoration:none;{{ ($data?->contact ?? false) ? '' : 'display:none;' }}">{{ translate('Contact_us') }}</a>
+            </div>
+            <div class="email-template-social-span" style="margin-bottom:10px;line-height:1;">
+                @foreach (['facebook', 'instagram', 'twitter', 'linkedin', 'pinterest'] as $socialName)
+                    <a href="#" id="{{ $socialName }}-check" class="email-template-social-media" style="display:{{ ($data?->{$socialName} ?? false) ? 'inline-block' : 'none' }};margin:0 5px;text-decoration:none;">
+                        <img src="{{ asset('/public/assets/admin/img/img/'.$socialName.'.png') }}" alt="{{ ucfirst($socialName) }}" width="22" height="22" style="display:block;border:0;">
+                    </a>
+                @endforeach
+            </div>
+            <div id="mail-copyright">{{ $data?->copyright_text ?? '' }}</div>
         </td>
     </tr>
 </table>
