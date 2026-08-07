@@ -371,6 +371,14 @@ Order commission reporting convention:
   icon/banner assets must not be sent. The teal header uses the configured
   business-logo URL with a white presentation, and the compact footer retains
   enabled policy, contact, social, footer-text, and copyright settings.
+- Core template titles and bodies are branded for Zaqoota by
+  `2026_08_07_000001_brand_email_templates_for_zaqoota.php`. The migration
+  covers current and optional Admin, Store, Delivery Man, and Customer events,
+  sets the shared support/footer copy, and uses only placeholders supported by
+  `Helpers::text_variable_data_format`: `{userName}`, `{storeName}`,
+  `{deliveryManName}`, `{orderId}`, `{transactionId}`, and where applicable
+  `{advertisementId}`. OTP values remain separate mail view data (`$code`) and
+  must not be hard-coded into editable body copy.
 - Runtime configuration: `config/*.php` + `.env`/`.env.example`.
 - Shared access: `app/Utils/settings.php`, `app/CentralLogics/Helpers.php`.
 

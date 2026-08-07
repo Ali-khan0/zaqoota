@@ -33,3 +33,39 @@
   1 => 824,
   2 => 'SQLSTATE[HY000] [2002] Unknown error while connecting (Connection: mysql, SQL: select * from `business_settings` where (`key` = mail_config) limit 1)',
 )  
+[2026-08-07 09:33:26] local.INFO: array (
+  0 => '/home/ali/Documents/xaqoota/vps_backup_before_the_migration/zaqoota/vendor/laravel/framework/src/Illuminate/Database/Connection.php',
+  1 => 824,
+  2 => 'SQLSTATE[HY000] [2002] Unknown error while connecting (Connection: mysql, SQL: select * from `business_settings` where (`key` = mail_config) limit 1)',
+)  
+[2026-08-07 09:33:27] local.ERROR: Writing to /home/ali/.config/psysh/psysh_history is not allowed. {"exception":"[object] (ErrorException(code: 0): Writing to /home/ali/.config/psysh/psysh_history is not allowed. at /home/ali/Documents/xaqoota/vps_backup_before_the_migration/zaqoota/vendor/psy/psysh/src/ConfigPaths.php:419)
+[stacktrace]
+#0 /home/ali/Documents/xaqoota/vps_backup_before_the_migration/zaqoota/vendor/laravel/framework/src/Illuminate/Foundation/Bootstrap/HandleExceptions.php(258): Illuminate\\Foundation\\Bootstrap\\HandleExceptions->handleError()
+#1 [internal function]: Illuminate\\Foundation\\Bootstrap\\HandleExceptions->{closure:Illuminate\\Foundation\\Bootstrap\\HandleExceptions::forwardsTo():257}()
+#2 /home/ali/Documents/xaqoota/vps_backup_before_the_migration/zaqoota/vendor/psy/psysh/src/ConfigPaths.php(419): trigger_error()
+#3 /home/ali/Documents/xaqoota/vps_backup_before_the_migration/zaqoota/vendor/psy/psysh/src/Configuration.php(682): Psy\\ConfigPaths::touchFileWithMkdir()
+#4 /home/ali/Documents/xaqoota/vps_backup_before_the_migration/zaqoota/vendor/psy/psysh/src/Configuration.php(706): Psy\\Configuration->setHistoryFile()
+#5 /home/ali/Documents/xaqoota/vps_backup_before_the_migration/zaqoota/vendor/psy/psysh/src/Configuration.php(851): Psy\\Configuration->getHistoryFile()
+#6 /home/ali/Documents/xaqoota/vps_backup_before_the_migration/zaqoota/vendor/psy/psysh/src/Shell.php(96): Psy\\Configuration->getReadline()
+#7 /home/ali/Documents/xaqoota/vps_backup_before_the_migration/zaqoota/vendor/laravel/tinker/src/Console/TinkerCommand.php(59): Psy\\Shell->__construct()
+#8 /home/ali/Documents/xaqoota/vps_backup_before_the_migration/zaqoota/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(36): Laravel\\Tinker\\Console\\TinkerCommand->handle()
+#9 /home/ali/Documents/xaqoota/vps_backup_before_the_migration/zaqoota/vendor/laravel/framework/src/Illuminate/Container/Util.php(43): Illuminate\\Container\\BoundMethod::{closure:Illuminate\\Container\\BoundMethod::call():35}()
+#10 /home/ali/Documents/xaqoota/vps_backup_before_the_migration/zaqoota/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(96): Illuminate\\Container\\Util::unwrapIfClosure()
+#11 /home/ali/Documents/xaqoota/vps_backup_before_the_migration/zaqoota/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(35): Illuminate\\Container\\BoundMethod::callBoundMethod()
+#12 /home/ali/Documents/xaqoota/vps_backup_before_the_migration/zaqoota/vendor/laravel/framework/src/Illuminate/Container/Container.php(836): Illuminate\\Container\\BoundMethod::call()
+#13 /home/ali/Documents/xaqoota/vps_backup_before_the_migration/zaqoota/vendor/laravel/framework/src/Illuminate/Console/Command.php(211): Illuminate\\Container\\Container->call()
+#14 /home/ali/Documents/xaqoota/vps_backup_before_the_migration/zaqoota/vendor/symfony/console/Command/Command.php(318): Illuminate\\Console\\Command->execute()
+#15 /home/ali/Documents/xaqoota/vps_backup_before_the_migration/zaqoota/vendor/laravel/framework/src/Illuminate/Console/Command.php(180): Symfony\\Component\\Console\\Command\\Command->run()
+#16 /home/ali/Documents/xaqoota/vps_backup_before_the_migration/zaqoota/vendor/symfony/console/Application.php(1073): Illuminate\\Console\\Command->run()
+#17 /home/ali/Documents/xaqoota/vps_backup_before_the_migration/zaqoota/vendor/symfony/console/Application.php(356): Symfony\\Component\\Console\\Application->doRunCommand()
+#18 /home/ali/Documents/xaqoota/vps_backup_before_the_migration/zaqoota/vendor/symfony/console/Application.php(195): Symfony\\Component\\Console\\Application->doRun()
+#19 /home/ali/Documents/xaqoota/vps_backup_before_the_migration/zaqoota/vendor/laravel/framework/src/Illuminate/Foundation/Console/Kernel.php(197): Symfony\\Component\\Console\\Application->run()
+#20 /home/ali/Documents/xaqoota/vps_backup_before_the_migration/zaqoota/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1235): Illuminate\\Foundation\\Console\\Kernel->handle()
+#21 /home/ali/Documents/xaqoota/vps_backup_before_the_migration/zaqoota/artisan(26): Illuminate\\Foundation\\Application->handleCommand()
+#22 {main}
+"} 
+[2026-08-07 09:33:33] local.INFO: array (
+  0 => '/home/ali/Documents/xaqoota/vps_backup_before_the_migration/zaqoota/vendor/laravel/framework/src/Illuminate/Database/Connection.php',
+  1 => 824,
+  2 => 'SQLSTATE[HY000] [2002] Unknown error while connecting (Connection: mysql, SQL: select * from `business_settings` where (`key` = mail_config) limit 1)',
+)  
