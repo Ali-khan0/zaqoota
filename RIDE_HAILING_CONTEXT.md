@@ -103,6 +103,13 @@ separates Face Photo, Identity Document Photos, and each vehicle's clickable
 front/back evidence. Older vehicle rows remain valid with nullable photo
 columns and display `Not provided` until updated.
 
+Public web rider onboarding is branded `Become Captain` at `/captain/apply`.
+The former `/deliveryman/apply` GET URL permanently redirects there and its POST
+path remains compatible with existing forms. This web URL does not alter the
+Captain mobile API endpoint. The responsive registration UI hides its large
+Captain illustration panel below desktop size and retains a compact ZAQOOTA
+header above the form.
+
 Ride Hailing does not create, enroll, or attach a second rider identity. The
 Ride Riders page is an operational view of shared `delivery_men` accounts, not
 a registration page. Mobile details are in

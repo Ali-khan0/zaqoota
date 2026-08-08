@@ -110,7 +110,7 @@
                             @if ($toggle_store_registration)
                             <li>
                                 <a class="" href="{{ route('restaurant.create') }}">
-                                    {{ translate('messages.vendor_registration') }}
+                                    {{ translate('messages.Become Partner') }}
                                 </a>
                             </li>
                             @if ($toggle_dm_registration)
@@ -121,7 +121,7 @@
                         @endif
                         @if ($toggle_dm_registration)
                             <li><a class=""
-                                    href="{{ route('deliveryman.create') }}">{{ translate('messages.deliveryman_registration') }}</a>
+                                    href="{{ route('captain.create') }}">{{ translate('messages.Become Captain') }}</a>
                             </li>
                         @endif
                         </ul>

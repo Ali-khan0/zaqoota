@@ -697,7 +697,7 @@ The consolidated mobile implementation handoff is
 `docs/api/ride-hailing-rider-app-integration.md`.
 
 Rider onboarding is shared across every workload. Both
-`POST api/v1/auth/delivery-man/store` and the landing-page `deliveryman/apply`
+`POST api/v1/auth/delivery-man/store` and the landing-page `/captain/apply`
 form create the rider plus a first pending `ride_vehicle` in one transaction.
 New rider onboarding requires a face photo, one or two identity-document
 photos, and front/back photos of the first vehicle. Each subsequently submitted
@@ -705,6 +705,17 @@ ride vehicle also requires its own front/back photos. Identity choices are
 CNIC (`nid` in the compatible API/database value), Passport, and Driving
 License; Store ID is not an identity type. Deliveryman Preview presents all
 three verification groups with click-to-view images.
+
+The canonical public onboarding URLs are `/captain/apply` for shared riders
+and `/partner/apply` for stores. The landing navigation labels them `Become
+Captain` and `Become Partner`. Legacy GET requests to `/deliveryman/apply` and
+`/vendor/apply` redirect permanently to the canonical URLs, while legacy POST
+paths remain accepted for already-open forms. This URL branding does not rename
+the stable `/api/v1/auth/delivery-man/store` Captain-app endpoint or internal
+delivery-man notification keys. The Captain page uses a desktop split layout
+with a teal visual panel and a structured form; the visual panel is replaced by
+a compact branded header on tablet/mobile. Verification uploads use dotted teal
+drop zones with local previews.
 Approving the rider approves/activates that first vehicle. An authenticated
 rider may submit one additional vehicle with
 `POST api/v1/delivery-man/ride-vehicles`; the total limit is two. Vehicle

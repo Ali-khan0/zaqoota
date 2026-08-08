@@ -238,8 +238,8 @@ Route::get('/download-app', function (\Illuminate\Http\Request $request) {
     return redirect()->away($webAppUrl);
 })->name('app.smart-router');
 
-//Restaurant Registration
-Route::group(['prefix' => 'vendor', 'as' => 'restaurant.'], function () {
+// Partner registration. Route names remain stable for the existing multi-step flow.
+Route::group(['prefix' => 'partner', 'as' => 'restaurant.'], function () {
     Route::get('apply', 'VendorController@create')->name('create');
     Route::post('apply', 'VendorController@store')->name('store');
     Route::get('get-all-modules', 'VendorController@get_all_modules')->name('get-all-modules');
@@ -252,12 +252,17 @@ Route::group(['prefix' => 'vendor', 'as' => 'restaurant.'], function () {
     Route::get('final-step', 'VendorController@final_step')->name('final_step');
 });
 
-//Deliveryman Registration
-Route::group(['prefix' => 'deliveryman', 'as' => 'deliveryman.'], function () {
+// Captain registration.
+Route::group(['prefix' => 'captain', 'as' => 'captain.'], function () {
     Route::get('apply', 'DeliveryManController@create')->name('create');
     Route::post('apply', 'DeliveryManController@store')->name('store');
-
 });
+
+// Backward-compatible public links and form submissions.
+Route::redirect('deliveryman/apply', '/captain/apply', 301);
+Route::post('deliveryman/apply', 'DeliveryManController@store');
+Route::redirect('vendor/apply', '/partner/apply', 301);
+Route::post('vendor/apply', 'VendorController@store');
 
 Route::get('/image-proxy', function () {
     $url = request('url');

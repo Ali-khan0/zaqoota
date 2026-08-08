@@ -3,6 +3,10 @@
 One rider account is shared by restaurant/grocery delivery, parcel delivery,
 and Ride Hailing. There is no separate Ride Hailing rider enrollment.
 
+The public website equivalent is `GET /captain/apply` (`Become Captain`). The
+old `/deliveryman/apply` link redirects to it. This branding change does not
+change any mobile API URL in this document.
+
 ## Public vehicle options
 
 ```http
