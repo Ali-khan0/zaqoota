@@ -20,18 +20,27 @@ use Illuminate\View\View;
 
 class RideHailingController extends Controller
 {
-    public function dashboard(): View
+    public function dashboard(Request $request): View
     {
+        $zoneId = $request->input('zone_id', 'all');
+        $zoneId = is_numeric($zoneId) ? (int) $zoneId : 'all';
+        $zones = Zone::query()->where('status', 1)->orderBy('name')->get(['id', 'name']);
+
         $stats = [
-            'ride_mode_riders' => DeliveryMan::query()->rideMode()->active()->count(),
-            'registered_vehicles' => RideVehicle::query()->count(),
-            'approved_vehicles' => RideVehicle::query()->where('status', 'approved')->count(),
-            'pending_vehicles' => RideVehicle::query()->where('status', 'pending')->count(),
+            'ride_mode_riders' => DeliveryMan::query()->rideMode()->active()
+                ->when($zoneId !== 'all', fn ($query) => $query->where('zone_id', $zoneId))->count(),
+            'registered_vehicles' => RideVehicle::query()
+                ->when($zoneId !== 'all', fn ($query) => $query->whereHas('deliveryMan', fn ($rider) => $rider->where('zone_id', $zoneId)))->count(),
+            'approved_vehicles' => RideVehicle::query()->where('status', 'approved')
+                ->when($zoneId !== 'all', fn ($query) => $query->whereHas('deliveryMan', fn ($rider) => $rider->where('zone_id', $zoneId)))->count(),
+            'pending_vehicles' => RideVehicle::query()->where('status', 'pending')
+                ->when($zoneId !== 'all', fn ($query) => $query->whereHas('deliveryMan', fn ($rider) => $rider->where('zone_id', $zoneId)))->count(),
             'categories' => RideCategory::query()->where('status', true)->count(),
-            'configured_fares' => RideFare::query()->where('status', true)->count(),
+            'configured_fares' => RideFare::query()->where('status', true)
+                ->when($zoneId !== 'all', fn ($query) => $query->where('zone_id', $zoneId))->count(),
         ];
 
-        return view('admin-views.ride-hailing.dashboard', compact('stats'));
+        return view('admin-views.ride-hailing.dashboard', compact('stats', 'zones', 'zoneId'));
     }
 
     public function categories(): View

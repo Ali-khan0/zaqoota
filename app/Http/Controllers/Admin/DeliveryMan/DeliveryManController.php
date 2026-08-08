@@ -347,7 +347,10 @@ class DeliveryManController extends BaseController
 
     public function getPreview(Request $request, int|string $id, string $tab='info'): View
     {
-        $deliveryMan = $this->deliveryManRepo->getFirstWhere(params: ['type' => 'zone_wise','id' => $id], relations: ['reviews']);
+        $deliveryMan = $this->deliveryManRepo->getFirstWhere(
+            params: ['type' => 'zone_wise', 'id' => $id],
+            relations: ['reviews', 'rideVehicles.vehicleType', 'rideVehicles.category']
+        );
         if($tab == 'info')
         {
             $reviews = $this->dmReviewRepo->getListWhere(filters: ['delivery_man_id'=>$id], dataLimit: config('default_pagination'));

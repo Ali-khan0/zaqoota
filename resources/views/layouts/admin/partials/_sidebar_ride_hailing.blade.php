@@ -65,3 +65,30 @@
         </div>
     </aside>
 </div>
+
+<div id="sidebarCompact" class="d-none"></div>
+
+@push('script_2')
+<script>
+    $(window).on('load', function () {
+        const activeItem = $('.navbar-vertical-content li.active');
+        if (activeItem.length) {
+            $('.navbar-vertical-content').animate({
+                scrollTop: activeItem.offset().top - 150
+            }, 10);
+        }
+    });
+
+    $(document).ready(function () {
+        const searchInput = $('#search');
+        const menuItems = $('#navbar-vertical-content li');
+
+        searchInput.on('input', function () {
+            const keyword = $.trim($(this).val()).replace(/ +/g, ' ').toLowerCase();
+            menuItems.each(function () {
+                $(this).toggle($(this).text().replace(/\s+/g, ' ').toLowerCase().includes(keyword));
+            });
+        });
+    });
+</script>
+@endpush

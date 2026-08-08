@@ -36,6 +36,12 @@ different.
 
 Views are under `resources/views/admin-views/ride-hailing/`. The dedicated
 sidebar is `resources/views/layouts/admin/partials/_sidebar_ride_hailing.blade.php`.
+It must provide both `#sidebarMain` and `#sidebarCompact`; the shared layout
+reads both templates before displaying the header and sidebar. Ride pages use
+the standard admin header with Users, Transactions & Reports, Settings,
+Dispatch Management, search, language, and the module switcher. Dashboard
+statistics follow the existing commerce `__dashboard-card-2` image-card
+pattern and support zone filtering.
 
 ## Rider reuse and work mode
 
@@ -86,6 +92,11 @@ Ride Hailing does not create, enroll, or attach a second rider identity. The
 Ride Riders page is an operational view of shared `delivery_men` accounts, not
 a registration page. Mobile details are in
 `docs/api/rider-registration-and-vehicles.md`.
+
+The standard admin delivery-man detail page loads `rideVehicles.vehicleType`
+and `rideVehicles.category` and shows the rider's vehicle count, identity,
+approval status, and active vehicle. Keep this shared profile view current when
+vehicle fields change.
 
 ## Fare configuration
 

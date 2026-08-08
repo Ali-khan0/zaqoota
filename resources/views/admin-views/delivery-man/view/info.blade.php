@@ -481,6 +481,58 @@
                     @endif
                 </div>
 
+                <div class="d-flex align-items-center justify-content-between gap-2 mt-5">
+                    <div class="d-flex gap-2 align-items-center">
+                        <span class="rounded-circle bg-light d-flex align-items-center justify-content-center"
+                            style="width:35px;height:35px">
+                            <i class="tio-car"></i>
+                        </span>
+                        <h5 class="mb-0">{{ translate('Registered Vehicles') }}</h5>
+                    </div>
+                    <span class="badge badge-soft-dark">{{ $deliveryMan->rideVehicles->count() }} / {{ \App\Models\RideVehicle::MAX_PER_RIDER }}</span>
+                </div>
+
+                <hr class="mt-2 hr-light">
+
+                @if ($deliveryMan->rideVehicles->isEmpty())
+                    <p class="text-muted mb-0">{{ translate('No registered vehicle found') }}</p>
+                @else
+                    <div class="row g-3">
+                        @foreach ($deliveryMan->rideVehicles->sortByDesc('is_active') as $vehicle)
+                            <div class="col-md-6">
+                                <div class="border rounded p-3 h-100">
+                                    <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
+                                        <div>
+                                            <h5 class="mb-1">{{ $vehicle->vehicleType?->name }} - {{ $vehicle->category?->name }}</h5>
+                                            <div class="text-muted fs-12">{{ $vehicle->registration_number }}</div>
+                                        </div>
+                                        <div class="d-flex flex-wrap justify-content-end gap-1">
+                                            <span class="badge badge-soft-{{ $vehicle->status === 'approved' ? 'success' : ($vehicle->status === 'rejected' ? 'danger' : 'warning') }}">
+                                                {{ translate(ucfirst($vehicle->status)) }}
+                                            </span>
+                                            @if ($vehicle->is_active)
+                                                <span class="badge badge-soft-primary">{{ translate('Active Vehicle') }}</span>
+                                            @endif
+                                        </div>
+                                    </div>
+                                    <div class="row g-2 fs-12">
+                                        <div class="col-6"><span class="text-muted">{{ translate('Make') }}:</span> {{ $vehicle->make }}</div>
+                                        <div class="col-6"><span class="text-muted">{{ translate('Model') }}:</span> {{ $vehicle->model }}</div>
+                                        <div class="col-6"><span class="text-muted">{{ translate('Fuel Type') }}:</span> {{ ucfirst($vehicle->fuel_type) }}</div>
+                                        <div class="col-6"><span class="text-muted">{{ translate('Color') }}:</span> {{ $vehicle->color }}</div>
+                                        @if ($vehicle->model_year)
+                                            <div class="col-6"><span class="text-muted">{{ translate('Model Year') }}:</span> {{ $vehicle->model_year }}</div>
+                                        @endif
+                                    </div>
+                                    @if ($vehicle->admin_note)
+                                        <div class="mt-2 fs-12 text-muted">{{ $vehicle->admin_note }}</div>
+                                    @endif
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+
                 <div class="d-flex gap-2 align-items-center mt-5">
                     <img src="{{ asset('public/assets/admin/img/entypo_image-inverted.png') }}" width="20" height="20"
                         alt="">
