@@ -9,24 +9,14 @@
             <span class="page-header-icon"><i class="tio-receipt"></i></span>
             {{ translate('Onboarding Invoices') }} <span class="badge badge-soft-dark ml-2">{{ $invoices->total() }}</span>
         </h1>
-        <a href="{{ route('admin.transactions.onboarding-invoices.create') }}" class="btn btn-primary">
-            <i class="tio-add mr-1"></i>{{ translate('Create Invoice') }}
-        </a>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-primary" data-toggle="modal" data-target="#invoice-payment-settings-modal"><i class="tio-settings mr-1"></i>{{ translate('Payment Settings') }}</button>
+            <a href="{{ route('admin.transactions.onboarding-invoices.create') }}" class="btn btn-primary"><i class="tio-add mr-1"></i>{{ translate('Create Invoice') }}</a>
+        </div>
     </div>
 
     @if(session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
     @if(session('error'))<div class="alert alert-danger">{{ session('error') }}</div>@endif
-
-    <div class="card mb-3">
-        <div class="card-header"><h4 class="card-title mb-0">{{ translate('Invoice Payment Details') }}</h4></div>
-        <div class="card-body"><form action="{{ route('admin.transactions.onboarding-invoices.bank-details') }}" method="post">@csrf @method('PATCH')<div class="row g-3">
-            <div class="col-md-6 col-xl-3"><label class="input-label">{{ translate('Bank Name') }}</label><input name="bank_name" class="form-control" value="{{ old('bank_name', $bankDetails['bank_name']) }}" required></div>
-            <div class="col-md-6 col-xl-3"><label class="input-label">{{ translate('Account Title') }}</label><input name="account_title" class="form-control" value="{{ old('account_title', $bankDetails['account_title']) }}" required></div>
-            <div class="col-md-6 col-xl-3"><label class="input-label">{{ translate('IBAN') }}</label><input name="iban" class="form-control" value="{{ old('iban', $bankDetails['iban']) }}" required></div>
-            <div class="col-md-6 col-xl-3"><label class="input-label">{{ translate('Account Number') }}</label><input name="account_number" class="form-control" value="{{ old('account_number', $bankDetails['account_number']) }}" required></div>
-            <div class="col-12 text-right"><button class="btn btn-primary"><i class="tio-save mr-1"></i>{{ translate('Save Payment Details') }}</button></div>
-        </div></form></div>
-    </div>
 
     <div class="row g-3 mb-3">
         <div class="col-sm-6 col-xl-3"><div class="card h-100"><div class="card-body"><p class="text-muted mb-2">{{ translate('Total Invoice Amount') }}</p><h3 class="mb-1">{{ \App\CentralLogics\Helpers::format_currency($totals->total_amount) }}</h3><small class="text-muted">{{ $totals->invoice_count }} {{ translate('invoices') }}</small></div></div></div>
@@ -97,6 +87,21 @@
             </table>
         </div>
         @if($invoices->hasPages())<div class="card-footer">{{ $invoices->links() }}</div>@endif
+    </div>
+
+    <div class="modal fade" id="invoice-payment-settings-modal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document"><div class="modal-content">
+            <div class="modal-header"><h4 class="modal-title">{{ translate('Invoice Payment Details') }}</h4><button type="button" class="close" data-dismiss="modal" aria-label="{{ translate('Close') }}"><span aria-hidden="true">&times;</span></button></div>
+            <form action="{{ route('admin.transactions.onboarding-invoices.bank-details') }}" method="post">@csrf @method('PATCH')
+                <div class="modal-body"><div class="row g-3">
+                    <div class="col-sm-6"><label class="input-label">{{ translate('Bank Name') }}</label><input name="bank_name" class="form-control" value="{{ old('bank_name', $bankDetails['bank_name']) }}" required></div>
+                    <div class="col-sm-6"><label class="input-label">{{ translate('Account Title') }}</label><input name="account_title" class="form-control" value="{{ old('account_title', $bankDetails['account_title']) }}" required></div>
+                    <div class="col-12"><label class="input-label">{{ translate('IBAN') }}</label><input name="iban" class="form-control" value="{{ old('iban', $bankDetails['iban']) }}" required></div>
+                    <div class="col-12"><label class="input-label">{{ translate('Account Number') }}</label><input name="account_number" class="form-control" value="{{ old('account_number', $bankDetails['account_number']) }}" required></div>
+                </div></div>
+                <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-dismiss="modal">{{ translate('Cancel') }}</button><button class="btn btn-primary"><i class="tio-save mr-1"></i>{{ translate('Save Payment Details') }}</button></div>
+            </form>
+        </div></div>
     </div>
 </div>
 @endsection
