@@ -62,10 +62,6 @@
                         </select>
                     </div>
                     <div class="col-md-6 col-lg-4">
-                        <label class="input-label" for="amount">{{ translate('Invoice Amount') }}</label>
-                        <input type="number" name="amount" id="amount" class="form-control" value="{{ old('amount') }}" min="0.01" step="0.01" placeholder="0.00" required>
-                    </div>
-                    <div class="col-md-6 col-lg-4">
                         <label class="input-label" for="invoice_date">{{ translate('Invoice Date') }}</label>
                         <input type="date" name="invoice_date" id="invoice_date" class="form-control" value="{{ old('invoice_date', now()->toDateString()) }}" required>
                     </div>
@@ -78,6 +74,19 @@
                         <input type="text" name="additional_emails" id="additional_emails" class="form-control" value="{{ old('additional_emails') }}" maxlength="1000" placeholder="accounts@example.com, owner@example.com">
                         <small class="form-text text-muted">{{ translate('The invoice will also be sent to these addresses. Separate multiple emails with commas.') }}</small>
                     </div>
+                </div>
+                <div class="mt-4">
+                    <div class="d-flex justify-content-between align-items-center mb-2"><label class="input-label mb-0">{{ translate('Invoice Items') }}</label><button type="button" id="add-invoice-item" class="btn btn-sm btn-outline-primary"><i class="tio-add mr-1"></i>{{ translate('Add Item') }}</button></div>
+                    <div class="table-responsive"><table class="table table-bordered" id="invoice-items-table"><thead class="thead-light"><tr><th>{{ translate('Description') }}</th><th style="width:130px">{{ translate('Quantity') }}</th><th style="width:180px">{{ translate('Unit Price') }}</th><th style="width:150px" class="text-right">{{ translate('Line Total') }}</th><th style="width:55px"></th></tr></thead><tbody>
+                        @php($oldItems = old('items', [['description' => old('invoice_type', 'onboarding') === 'onboarding' ? 'Onboarding service' : 'Other service', 'quantity' => 1, 'unit_price' => '']]))
+                        @foreach($oldItems as $index => $item)
+                        <tr class="invoice-item-row"><td><input class="form-control" name="items[{{ $index }}][description]" value="{{ $item['description'] ?? '' }}" maxlength="255" required></td><td><input type="number" class="form-control item-quantity" name="items[{{ $index }}][quantity]" value="{{ $item['quantity'] ?? 1 }}" min="0.01" step="0.01" required></td><td><input type="number" class="form-control item-price" name="items[{{ $index }}][unit_price]" value="{{ $item['unit_price'] ?? '' }}" min="0" step="0.01" required></td><td class="text-right align-middle font-weight-bold item-total">0.00</td><td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger remove-invoice-item" title="{{ translate('Remove') }}"><i class="tio-delete"></i></button></td></tr>
+                        @endforeach
+                    </tbody><tfoot><tr><th colspan="3" class="text-right">{{ translate('Invoice Total') }}</th><th class="text-right" id="invoice-total">0.00</th><th></th></tr></tfoot></table></div>
+                </div>
+                <div class="row g-3 mt-2">
+                    <div class="col-md-6"><label class="input-label" for="public_note">{{ translate('Public Note') }} <span class="text-muted">({{ translate('Optional') }})</span></label><textarea name="public_note" id="public_note" class="form-control" rows="3" maxlength="2000" placeholder="{{ translate('Shown on the invoice PDF') }}">{{ old('public_note') }}</textarea></div>
+                    <div class="col-md-6"><label class="input-label" for="private_note">{{ translate('Private Admin Note') }} <span class="text-muted">({{ translate('Optional') }})</span></label><textarea name="private_note" id="private_note" class="form-control" rows="3" maxlength="5000" placeholder="{{ translate('Only admins can see this note') }}">{{ old('private_note') }}</textarea></div>
                 </div>
             </div>
             <div class="card-footer d-flex flex-wrap justify-content-end gap-2">
@@ -99,6 +108,17 @@
     $(document).ready(function () {
         const $module = $('#module_id');
         const $store = $('#store_id');
+        let itemIndex = {{ count($oldItems) }};
+
+        function calculateInvoiceTotal() {
+            let total = 0;
+            $('.invoice-item-row').each(function () {
+                const lineTotal = (parseFloat($(this).find('.item-quantity').val()) || 0) * (parseFloat($(this).find('.item-price').val()) || 0);
+                $(this).find('.item-total').text(lineTotal.toFixed(2));
+                total += lineTotal;
+            });
+            $('#invoice-total').text(total.toFixed(2));
+        }
 
         function setupStoreSearch() {
             if ($store.hasClass('select2-hidden-accessible')) {
@@ -124,6 +144,14 @@
         }
 
         $module.on('change', setupStoreSearch);
+        $('#add-invoice-item').on('click', function () {
+            $('#invoice-items-table tbody').append(`<tr class="invoice-item-row"><td><input class="form-control" name="items[${itemIndex}][description]" maxlength="255" required></td><td><input type="number" class="form-control item-quantity" name="items[${itemIndex}][quantity]" value="1" min="0.01" step="0.01" required></td><td><input type="number" class="form-control item-price" name="items[${itemIndex}][unit_price]" min="0" step="0.01" required></td><td class="text-right align-middle font-weight-bold item-total">0.00</td><td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger remove-invoice-item"><i class="tio-delete"></i></button></td></tr>`);
+            itemIndex++;
+        });
+        $(document).on('input', '.item-quantity,.item-price', calculateInvoiceTotal);
+        $(document).on('click', '.remove-invoice-item', function () {
+            if ($('.invoice-item-row').length > 1) { $(this).closest('tr').remove(); calculateInvoiceTotal(); }
+        });
         $('[data-submit-action]').on('click', function () {
             $('#submit_action').val($(this).data('submit-action'));
         });
@@ -133,6 +161,7 @@
         });
         setupStoreSearch();
         $('#invoice_date').on('change', function () { $('#due_date').attr('min', this.value); }).trigger('change');
+        calculateInvoiceTotal();
     });
 </script>
 @endpush

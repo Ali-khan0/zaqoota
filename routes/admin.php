@@ -756,7 +756,11 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
                 Route::get('{onboarding_invoice}', 'OnboardingInvoiceController@show')->name('show');
                 Route::get('{onboarding_invoice}/download', 'OnboardingInvoiceController@download')->name('download');
                 Route::post('{onboarding_invoice}/send', 'OnboardingInvoiceController@send')->name('send');
+                Route::post('{onboarding_invoice}/remind', 'OnboardingInvoiceController@remind')->name('remind');
+                Route::post('{onboarding_invoice}/recipients', 'OnboardingInvoiceController@addRecipient')->name('recipients.add');
+                Route::delete('{onboarding_invoice}/recipients', 'OnboardingInvoiceController@removeRecipient')->name('recipients.remove');
                 Route::patch('{onboarding_invoice}/payment-status', 'OnboardingInvoiceController@paymentStatus')->name('payment-status');
+                Route::post('{onboarding_invoice}/void', 'OnboardingInvoiceController@voidInvoice')->name('void');
             });
             Route::group(['prefix' => 'report', 'as' => 'report.', 'middleware' => ['module:report']], function () {
                 Route::get('order', 'ReportController@order_index')->name('order');

@@ -24,6 +24,7 @@ class OnboardingInvoiceController extends Controller
     {
         $search = trim((string) $request->input('search'));
         $totals = OnboardingInvoice::query()
+            ->whereNull('voided_at')
             ->selectRaw("COUNT(*) as invoice_count")
             ->selectRaw("COALESCE(SUM(amount), 0) as total_amount")
             ->selectRaw("COALESCE(SUM(CASE WHEN payment_status = 'paid' THEN amount ELSE 0 END), 0) as paid_amount")
@@ -34,7 +35,16 @@ class OnboardingInvoiceController extends Controller
                 ->where('invoice_number', 'like', "%{$search}%")
                 ->orWhere('store_name', 'like', "%{$search}%")
                 ->orWhere('store_email', 'like', "%{$search}%")))
-            ->when($request->filled('payment_status'), fn ($query) => $query->where('payment_status', $request->payment_status))
+            ->when($request->filled('payment_status'), function ($query) use ($request) {
+                match ($request->payment_status) {
+                    'paid' => $query->whereNull('voided_at')->where('payment_status', 'paid'),
+                    'unpaid' => $query->whereNull('voided_at')->where('payment_status', 'unpaid')->whereDate('due_date', '>=', today()->addDays(8)),
+                    'due_soon' => $query->whereNull('voided_at')->where('payment_status', 'unpaid')->whereBetween('due_date', [today(), today()->addDays(7)]),
+                    'overdue' => $query->whereNull('voided_at')->where('payment_status', 'unpaid')->whereDate('due_date', '<', today()),
+                    'void' => $query->whereNotNull('voided_at'),
+                    default => null,
+                };
+            })
             ->when($request->filled('send_status'), fn ($query) => $query->where('send_status', $request->send_status))
             ->latest('id')
             ->paginate(20)
@@ -85,10 +95,16 @@ class OnboardingInvoiceController extends Controller
         $store = Store::withoutGlobalScopes()->with('vendor')->where('module_id', $module->id)->findOrFail($request->integer('store_id'));
         $invoice = DB::transaction(function () use ($request, $module, $store) {
             OnboardingInvoice::query()->lockForUpdate()->latest('id')->first();
-
-            return OnboardingInvoice::create([
-                ...$request->safe()->except('submit_action', 'additional_emails'),
+            $items = collect($request->validated('items'))->map(fn ($item) => [
+                'description' => $item['description'],
+                'quantity' => round((float) $item['quantity'], 2),
+                'unit_price' => round((float) $item['unit_price'], 2),
+                'line_total' => round((float) $item['quantity'] * (float) $item['unit_price'], 2),
+            ]);
+            $invoice = OnboardingInvoice::create([
+                ...$request->safe()->except('submit_action', 'additional_emails', 'items'),
                 'invoice_number' => $this->nextInvoiceNumber(),
+                'amount' => $items->sum('line_total'),
                 'module_name' => $module->module_name,
                 'store_name' => $store->name,
                 'store_owner_name' => trim(($store->vendor?->f_name ?? '') . ' ' . ($store->vendor?->l_name ?? '')) ?: null,
@@ -98,10 +114,14 @@ class OnboardingInvoiceController extends Controller
                 'created_by' => auth('admin')->id(),
                 'generated_by_name' => trim((auth('admin')->user()?->f_name ?? '') . ' ' . (auth('admin')->user()?->l_name ?? '')) ?: auth('admin')->user()?->email,
             ]);
+            $invoice->items()->createMany($items->all());
+            $this->logEvent($invoice, 'created', 'Invoice created.');
+
+            return $invoice;
         });
 
         if ($request->input('submit_action') === 'create_and_send') {
-            $this->sendInvoice($invoice);
+            $this->sendInvoice($invoice, null, 'invoice');
         }
 
         $mailFailed = $invoice->send_status === OnboardingInvoice::SEND_FAILED;
@@ -114,6 +134,7 @@ class OnboardingInvoiceController extends Controller
 
     public function show(OnboardingInvoice $onboarding_invoice)
     {
+        $onboarding_invoice->load(['items', 'deliveries' => fn ($query) => $query->latest(), 'events' => fn ($query) => $query->latest()]);
         return view('admin-views.onboarding-invoice.show', ['invoice' => $onboarding_invoice]);
     }
 
@@ -131,7 +152,9 @@ class OnboardingInvoiceController extends Controller
 
     public function send(OnboardingInvoice $onboarding_invoice): RedirectResponse
     {
-        $this->sendInvoice($onboarding_invoice);
+        abort_if($onboarding_invoice->voided_at, 422, 'A void invoice cannot be sent.');
+        $validated = request()->validate(['recipients' => ['nullable', 'array'], 'recipients.*' => ['email']]);
+        $this->sendInvoice($onboarding_invoice, $validated['recipients'] ?? null, 'invoice');
 
         return back()->with($onboarding_invoice->send_status === OnboardingInvoice::SEND_SENT ? 'success' : 'error',
             $onboarding_invoice->send_status === OnboardingInvoice::SEND_SENT
@@ -139,32 +162,92 @@ class OnboardingInvoiceController extends Controller
                 : translate('Invoice could not be sent. Check the recorded error and mail configuration.'));
     }
 
+    public function remind(Request $request, OnboardingInvoice $onboarding_invoice): RedirectResponse
+    {
+        abort_if($onboarding_invoice->voided_at || $onboarding_invoice->payment_status === OnboardingInvoice::PAYMENT_PAID, 422, 'Only unpaid invoices can receive reminders.');
+        if ($onboarding_invoice->last_reminder_at?->gt(now()->subMinutes(5))) {
+            return back()->with('error', translate('Please wait before sending another reminder.'));
+        }
+        $validated = $request->validate(['recipients' => ['nullable', 'array'], 'recipients.*' => ['email']]);
+        $this->sendInvoice($onboarding_invoice, $validated['recipients'] ?? null, 'reminder');
+        $onboarding_invoice->update(['last_reminder_at' => now()]);
+        $this->logEvent($onboarding_invoice, 'reminder_sent', 'Payment reminder sent.');
+
+        return back()->with('success', translate('Payment reminder processed.'));
+    }
+
+    public function addRecipient(Request $request, OnboardingInvoice $onboarding_invoice): RedirectResponse
+    {
+        $validated = $request->validate(['email' => ['required', 'email', 'max:255']]);
+        $email = strtolower($validated['email']);
+        $recipients = collect($onboarding_invoice->recipient_emails ?? [])->push($email)
+            ->reject(fn ($item) => strtolower((string) $item) === strtolower((string) $onboarding_invoice->store_email))
+            ->unique()->values()->all();
+        $onboarding_invoice->update(['recipient_emails' => $recipients]);
+        $this->logEvent($onboarding_invoice, 'recipient_added', "Recipient {$email} added.", ['email' => $email]);
+
+        return back()->with('success', translate('Recipient added successfully.'));
+    }
+
+    public function removeRecipient(Request $request, OnboardingInvoice $onboarding_invoice): RedirectResponse
+    {
+        $validated = $request->validate(['email' => ['required', 'email']]);
+        abort_if(strtolower($validated['email']) === strtolower((string) $onboarding_invoice->store_email), 422, 'The primary store email cannot be removed.');
+        $recipients = collect($onboarding_invoice->recipient_emails ?? [])
+            ->reject(fn ($email) => strtolower((string) $email) === strtolower($validated['email']))->values()->all();
+        $onboarding_invoice->update(['recipient_emails' => $recipients]);
+        $this->logEvent($onboarding_invoice, 'recipient_removed', "Recipient {$validated['email']} removed.", ['email' => $validated['email']]);
+
+        return back()->with('success', translate('Recipient removed successfully.'));
+    }
+
     public function paymentStatus(Request $request, OnboardingInvoice $onboarding_invoice): RedirectResponse
     {
-        $validated = $request->validate(['payment_status' => ['required', 'in:paid,unpaid']]);
+        abort_if($onboarding_invoice->voided_at, 422, 'A void invoice cannot be updated.');
+        $validated = $request->validate([
+            'payment_status' => ['required', 'in:paid,unpaid'],
+            'payment_method' => ['nullable', 'required_if:payment_status,paid', 'string', 'max:100'],
+            'payment_reference' => ['nullable', 'string', 'max:255'],
+        ]);
         $wasPaid = $onboarding_invoice->payment_status === OnboardingInvoice::PAYMENT_PAID;
         $onboarding_invoice->update([
             'payment_status' => $validated['payment_status'],
             'paid_at' => $validated['payment_status'] === OnboardingInvoice::PAYMENT_PAID ? now() : null,
+            'payment_method' => $validated['payment_status'] === OnboardingInvoice::PAYMENT_PAID ? $validated['payment_method'] : null,
+            'payment_reference' => $validated['payment_status'] === OnboardingInvoice::PAYMENT_PAID ? ($validated['payment_reference'] ?? null) : null,
+            'paid_by' => $validated['payment_status'] === OnboardingInvoice::PAYMENT_PAID ? auth('admin')->id() : null,
         ]);
+        $this->logEvent($onboarding_invoice, 'payment_status_changed', "Payment status changed to {$validated['payment_status']}.");
 
         if (!$wasPaid && $validated['payment_status'] === OnboardingInvoice::PAYMENT_PAID) {
-            $this->sendInvoice($onboarding_invoice->fresh());
+            $this->sendInvoice($onboarding_invoice->fresh(), null, 'paid');
         }
 
         return back()->with($onboarding_invoice->fresh()->send_status === OnboardingInvoice::SEND_FAILED ? 'error' : 'success',
             translate('Invoice payment status updated.'));
     }
 
-    private function sendInvoice(OnboardingInvoice $invoice): void
+    public function voidInvoice(Request $request, OnboardingInvoice $onboarding_invoice): RedirectResponse
     {
-        $recipients = collect([$invoice->store_email, ...($invoice->recipient_emails ?? [])])
+        abort_if($onboarding_invoice->voided_at, 422, 'Invoice is already void.');
+        $validated = $request->validate(['void_reason' => ['required', 'string', 'max:2000']]);
+        $onboarding_invoice->update(['voided_at' => now(), 'void_reason' => $validated['void_reason'], 'voided_by' => auth('admin')->id()]);
+        $this->logEvent($onboarding_invoice, 'voided', 'Invoice voided.', ['reason' => $validated['void_reason']]);
+
+        return back()->with('success', translate('Invoice voided successfully.'));
+    }
+
+    private function sendInvoice(OnboardingInvoice $invoice, ?array $selectedRecipients, string $deliveryType): void
+    {
+        $allowedRecipients = collect([$invoice->store_email, ...($invoice->recipient_emails ?? [])])
             ->filter(fn ($email) => filter_var($email, FILTER_VALIDATE_EMAIL))
             ->unique()
-            ->values()
-            ->all();
+            ->values();
+        $recipients = $selectedRecipients === null
+            ? $allowedRecipients
+            : $allowedRecipients->intersect($selectedRecipients)->values();
 
-        if ($recipients === []) {
+        if ($recipients->isEmpty()) {
             $invoice->update([
                 'send_status' => OnboardingInvoice::SEND_FAILED,
                 'last_send_error' => translate('The store does not have a valid email address.'),
@@ -172,20 +255,41 @@ class OnboardingInvoiceController extends Controller
             return;
         }
 
-        try {
-            Mail::to(array_shift($recipients))->cc($recipients)->send(new OnboardingInvoiceMail($invoice));
-            $invoice->update(['send_status' => OnboardingInvoice::SEND_SENT, 'sent_at' => now(), 'last_send_error' => null]);
-        } catch (\Throwable $exception) {
-            report($exception);
-            $invoice->update(['send_status' => OnboardingInvoice::SEND_FAILED, 'last_send_error' => mb_substr($exception->getMessage(), 0, 2000)]);
+        $sent = 0;
+        $lastError = null;
+        foreach ($recipients as $recipient) {
+            try {
+                Mail::to($recipient)->send(new OnboardingInvoiceMail($invoice->loadMissing('items'), $deliveryType));
+                $invoice->deliveries()->create(['recipient_email' => $recipient, 'delivery_type' => $deliveryType, 'status' => 'sent', 'sent_by' => auth('admin')->id(), 'sent_at' => now()]);
+                $sent++;
+            } catch (\Throwable $exception) {
+                report($exception);
+                $lastError = mb_substr($exception->getMessage(), 0, 2000);
+                $invoice->deliveries()->create(['recipient_email' => $recipient, 'delivery_type' => $deliveryType, 'status' => 'failed', 'error_message' => $lastError, 'sent_by' => auth('admin')->id()]);
+            }
         }
+        $invoice->update(['send_status' => $sent > 0 ? OnboardingInvoice::SEND_SENT : OnboardingInvoice::SEND_FAILED, 'sent_at' => $sent > 0 ? now() : $invoice->sent_at, 'last_send_error' => $lastError]);
+        $this->logEvent($invoice, $deliveryType . '_delivery', ucfirst($deliveryType) . " delivery processed for {$recipients->count()} recipient(s).", ['sent' => $sent, 'failed' => $recipients->count() - $sent]);
     }
 
     private function documentData(OnboardingInvoice $invoice): array
     {
+        $invoice->loadMissing('items');
         $business = BusinessSetting::whereIn('key', ['business_name', 'address', 'phone', 'email_address'])->pluck('value', 'key');
 
         return compact('invoice', 'business');
+    }
+
+    private function logEvent(OnboardingInvoice $invoice, string $type, string $description, array $metadata = []): void
+    {
+        $admin = auth('admin')->user();
+        $invoice->events()->create([
+            'event_type' => $type,
+            'description' => $description,
+            'metadata' => $metadata ?: null,
+            'admin_id' => $admin?->id,
+            'admin_name' => trim(($admin?->f_name ?? '') . ' ' . ($admin?->l_name ?? '')) ?: $admin?->email,
+        ]);
     }
 
     private function nextInvoiceNumber(): string

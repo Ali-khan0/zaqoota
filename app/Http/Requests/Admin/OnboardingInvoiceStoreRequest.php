@@ -30,7 +30,12 @@ class OnboardingInvoiceStoreRequest extends FormRequest
             'invoice_type' => ['required', Rule::in(['onboarding', 'other'])],
             'invoice_date' => ['required', 'date'],
             'due_date' => ['required', 'date', 'after_or_equal:invoice_date'],
-            'amount' => ['required', 'numeric', 'gt:0', 'max:9999999999999999999999.99'],
+            'items' => ['required', 'array', 'min:1', 'max:25'],
+            'items.*.description' => ['required', 'string', 'max:255'],
+            'items.*.quantity' => ['required', 'numeric', 'gt:0', 'max:999999.99'],
+            'items.*.unit_price' => ['required', 'numeric', 'min:0', 'max:9999999999999999999999.99'],
+            'public_note' => ['nullable', 'string', 'max:2000'],
+            'private_note' => ['nullable', 'string', 'max:5000'],
             'additional_emails' => ['nullable', 'string', 'max:1000'],
             'submit_action' => ['required', Rule::in(['create', 'create_and_send'])],
         ];
@@ -48,6 +53,10 @@ class OnboardingInvoiceStoreRequest extends FormRequest
                     $validator->errors()->add('additional_emails', translate('Enter valid additional email addresses separated by commas.'));
                     break;
                 }
+            }
+            $total = collect($this->input('items', []))->sum(fn ($item) => (float) ($item['quantity'] ?? 0) * (float) ($item['unit_price'] ?? 0));
+            if ($total <= 0) {
+                $validator->errors()->add('items', translate('Invoice total must be greater than zero.'));
             }
             $hasStoreEmail = $store && filter_var($store->email, FILTER_VALIDATE_EMAIL);
             $hasAdditionalEmail = collect($this->recipientEmails())->contains(fn ($email) => filter_var($email, FILTER_VALIDATE_EMAIL));

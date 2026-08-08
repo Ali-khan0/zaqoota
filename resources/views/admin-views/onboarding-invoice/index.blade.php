@@ -36,6 +36,9 @@
                             <option value="">{{ translate('All payment statuses') }}</option>
                             <option value="paid" @selected(request('payment_status') === 'paid')>{{ translate('Paid') }}</option>
                             <option value="unpaid" @selected(request('payment_status') === 'unpaid')>{{ translate('Unpaid') }}</option>
+                            <option value="due_soon" @selected(request('payment_status') === 'due_soon')>{{ translate('Due Soon') }}</option>
+                            <option value="overdue" @selected(request('payment_status') === 'overdue')>{{ translate('Overdue') }}</option>
+                            <option value="void" @selected(request('payment_status') === 'void')>{{ translate('Void') }}</option>
                         </select>
                     </div>
                     <div class="col-md-2">
@@ -68,7 +71,8 @@
                         <td>{{ $invoice->module_name }}</td>
                         <td>{{ $invoice->invoice_date->format('d M Y') }}<br><small class="text-muted">{{ translate('Due') }}: {{ $invoice->due_date->format('d M Y') }}</small></td>
                         <td class="font-weight-bold">{{ \App\CentralLogics\Helpers::format_currency($invoice->amount) }}</td>
-                        <td><span class="badge badge-soft-{{ $invoice->payment_status === 'paid' ? 'success' : 'warning' }}">{{ ucfirst($invoice->payment_status) }}</span></td>
+                        @php($statusColor = ['paid' => 'success', 'unpaid' => 'warning', 'due_soon' => 'info', 'overdue' => 'danger', 'void' => 'secondary'][$invoice->display_status] ?? 'secondary')
+                        <td><span class="badge badge-soft-{{ $statusColor }}">{{ ucwords(str_replace('_', ' ', $invoice->display_status)) }}</span></td>
                         <td><span class="badge badge-soft-{{ $invoice->send_status === 'sent' ? 'success' : ($invoice->send_status === 'failed' ? 'danger' : 'secondary') }}">{{ str_replace('_', ' ', ucfirst($invoice->send_status)) }}</span></td>
                         <td class="text-center">
                             <a class="btn btn-sm btn-outline-primary square-btn" href="{{ route('admin.transactions.onboarding-invoices.show', $invoice) }}" title="{{ translate('View') }}"><i class="tio-visible"></i></a>
