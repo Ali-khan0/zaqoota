@@ -417,6 +417,9 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
 
             Route::get('email-setup/{type}/{tab?}', 'BusinessSettingsController@email_index')->name('email-setup');
             Route::post('email-setup/{type}/{tab?}', 'BusinessSettingsController@update_email_index');
+            Route::post('email-setup/{type}/{tab}/send-test', 'BusinessSettingsController@send_email_template_test')
+                ->middleware('throttle:10,1')
+                ->name('email-setup.send-test');
             Route::get('email-status/{type}/{tab}/{status}', 'BusinessSettingsController@update_email_status')->name('email-status');
 
             Route::get('toggle-settings/{key}/{value}', 'BusinessSettingsController@toggle_settings')->name('toggle-settings');
@@ -745,6 +748,21 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
             Route::get('order/generate-invoice/{id}', 'OrderController@generate_invoice')->name('order.generate-invoice');
             Route::get('customer/view/{user_id}', 'CustomerController@view')->name('customer.view');
             Route::get('item/view/{id}', 'ItemController@view')->name('item.view');
+            Route::group(['prefix' => 'onboarding-invoices', 'as' => 'onboarding-invoices.', 'middleware' => ['module:report']], function () {
+                Route::get('/', 'OnboardingInvoiceController@index')->name('index');
+                Route::get('create', 'OnboardingInvoiceController@create')->name('create');
+                Route::get('stores', 'OnboardingInvoiceController@stores')->name('stores');
+                Route::patch('settings/bank-details', 'OnboardingInvoiceController@bankDetails')->name('bank-details');
+                Route::post('/', 'OnboardingInvoiceController@store')->name('store');
+                Route::get('{onboarding_invoice}', 'OnboardingInvoiceController@show')->name('show');
+                Route::get('{onboarding_invoice}/download', 'OnboardingInvoiceController@download')->name('download');
+                Route::post('{onboarding_invoice}/send', 'OnboardingInvoiceController@send')->name('send');
+                Route::post('{onboarding_invoice}/remind', 'OnboardingInvoiceController@remind')->name('remind');
+                Route::post('{onboarding_invoice}/recipients', 'OnboardingInvoiceController@addRecipient')->name('recipients.add');
+                Route::delete('{onboarding_invoice}/recipients', 'OnboardingInvoiceController@removeRecipient')->name('recipients.remove');
+                Route::patch('{onboarding_invoice}/payment-status', 'OnboardingInvoiceController@paymentStatus')->name('payment-status');
+                Route::post('{onboarding_invoice}/void', 'OnboardingInvoiceController@voidInvoice')->name('void');
+            });
             Route::group(['prefix' => 'report', 'as' => 'report.', 'middleware' => ['module:report']], function () {
                 Route::get('order', 'ReportController@order_index')->name('order');
                 Route::get('day-wise-report', 'ReportController@day_wise_report')->name('day-wise-report');

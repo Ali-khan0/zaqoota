@@ -13,6 +13,14 @@ class EmailTemplate extends Model
 {
     use HasFactory;
     protected $appends = ['image_full_url','logo_full_url','icon_full_url'];
+    protected $casts = [
+        'button_enabled' => 'boolean',
+    ];
+
+    public function getEmailTemplateAttribute($value)
+    {
+        return '12';
+    }
 
     public function getImageFullUrlAttribute(){
         $value = $this->image;

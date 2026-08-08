@@ -1,3 +1,5 @@
+@include('email-templates.new-email-format-12')
+@if (false)
 <!DOCTYPE html>
 <?php
     $lang = \App\CentralLogics\Helpers::system_default_language();
@@ -110,12 +112,6 @@ width: 24px;
                 {{-- <span style="display:block;margin-bottom:14px">
                     Please click <a href="" style="font-weight:500;color:#0177CD">Here</a>  or click the link below to change your password
                 </span> --}}
-                @if (isset($url))
-                <span style="display:block;margin-bottom:14px">
-                    {{-- <span style="display:block" id="mail-button">{{ $data['button_name']??'Click Here' }}</span> --}}
-                    <a href="{{ $url }}" style="color: #0177CD">{{ $url }}</a>
-                </span>
-                @endif
                 @if ($data?->button_url)
                     <span class="d-block text-center" style="margin-top: 16px">
                                         <a type="button" href="{{ $data['button_url']??'#' }}" class="cmn-btn" id="mail-button">{{ $data['button_name']??'Submit' }}</a>
@@ -161,3 +157,4 @@ width: 24px;
 </body>
 
 </html>
+@endif

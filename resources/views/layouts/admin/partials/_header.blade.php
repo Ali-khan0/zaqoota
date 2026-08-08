@@ -43,7 +43,7 @@
                             <img src="{{asset('/public/assets/admin/img/new-img/setting-icon.svg')}}" alt="public/img">
                             <span>{{ translate('messages.Settings') }}</span>
                             <svg width="14" viewBox="0 0 14 14" fill="none">
-                                <path d="M2.33325 5.25L6.99992 9.91667L11.6666 5.25" stroke="#006161" stroke-width="1.5"
+                                <path d="M2.33325 5.25L6.99992 9.91667L11.6666 5.25" stroke="#0d988d" stroke-width="1.5"
                                       stroke-linecap="round" stroke-linejoin="round"/>
                             </svg>
                         </a>
@@ -340,6 +340,5 @@
         @endif
     </div>
 </div>
-
 
 

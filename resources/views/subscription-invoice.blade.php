@@ -227,7 +227,7 @@
                             <div class="mb-1 fz-10" style="white-space: nowrap">
                                 <span class="text-dark">{{translate('invoice_of')}}</span> <span class="font-normal">({{  App\CentralLogics\Helpers::currency_code() }})</span>
                             </div>
-                            <div class="text-right" style="font-size: 24px;font-weight:600;color:#039d55;white-space:nowrap;">{{  App\CentralLogics\Helpers::format_currency($transaction->paid_amount)  }}</div>
+                            <div class="text-right" style="font-size: 24px;font-weight:600;color:#0d988d;white-space:nowrap;">{{  App\CentralLogics\Helpers::format_currency($transaction->paid_amount)  }}</div>
                         </td>
                     </tr>
                     <tr>

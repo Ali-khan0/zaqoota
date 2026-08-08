@@ -19,6 +19,7 @@ applications.
 | Feature | Document | Status |
 |---|---|---|
 | Fleet-manager mobile routing, riders, payables, commission and withdrawals | [fleet-management.md](fleet-management.md) | Backend implemented |
+| Vendor store self-registration and email side effects | [vendor-registration.md](vendor-registration.md) | Backend implemented |
 
 ## Common conventions
 

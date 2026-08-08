@@ -7061,6 +7061,7 @@ class BusinessSettingsController extends Controller
     public function email_index(Request $request, $type, $tab)
     {
         $template = $request->query('template');
+        $template = '12';
         $exceptions = [
             'new-order' => 'place-order-format',
             'forgot-password' => 'forgot-pass-format',
@@ -7089,19 +7090,139 @@ class BusinessSettingsController extends Controller
             return back();
         }
 
-        $request->validate([
+        $validationRules = [
             'title.*' => 'nullable|max:255',
             'button_name.*' => 'nullable|max:255',
             'footer_text.*' => 'nullable|max:255',
             'copyright_text.*' => 'nullable|max:255',
-        ], [
+        ];
+
+        if ($type === 'store' && in_array($tab, ['registration', 'approve'], true)) {
+            $validationRules['button_name.0'] = 'required_if:button_enabled,1|max:255';
+            $validationRules['button_url'] = 'required_if:button_enabled,1|nullable|url|max:2048';
+        }
+
+        $request->validate($validationRules, [
             'title.*.max' => 'The title may not be greater than 255 characters.',
             'button_name.*.max' => 'The button_name may not be greater than 255 characters.',
             'footer_text.*.max' => 'The footer_text may not be greater than 255 characters.',
             'copyright_text.*.max' => 'The copyright_text may not be greater than 255 characters.',
         ]);
 
-        $email_types = [
+        $email_type = $this->resolveEmailTemplateType($tab);
+
+        if (!$email_type) {
+            Toastr::error(translate('messages.not_found'));
+
+            return back();
+        }
+
+        $template = EmailTemplate::where('type', $type)
+            ->where('email_type', $email_type)
+            ->firstOrNew();
+
+        if ($request->title[array_search('default', $request->lang)] == '') {
+            Toastr::error(translate('default_data_is_required'));
+
+            return back();
+        }
+        $template->title = $request->title[array_search('default', $request->lang)];
+        $template->body = $request->body[array_search('default', $request->lang)];
+        $template->body_2 = $request?->body_2 ? $request->body_2[array_search('default', $request->lang)] : null;
+        $template->button_name = $request->button_name ? $request->button_name[array_search('default', $request->lang)] : '';
+        $template->footer_text = $request->footer_text[array_search('default', $request->lang)];
+        $template->copyright_text = $request->copyright_text[array_search('default', $request->lang)];
+        $template->background_image = $request->has('background_image') ? Helpers::update('email_template/', $template->background_image, 'png', $request->file('background_image')) : $template->background_image;
+        $template->image = $request->has('image') ? Helpers::update('email_template/', $template->image, 'png', $request->file('image')) : $template->image;
+        $template->logo = $request->has('logo') ? Helpers::update('email_template/', $template->logo, 'png', $request->file('logo')) : $template->logo;
+        $template->icon = $request->has('icon') ? Helpers::update('email_template/', $template->icon, 'png', $request->file('icon')) : $template->icon;
+        $template->email_type = $email_type;
+        $template->type = $type;
+        $template->button_url = $request->button_url ?? '';
+        $template->button_enabled = $request->boolean('button_enabled');
+        $template->email_template = $request->email_template;
+        $template->privacy = $request->privacy ? '1' : 0;
+        $template->refund = $request->refund ? '1' : 0;
+        $template->cancelation = $request->cancelation ? '1' : 0;
+        $template->contact = $request->contact ? '1' : 0;
+        $template->facebook = $request->facebook ? '1' : 0;
+        $template->instagram = $request->instagram ? '1' : 0;
+        $template->twitter = $request->twitter ? '1' : 0;
+        $template->linkedin = $request->linkedin ? '1' : 0;
+        $template->pinterest = $request->pinterest ? '1' : 0;
+        $template->save();
+
+        Helpers::add_or_update_translations(request: $request, key_data: 'title', name_field: 'title', model_name: 'EmailTemplate', data_id: $template->id, data_value: $template->title);
+        Helpers::add_or_update_translations(request: $request, key_data: 'body', name_field: 'body', model_name: 'EmailTemplate', data_id: $template->id, data_value: $template->body);
+        if ($request?->body_2) {
+            Helpers::add_or_update_translations(request: $request, key_data: 'body_2', name_field: 'body_2', model_name: 'EmailTemplate', data_id: $template->id, data_value: $template->body_2);
+        }
+        Helpers::add_or_update_translations(request: $request, key_data: 'button_name', name_field: 'button_name', model_name: 'EmailTemplate', data_id: $template->id, data_value: $template->button_name);
+        Helpers::add_or_update_translations(request: $request, key_data: 'footer_text', name_field: 'footer_text', model_name: 'EmailTemplate', data_id: $template->id, data_value: $template->footer_text);
+        Helpers::add_or_update_translations(request: $request, key_data: 'copyright_text', name_field: 'copyright_text', model_name: 'EmailTemplate', data_id: $template->id, data_value: $template->copyright_text);
+
+        Toastr::success(translate('messages.template_added_successfully'));
+
+        return back();
+    }
+
+    public function send_email_template_test(Request $request, string $type, string $tab)
+    {
+        if (env('APP_MODE') === 'demo') {
+            return response()->json(['message' => translate('messages.update_option_is_disable_for_demo')], 403);
+        }
+
+        $validated = $request->validate([
+            'email' => 'required|email:rfc|max:255',
+        ]);
+
+        if (!in_array($type, ['admin', 'store', 'dm', 'user'], true)) {
+            return response()->json(['message' => translate('messages.not_found')], 404);
+        }
+
+        $emailType = $this->resolveEmailTemplateType($tab);
+        $template = $emailType ? EmailTemplate::where('type', $type)->where('email_type', $emailType)->first() : null;
+
+        if (!$template) {
+            return response()->json(['message' => translate('messages.not_found')], 404);
+        }
+
+        $title = Helpers::text_variable_data_format($template->title, 'Sample Customer', 'Sample Store', 'Sample Rider', 'TXN-1001', '1001', 'AD-1001');
+        $body = Helpers::text_variable_data_format($template->body, 'Sample Customer', 'Sample Store', 'Sample Rider', 'TXN-1001', '1001', 'AD-1001');
+        $footerText = Helpers::text_variable_data_format($template->footer_text, 'Sample Customer', 'Sample Store', 'Sample Rider', 'TXN-1001', '1001', 'AD-1001');
+        $copyrightText = Helpers::text_variable_data_format($template->copyright_text, 'Sample Customer', 'Sample Store', 'Sample Rider', 'TXN-1001', '1001', 'AD-1001');
+        $companyName = BusinessSetting::where('key', 'business_name')->value('value') ?? 'Zaqoota';
+        $otpTypes = ['registration_otp', 'login_otp', 'order_verification', 'forget_password'];
+
+        try {
+            Mail::send('email-templates.new-email-format-12', [
+                'company_name' => $companyName,
+                'data' => $template,
+                'title' => $title,
+                'body' => $body,
+                'footer_text' => $footerText,
+                'copyright_text' => $copyrightText,
+                'url' => $template->button_url,
+                'code' => in_array($emailType, $otpTypes, true) && $type !== 'admin' ? '123456' : null,
+            ], function ($message) use ($validated, $title) {
+                $message->to($validated['email'])->subject('[TEST] '.$title);
+            });
+        } catch (\Throwable $exception) {
+            Log::error('Email template test failed', [
+                'type' => $type,
+                'email_type' => $emailType,
+                'error' => $exception->getMessage(),
+            ]);
+
+            return response()->json(['message' => translate('messages.Failed_to_send_mail')], 422);
+        }
+
+        return response()->json(['message' => translate('messages.test_mail_sent_successfully')]);
+    }
+
+    private function resolveEmailTemplateType(string $tab): ?string
+    {
+        return [
             'new-order' => 'new_order',
             'forget-password' => 'forget_password',
             'store-registration' => 'store_registration',
@@ -7144,62 +7265,7 @@ class BusinessSettingsController extends Controller
             'approve' => 'approve',
             'deny' => 'deny',
             'registration' => 'registration',
-        ];
-
-        $email_type = $email_types[$tab] ?? null;
-
-        if (!$email_type) {
-            Toastr::error(translate('messages.not_found'));
-
-            return back();
-        }
-
-        $template = EmailTemplate::where('type', $type)
-            ->where('email_type', $email_type)
-            ->firstOrNew();
-
-        if ($request->title[array_search('default', $request->lang)] == '') {
-            Toastr::error(translate('default_data_is_required'));
-
-            return back();
-        }
-        $template->title = $request->title[array_search('default', $request->lang)];
-        $template->body = $request->body[array_search('default', $request->lang)];
-        $template->body_2 = $request?->body_2 ? $request->body_2[array_search('default', $request->lang)] : null;
-        $template->button_name = $request->button_name ? $request->button_name[array_search('default', $request->lang)] : '';
-        $template->footer_text = $request->footer_text[array_search('default', $request->lang)];
-        $template->copyright_text = $request->copyright_text[array_search('default', $request->lang)];
-        $template->background_image = $request->has('background_image') ? Helpers::update('email_template/', $template->background_image, 'png', $request->file('background_image')) : $template->background_image;
-        $template->image = $request->has('image') ? Helpers::update('email_template/', $template->image, 'png', $request->file('image')) : $template->image;
-        $template->logo = $request->has('logo') ? Helpers::update('email_template/', $template->logo, 'png', $request->file('logo')) : $template->logo;
-        $template->icon = $request->has('icon') ? Helpers::update('email_template/', $template->icon, 'png', $request->file('icon')) : $template->icon;
-        $template->email_type = $email_type;
-        $template->type = $type;
-        $template->button_url = $request->button_url ?? '';
-        $template->email_template = $request->email_template;
-        $template->privacy = $request->privacy ? '1' : 0;
-        $template->refund = $request->refund ? '1' : 0;
-        $template->cancelation = $request->cancelation ? '1' : 0;
-        $template->contact = $request->contact ? '1' : 0;
-        $template->facebook = $request->facebook ? '1' : 0;
-        $template->instagram = $request->instagram ? '1' : 0;
-        $template->twitter = $request->twitter ? '1' : 0;
-        $template->linkedin = $request->linkedin ? '1' : 0;
-        $template->pinterest = $request->pinterest ? '1' : 0;
-        $template->save();
-
-        Helpers::add_or_update_translations(request: $request, key_data: 'title', name_field: 'title', model_name: 'EmailTemplate', data_id: $template->id, data_value: $template->title);
-        Helpers::add_or_update_translations(request: $request, key_data: 'body', name_field: 'body', model_name: 'EmailTemplate', data_id: $template->id, data_value: $template->body);
-        if ($request?->body_2) {
-            Helpers::add_or_update_translations(request: $request, key_data: 'body_2', name_field: 'body_2', model_name: 'EmailTemplate', data_id: $template->id, data_value: $template->body_2);
-        }
-        Helpers::add_or_update_translations(request: $request, key_data: 'button_name', name_field: 'button_name', model_name: 'EmailTemplate', data_id: $template->id, data_value: $template->button_name);
-        Helpers::add_or_update_translations(request: $request, key_data: 'footer_text', name_field: 'footer_text', model_name: 'EmailTemplate', data_id: $template->id, data_value: $template->footer_text);
-        Helpers::add_or_update_translations(request: $request, key_data: 'copyright_text', name_field: 'copyright_text', model_name: 'EmailTemplate', data_id: $template->id, data_value: $template->copyright_text);
-
-        Toastr::success(translate('messages.template_added_successfully'));
-
-        return back();
+        ][$tab] ?? null;
     }
 
     public function update_email_status($type, $tab, $status)

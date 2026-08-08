@@ -6554,7 +6554,7 @@ strong {
 .auth-wrapper-right .auth-header a {
     font-weight: 700;
     text-decoration: underline;
-    color: #039d55;
+    color: #0d988d;
 }
 
 .auth-wrapper-right .auth-header .title {
@@ -6566,7 +6566,7 @@ strong {
 .auth-wrapper-right .auth-header .badge {
     font-weight: 400;
     font-size: 14px;
-    color: #039d55;
+    color: #0d988d;
     background-color: rgba(3, 157, 85, 0.1);
     border-radius: 15px;
     padding: 7px 13px 6px;
@@ -6582,7 +6582,7 @@ strong {
 }
 
 .auth-wrapper-right .btn--primary {
-    background: #039d55;
+    background: #0d988d;
     font-weight: 500;
 }
 
@@ -6628,21 +6628,25 @@ strong {
     width: 0;
     flex-grow: 1;
     background: url(./images/auth-bg.png) no-repeat center left/cover;
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    align-items: center;
+    position: relative;
+    overflow: hidden;
 }
 
 .auth-wrapper-left .auth-left-cont {
-    margin-inline-start: auto;
-    margin-inline-end: 172px;
+    position: absolute;
+    inset-block-start: clamp(40px, 7vh, 76px);
+    inset-inline-end: clamp(38px, 5vw, 82px);
+    width: min(390px, 42%);
+    margin: 0;
+    text-align: start;
 }
 
 .auth-wrapper-left .auth-left-cont img {
-    max-width: 240px;
-    height: 65px;
-    margin-bottom: 20px;
+    display: block;
+    width: auto;
+    max-width: 190px;
+    height: 52px;
+    margin-bottom: 16px;
     -o-object-fit: contain;
     object-fit: contain;
     -o-object-position: left center;
@@ -6650,21 +6654,48 @@ strong {
 }
 
 .auth-wrapper-left .auth-left-cont .title {
-    font-size: 70px;
-    line-height: 1.3;
-    font-weight: 300;
+    margin: 0;
+    color: #1f2933;
+    line-height: 1.15;
+    letter-spacing: 0;
 }
 
-.auth-wrapper-left .auth-left-cont .title strong {
+.auth-slogan-kicker,
+.auth-slogan-brand,
+.auth-slogan-tagline {
+    display: block;
+}
+
+.auth-slogan-kicker {
+    margin-bottom: 3px;
+    font-size: 18px;
+    font-weight: 500;
+}
+
+.auth-slogan-brand {
+    font-size: 42px;
+    font-weight: 700;
+}
+
+.auth-slogan-tagline {
+    margin-top: 8px;
+    color: #0d988d;
+    font-size: 20px;
+    line-height: 1.35;
     font-weight: 700;
 }
 
 @media (max-width: 1549px) {
     .auth-wrapper-left .auth-left-cont {
-        margin-inline-end: 134px;
+        inset-block-start: 42px;
+        inset-inline-end: 42px;
+        width: min(330px, 44%);
     }
-    .auth-wrapper-left .auth-left-cont .title {
-        font-size: 55px;
+    .auth-slogan-brand {
+        font-size: 36px;
+    }
+    .auth-slogan-tagline {
+        font-size: 18px;
     }
     .auth-wrapper-right .auth-header {
         font-size: 16px;
@@ -6686,13 +6717,24 @@ strong {
 }
 @media (max-width: 1300px) {
     .auth-wrapper-left .auth-left-cont {
-        margin-inline-end: 84px;
+        inset-block-start: 32px;
+        inset-inline-end: 28px;
+        width: min(270px, 45%);
     }
     .auth-wrapper-left .auth-left-cont img {
-        max-width: 90px;
+        max-width: 140px;
+        height: 42px;
+        margin-bottom: 12px;
     }
-    .auth-wrapper-left .auth-left-cont .title {
-        font-size: 45px;
+    .auth-slogan-kicker {
+        font-size: 15px;
+    }
+    .auth-slogan-brand {
+        font-size: 30px;
+    }
+    .auth-slogan-tagline {
+        margin-top: 6px;
+        font-size: 16px;
     }
     .auth-wrapper-right {
         max-width: 560px;
@@ -6750,7 +6792,7 @@ strong {
     }
 }
 .text--039D55 {
-    color: #039d55 !important;
+    color: #0d988d !important;
 }
 
 @media (min-width: 1650px) {
@@ -6768,7 +6810,7 @@ strong {
 
 .toggle-login .toggle-login-btn {
     cursor: pointer;
-    color: #039d55;
+    color: #0d988d;
 }
 
 a:hover .text--title {
@@ -9452,7 +9494,7 @@ body > .initial-38-1 {
 }
 
 .forget-pass-content .btn--primary {
-    background: #039d55;
+    background: #0d988d;
 }
 
 .forget-pass-content {
@@ -11733,7 +11775,7 @@ body > .initial-38-1 {
 }
 
 .color-card.color-2 .title {
-    color: #039d55;
+    color: #0d988d;
 }
 
 .color-card.color-3 {
@@ -12237,7 +12279,7 @@ label.position-relative {
 }
 
 .__bg-8 .title {
-    color: #039d55;
+    color: #0d988d;
 }
 
 .w--85px {
@@ -12497,7 +12539,7 @@ label.position-relative {
 }
 .__plan-item {
     --border-clr: #f2f5f9;
-    --success: #039d55;
+    --success: #0d988d;
     --primary-clr: #00868f;
     background: #ffffff;
     border: 0.721461px solid #f4f4f4;
@@ -12814,7 +12856,7 @@ label.position-relative {
 .free-trial .right .btn-light {
     padding: 12px 20px;
     box-shadow: 5px 5px 10px 0px rgba(0, 0, 0, 0.1);
-    color: #039d55;
+    color: #0d988d;
     font-size: 12px;
     font-weight: 600;
 }
@@ -12839,7 +12881,7 @@ label.position-relative {
 }
 
 .success-bg {
-    background: linear-gradient(0deg, #039d55 0%, #039d55 100%), #fff;
+    background: linear-gradient(0deg, #0d988d 0%, #0d988d 100%), #fff;
 }
 
 .danger-bg {
@@ -13479,7 +13521,7 @@ video#VisaChipCardVideo {
     right: 15px;
     border: 2px solid #fff;
     border-radius: 55px;
-    background: #039d55;
+    background: #0d988d;
     color: white;
     z-index: 9;
     display: flex;
@@ -13612,7 +13654,7 @@ video#VisaChipCardVideo {
     position: absolute;
     width: 126px;
     height: 115px;
-    background: #039d551a;
+    background: #0d988d1a;
     border-radius: 50%;
 }
 
@@ -16752,7 +16794,7 @@ img{
 }
 
 .highlight-gradient{
-    background: linear-gradient(93.56deg, rgba(3, 157, 85, 0.7) 14.14%, #039D55 72.19%), #FFFFFF;
+    background: linear-gradient(93.56deg, rgba(3, 157, 85, 0.7) 14.14%, #0d988d 72.19%), #FFFFFF;
     box-shadow: 0px 5px 20px rgba(88, 110, 125, 0.05);
 }
 

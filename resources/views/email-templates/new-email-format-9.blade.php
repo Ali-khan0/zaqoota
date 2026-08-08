@@ -1,3 +1,5 @@
+@include('email-templates.new-email-format-12')
+@if (false)
 <!DOCTYPE html>
 <?php
     $lang = \App\CentralLogics\Helpers::system_default_language();
@@ -487,3 +489,4 @@ width: 24px;
 
 </body>
 </html>
+@endif

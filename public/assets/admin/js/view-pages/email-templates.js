@@ -29,6 +29,66 @@ $('input[data-id="mail-copyright"]').on('keyup', function() {
     $('#'+dataId).text(value);
 });
 
+$('.js-email-button-toggle').on('change', function() {
+    $('#action-button-preview').toggle(this.checked);
+    $('.js-email-button-fields').toggle(this.checked);
+});
+
+let templateTestPanel = $('.js-email-template-test-panel');
+let templatePreviewCard = templateTestPanel.closest('.left-content').children('.card').last();
+if (templateTestPanel.length && templatePreviewCard.length) {
+    templateTestPanel.detach().insertAfter(templatePreviewCard);
+}
+
+$('.js-template-test-email').on('keydown', function(event) {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        $(this).closest('.js-email-template-test-panel').find('.js-send-template-test').trigger('click');
+    }
+});
+
+$('.js-send-template-test').on('click', function() {
+    let button = $(this);
+    let panel = button.closest('.js-email-template-test-panel');
+    let emailInput = panel.find('.js-template-test-email').get(0);
+    let feedback = panel.find('.js-template-test-feedback');
+
+    if (!emailInput.checkValidity()) {
+        emailInput.reportValidity();
+        return;
+    }
+
+    button.prop('disabled', true);
+    feedback.addClass('d-none').removeClass('text-success text-danger').text('');
+
+    $.ajax({
+        url: panel.data('url'),
+        type: 'POST',
+        data: {
+            _token: $('input[name="_token"]').first().val(),
+            email: emailInput.value
+        },
+        success: function(response) {
+            feedback.removeClass('d-none text-danger').addClass('text-success').text(response.message);
+        },
+        error: function(xhr) {
+            let response = xhr.responseJSON || {};
+            let emailErrors = response.errors && response.errors.email ? response.errors.email : [];
+            let message = emailErrors[0] || response.message || 'Unable to send test email.';
+            feedback.removeClass('d-none text-success').addClass('text-danger').text(message);
+        },
+        complete: function() {
+            button.prop('disabled', false);
+        }
+    });
+});
+
+// The unified email shell uses the business logo and its own content hierarchy.
+$('#mail-icon').closest('div').hide();
+$('h5.card-title').filter(function() {
+    return $(this).text().trim().replace(/_/g, ' ').toLowerCase() === 'header content';
+}).hide();
+
 function readURL(input, viewer) {
     if (input.files && input.files[0]) {
         let reader = new FileReader();
@@ -99,5 +159,3 @@ if( document.getElementById('mail-route-selector')){
         location.href = baseUrl + '/admin/business-settings/email-setup/' + value + '/' + (value === 'admin' ? 'forgot-password' : 'registration');
     });
 }
-
-

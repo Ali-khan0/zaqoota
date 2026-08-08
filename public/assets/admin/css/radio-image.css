@@ -27,7 +27,7 @@
 .imgbgchk:checked + label>img{
     /* transform: scale(1.25); */
     /* opacity: 0.3; */
-    border: 5px solid #039D55;
+    border: 5px solid #0d988d;
 }
 .tick_container {
     transition: .5s ease;
