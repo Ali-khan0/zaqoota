@@ -722,6 +722,12 @@ salary/type selection. Migration
 accounts without altering historical wallet or transaction rows. Do not
 reintroduce salary/freelancer controls in rider clients or admin views.
 
+Approved rider profiles expose an admin Delivery/Ride work-mode toggle at
+`POST admin/users/delivery-man/work-mode/{id}`. The update is transactional and
+is rejected with the blocking order IDs when the rider has any active
+non-parcel assignment. Parcel assignments are allowed in both modes, and Ride
+mode continues to require an approved active ride vehicle.
+
 ## 11. Verification commands
 
 Dependencies are not currently present in this backup (`vendor/autoload.php` is

@@ -297,9 +297,28 @@
                                     </span>
                                     <div>
                                         <h6 class="mb-1">{{ translate('messages.Work Mode') }}</h6>
-                                        <span class="badge badge-soft-{{ $deliveryMan->work_mode === 'ride' ? 'primary' : 'info' }}">
-                                            {{ $deliveryMan->work_mode === 'ride' ? translate('messages.Ride Mode') : translate('messages.Delivery Mode') }}
-                                        </span>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="badge badge-soft-{{ $deliveryMan->work_mode === 'ride' ? 'primary' : 'info' }}">
+                                                {{ $deliveryMan->work_mode === 'ride' ? translate('messages.Ride Mode') : translate('messages.Delivery Mode') }}
+                                            </span>
+                                            @if ($deliveryMan->application_status === 'approved')
+                                                <form method="POST"
+                                                    action="{{ route('admin.users.delivery-man.work-mode', $deliveryMan->id) }}">
+                                                    @csrf
+                                                    <input type="hidden" name="work_mode"
+                                                        value="{{ $deliveryMan->work_mode === 'ride' ? 'delivery' : 'ride' }}">
+                                                    <label class="toggle-switch toggle-switch-sm mb-0"
+                                                        title="{{ $deliveryMan->work_mode === 'ride' ? translate('messages.Switch to Delivery Mode') : translate('messages.Switch to Ride Mode') }}">
+                                                        <input type="checkbox" class="toggle-switch-input"
+                                                            {{ $deliveryMan->work_mode === 'ride' ? 'checked' : '' }}
+                                                            onchange="this.form.submit()">
+                                                        <span class="toggle-switch-label">
+                                                            <span class="toggle-switch-indicator"></span>
+                                                        </span>
+                                                    </label>
+                                                </form>
+                                            @endif
+                                        </div>
                                     </div>
                                 </div>
                             </div>

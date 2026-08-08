@@ -107,7 +107,12 @@ still have pending/approved ride vehicles managed from Ride Vehicles.
 The standard admin delivery-man detail page loads `rideVehicles.vehicleType`
 and `rideVehicles.category` and shows the rider's vehicle count, identity,
 approval status, active vehicle, and current Delivery/Ride work mode. Keep this
-shared profile view current when vehicle fields change.
+shared profile view current when vehicle fields change. For approved riders,
+the profile also provides an admin work-mode toggle through
+`POST admin/users/delivery-man/work-mode/{id}`. The server locks the rider and
+checks active assignments before saving: active non-parcel order IDs block the
+change and are shown in the admin error toast, while parcel orders do not block
+it. Switching to Ride mode still requires an approved active ride vehicle.
 
 ## Fare configuration
 

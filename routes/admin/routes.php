@@ -370,6 +370,7 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
                     Route::get(DeliveryMan::NEW[URI], [DeliveryManController::class, 'getNewDeliveryManView'])->name('new');
                     Route::get(DeliveryMan::DENY[URI], [DeliveryManController::class, 'getDeniedDeliveryManView'])->name('deny');
                     Route::get(DeliveryMan::PREVIEW[URI].'/{id}/{tab?}', [DeliveryManController::class, 'getPreview'])->name('preview');
+                    Route::post('work-mode/{id}', [DeliveryManController::class, 'updateWorkMode'])->name('work-mode');
                     Route::get(DeliveryMan::STATUS[URI].'/{id}/{status}', [DeliveryManController::class, 'updateStatus'])->name('status');
                     Route::get(DeliveryMan::UPDATE_APPLICATION[URI].'/{id}/{status}', [DeliveryManController::class, 'updateApplication'])->name('application');
                     Route::post('approve-application', [DeliveryManController::class, 'approveDeliveryManApplication'])->name('application-approve');

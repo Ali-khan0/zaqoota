@@ -386,6 +386,66 @@ class DeliveryManController extends BaseController
 
     }
 
+    public function updateWorkMode(Request $request, int $id): RedirectResponse
+    {
+        $validated = $request->validate([
+            'work_mode' => 'required|in:delivery,ride',
+        ]);
+
+        $result = DB::transaction(function () use ($id, $validated): array {
+            $deliveryMan = \App\Models\DeliveryMan::query()
+                ->withoutGlobalScopes()
+                ->lockForUpdate()
+                ->findOrFail($id);
+
+            if ($deliveryMan->application_status !== 'approved') {
+                return [
+                    'success' => false,
+                    'message' => translate('messages.Only approved riders can change work mode.'),
+                ];
+            }
+
+            $blockingOrderIds = Order::query()
+                ->where('delivery_man_id', $deliveryMan->id)
+                ->where(function ($query) {
+                    $query->whereNull('order_type')->orWhere('order_type', '!=', 'parcel');
+                })
+                ->whereIn('order_status', ['accepted', 'confirmed', 'pending', 'processing', 'picked_up', 'handover'])
+                ->lockForUpdate()
+                ->pluck('id');
+
+            if ($blockingOrderIds->isNotEmpty()) {
+                $orderNumbers = $blockingOrderIds->map(fn ($orderId) => '#'.$orderId)->implode(', ');
+
+                return [
+                    'success' => false,
+                    'message' => translate('messages.Rider is currently assigned to non-parcel order(s)')
+                        .': '.$orderNumbers.'. '
+                        .translate('messages.Complete the order before switching work mode.'),
+                ];
+            }
+
+            if ($validated['work_mode'] === 'ride' && ! $deliveryMan->activeRideVehicle()->exists()) {
+                return [
+                    'success' => false,
+                    'message' => translate('messages.An approved active ride vehicle is required for Ride mode.'),
+                ];
+            }
+
+            $deliveryMan->work_mode = $validated['work_mode'];
+            $deliveryMan->save();
+
+            return [
+                'success' => true,
+                'message' => translate('messages.Rider work mode updated successfully.'),
+            ];
+        });
+
+        $result['success'] ? Toastr::success($result['message']) : Toastr::error($result['message']);
+
+        return back();
+    }
+
     public function getEarningListExport(Request $request, OrderTransactionRepositoryInterface $orderTransactionRepo): BinaryFileResponse
     {
         $deliveryMan = $this->deliveryManRepo->getFirstWhere(params: ['type' => 'zone_wise','id' => $request['id']], relations: ['reviews']);
