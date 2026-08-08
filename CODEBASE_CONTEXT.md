@@ -817,6 +817,16 @@ remains the overflow/failure path. `ExpireRideOffer` emits punctual expiry only
 with a durable non-sync queue worker. Config API `ride_realtime` documents auth
 URLs, channel templates and fallback interval. See `docs/api/ride-realtime.md`.
 
+Admin Ride operations are available at `admin/ride-hailing/rides` through
+`RideOperationController`. The paginated control room filters by assignment,
+trip/payment status, zone, category, date, request number, customer, Captain,
+and location. Its detail page shows route data, latest Captain coordinates,
+trip timestamps and history, offers, payments, and financial snapshots. Admins
+may manually assign only searching/negotiating rides; the server locks the ride,
+rechecks Captain eligibility, enforces the snapshotted negotiation range,
+records the accepted offer and status history, then emits notifications and
+realtime status. Admin-zone scoping applies to list, detail, and assignment.
+
 Riders are freelancer-only. Registration APIs and landing/admin/vendor create
 or update paths set `delivery_men.earning = 1` server-side and do not accept a
 salary/type selection. Migration

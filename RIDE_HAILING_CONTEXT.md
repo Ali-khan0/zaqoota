@@ -15,8 +15,11 @@ arrival, customer-only Trip PIN verification, server-timed waiting, active
 ride-scoped location, completion, pre-start cancellation audit, and lifecycle
 push notifications. Cash and online gateway payments, idempotent Captain/admin
 wallet settlement, payment attempt history, JSON receipts, and authenticated
-private Ride realtime channels are implemented. Refunds, safety and reports do
-not yet exist.
+private Ride realtime channels are implemented. The admin Ride Operations
+control room provides paginated monitoring, filtering, current-trip status,
+manual Captain assignment, latest Captain coordinates, offer/payment history,
+and the immutable trip timeline. Refunds, safety and aggregate financial
+reports do not yet exist.
 
 Customers may cancel `searching` or `negotiating` requests without a fee. A
 customer cancellation after Captain selection but before trip start records
@@ -29,6 +32,12 @@ All routes use the `admin.ride-hailing.*` name prefix and live under
 `admin/ride-hailing`:
 
 - `/` dashboard
+- `/rides` paginated operational queue for unassigned, active, completed, and
+  cancelled rides
+- `/rides/{ride}` ride detail, route, current Captain location, trip timeline,
+  offers, payments, and settlement summary
+- `POST /rides/{ride}/assign` manually assigns an eligible Captain and bounded
+  final fare while the ride is still searching or negotiating
 - `/vehicles` vehicle registry and approval
 - `/vehicles/create` register a rider vehicle
 - `/riders` existing shared rider accounts, work mode, and ride-vehicle summary
@@ -40,7 +49,16 @@ All routes use the `admin.ride-hailing.*` name prefix and live under
 Controllers:
 
 - `App\Http\Controllers\Admin\RideHailing\RideHailingController`
+- `App\Http\Controllers\Admin\RideHailing\RideOperationController`
 - `App\Http\Controllers\Admin\RideHailing\RideHailingSettingController`
+
+The operations query is scoped to the authenticated admin's zone when one is
+assigned. Manual assignment locks the ride, rechecks current Captain mode,
+availability, zone and approved active vehicle eligibility, rejects competing
+pending offers, records an accepted admin offer, snapshots commission from the
+chosen final fare, appends an admin-authored status history, and sends customer,
+Captain and realtime updates. It cannot overwrite an already assigned or
+started ride; reassignment needs a separate audited policy before it is added.
 
 `App\Http\Middleware\CurrentModule` recognizes `admin/ride-hailing*` so direct
 links retain the Ride Hailing sidebar even when the previous session module was

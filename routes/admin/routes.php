@@ -45,6 +45,7 @@ use App\Http\Controllers\Admin\Subscription\SubscriptionController;
 use App\Http\Controllers\Admin\SurgePriceController;
 use App\Http\Controllers\Admin\RideHailing\RideHailingSettingController;
 use App\Http\Controllers\Admin\RideHailing\RideHailingController;
+use App\Http\Controllers\Admin\RideHailing\RideOperationController;
 
 Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
 
@@ -55,6 +56,9 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
 
         Route::group(['prefix' => 'ride-hailing', 'as' => 'ride-hailing.', 'middleware' => ['module:settings']], function () {
             Route::get('/', [RideHailingController::class, 'dashboard'])->name('dashboard');
+            Route::get('rides', [RideOperationController::class, 'index'])->name('rides.index');
+            Route::get('rides/{ride}', [RideOperationController::class, 'show'])->name('rides.show');
+            Route::post('rides/{ride}/assign', [RideOperationController::class, 'assign'])->name('rides.assign');
             Route::get('setup', [RideHailingSettingController::class, 'index'])->name('setup');
             Route::put('setup', [RideHailingSettingController::class, 'update'])->name('setup.update');
             Route::get('categories', [RideHailingController::class, 'categories'])->name('categories.index');

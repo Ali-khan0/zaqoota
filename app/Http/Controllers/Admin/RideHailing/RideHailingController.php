@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\DeliveryMan;
 use App\Models\RideCategory;
 use App\Models\RideFare;
+use App\Models\RideRequest;
 use App\Models\RideVehicle;
 use App\Models\RideVehicleType;
 use App\Models\Zone;
@@ -38,6 +39,14 @@ class RideHailingController extends Controller
             'categories' => RideCategory::query()->where('status', true)->count(),
             'configured_fares' => RideFare::query()->where('status', true)
                 ->whereHas('zone.modules', fn ($query) => $query->where('module_type', 'ride_hailing'))
+                ->when($zoneId !== 'all', fn ($query) => $query->where('zone_id', $zoneId))->count(),
+            'rides_need_captain' => RideRequest::query()->whereIn('status', [RideRequest::STATUS_SEARCHING, RideRequest::STATUS_NEGOTIATING])
+                ->when($zoneId !== 'all', fn ($query) => $query->where('zone_id', $zoneId))->count(),
+            'active_rides' => RideRequest::query()->whereIn('status', [RideRequest::STATUS_RIDER_SELECTED, RideRequest::STATUS_CAPTAIN_ARRIVING, RideRequest::STATUS_ARRIVED, RideRequest::STATUS_IN_PROGRESS])
+                ->when($zoneId !== 'all', fn ($query) => $query->where('zone_id', $zoneId))->count(),
+            'completed_rides' => RideRequest::query()->where('status', RideRequest::STATUS_COMPLETED)
+                ->when($zoneId !== 'all', fn ($query) => $query->where('zone_id', $zoneId))->count(),
+            'unpaid_rides' => RideRequest::query()->whereIn('status', [RideRequest::STATUS_COMPLETED, RideRequest::STATUS_CANCELLED])->whereIn('payment_status', ['unpaid', 'pending'])
                 ->when($zoneId !== 'all', fn ($query) => $query->where('zone_id', $zoneId))->count(),
         ];
 

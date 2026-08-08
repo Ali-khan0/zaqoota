@@ -32,6 +32,10 @@
         <div class="card-body">
             <div class="row g-2">
                 @foreach ([
+                    [translate('messages.Need Captain'), $stats['rides_need_captain'], 'public/assets/admin/img/order-status/unassigned.svg', route('admin.ride-hailing.rides.index', ['status' => 'unassigned'])],
+                    [translate('messages.Active Rides'), $stats['active_rides'], 'public/assets/admin/img/icons/i-rider.png', route('admin.ride-hailing.rides.index', ['status' => 'active'])],
+                    [translate('messages.Completed Rides'), $stats['completed_rides'], 'public/assets/admin/img/order-status/delivered.svg', route('admin.ride-hailing.rides.index', ['status' => 'completed'])],
+                    [translate('messages.Payment Pending'), $stats['unpaid_rides'], 'public/assets/admin/img/transactions/pending.png', route('admin.ride-hailing.rides.index', ['payment_status' => 'due'])],
                     [translate('messages.Riders in Ride Mode'), $stats['ride_mode_riders'], 'public/assets/admin/img/icons/i-rider.png', route('admin.ride-hailing.riders.index')],
                     [translate('messages.Registered Vehicles'), $stats['registered_vehicles'], 'public/assets/admin/img/car_icon.svg', route('admin.ride-hailing.vehicles.index')],
                     [translate('messages.Approved Vehicles'), $stats['approved_vehicles'], 'public/assets/admin/img/campaign-approved.png', route('admin.ride-hailing.vehicles.index')],
@@ -53,7 +57,7 @@
     </div>
 
     <div class="card mt-3">
-        <div class="card-header"><h5 class="card-title">{{ translate('messages.Foundation Status') }}</h5></div>
+        <div class="card-header"><h5 class="card-title">{{ translate('messages.Ride Service Rules') }}</h5></div>
         <div class="card-body">
             <div class="row g-3">
                 <div class="col-md-4"><strong>{{ translate('messages.Rider Work Mode') }}</strong><p class="text-muted mb-0 mt-1">{{ translate('messages.Delivery mode receives food, grocery and parcel work. Ride mode receives rides and parcel work.') }}</p></div>
