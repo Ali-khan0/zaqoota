@@ -6,7 +6,7 @@
 <div class="content container-fluid">
     <div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
         <h1 class="page-header-title"><span class="page-header-icon"><i class="tio-car"></i></span>{{ translate('messages.Ride Vehicles') }} <span class="badge badge-soft-dark ml-2">{{ $vehicles->total() }}</span></h1>
-        <a href="{{ route('admin.ride-hailing.vehicles.create') }}" class="btn btn--primary"><i class="tio-add mr-1"></i>{{ translate('messages.Register Vehicle') }}</a>
+        <a href="{{ route('admin.ride-hailing.vehicles.create') }}" class="btn btn--primary"><i class="tio-add mr-1"></i>{{ translate('messages.Add Ride Vehicle') }}</a>
     </div>
     @include('admin-views.ride-hailing.partials.alerts')
     <div class="card">

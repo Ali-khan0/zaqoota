@@ -20,6 +20,7 @@ All routes use the `admin.ride-hailing.*` name prefix and live under
 - `/` dashboard
 - `/vehicles` vehicle registry and approval
 - `/vehicles/create` register a rider vehicle
+- `/riders` existing shared rider accounts, work mode, and ride-vehicle summary
 - `/categories` ride-category setup
 - `/fares` zone/category pricing
 - `/setup` basic service settings
@@ -72,6 +73,10 @@ Ride Hailing uses:
 A rider may have at most two ride vehicles. Only one approved vehicle can be
 active at a time. The limit and category/type/fuel compatibility are enforced
 in the admin controller inside database transactions.
+
+Ride Hailing does not create a second rider identity. The admin vehicle form
+searches and links an existing approved `delivery_men` account. The Ride Riders
+page is an operational view of those shared accounts, not a registration page.
 
 ## Fare configuration
 

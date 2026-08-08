@@ -87,6 +87,28 @@ class RideHailingController extends Controller
         return view('admin-views.ride-hailing.vehicles.index', compact('vehicles', 'search'));
     }
 
+    public function riders(Request $request): View
+    {
+        $search = trim((string) $request->input('search'));
+        $mode = $request->input('work_mode');
+        $riders = DeliveryMan::withoutGlobalScopes()
+            ->with(['rideVehicles.vehicleType', 'rideVehicles.category', 'activeRideVehicle.vehicleType', 'activeRideVehicle.category'])
+            ->withCount('rideVehicles')
+            ->where('application_status', 'approved')
+            ->when(in_array($mode, ['delivery', 'ride'], true), fn ($query) => $query->where('work_mode', $mode))
+            ->when($search !== '', fn ($query) => $query->where(fn ($nested) => $nested
+                ->where('f_name', 'like', "%{$search}%")
+                ->orWhere('l_name', 'like', "%{$search}%")
+                ->orWhere('phone', 'like', "%{$search}%")
+                ->orWhere('email', 'like', "%{$search}%")))
+            ->orderByDesc('ride_vehicles_count')
+            ->latest('id')
+            ->paginate(20)
+            ->withQueryString();
+
+        return view('admin-views.ride-hailing.riders', compact('riders', 'search', 'mode'));
+    }
+
     public function createVehicle(): View
     {
         $types = RideVehicleType::query()->where('status', true)->with(['categories' => fn ($q) => $q->where('status', true)->orderBy('sort_order')])->orderBy('sort_order')->get();

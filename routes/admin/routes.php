@@ -63,6 +63,7 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
             Route::get('vehicles', [RideHailingController::class, 'vehicles'])->name('vehicles.index');
             Route::get('vehicles/create', [RideHailingController::class, 'createVehicle'])->name('vehicles.create');
             Route::post('vehicles', [RideHailingController::class, 'storeVehicle'])->name('vehicles.store');
+            Route::get('riders', [RideHailingController::class, 'riders'])->name('riders.index');
             Route::get('riders/search', [RideHailingController::class, 'searchRiders'])->name('riders.search');
             Route::put('vehicles/{vehicle}/status', [RideHailingController::class, 'vehicleStatus'])->name('vehicles.status');
             Route::put('vehicles/{vehicle}/activate', [RideHailingController::class, 'activateVehicle'])->name('vehicles.activate');

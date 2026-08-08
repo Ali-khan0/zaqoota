@@ -10,7 +10,7 @@
                 <h1 class="page-header-title"><span class="page-header-icon"><i class="tio-taxi"></i></span>{{ translate('messages.Ride Hailing Dashboard') }}</h1>
                 <p class="page-header-text mt-2 mb-0">{{ translate('messages.Manage ride vehicles, categories and zone pricing.') }}</p>
             </div>
-            <a href="{{ route('admin.ride-hailing.vehicles.create') }}" class="btn btn--primary"><i class="tio-add mr-1"></i>{{ translate('messages.Register Vehicle') }}</a>
+            <a href="{{ route('admin.ride-hailing.vehicles.create') }}" class="btn btn--primary"><i class="tio-add mr-1"></i>{{ translate('messages.Add Ride Vehicle') }}</a>
         </div>
     </div>
 
