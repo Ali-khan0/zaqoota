@@ -38,6 +38,117 @@
             }
         </style>
     @endif
+    <style>
+        .zaqoota-footer .footer-bottom {
+            background: #102f32;
+            border-radius: 0;
+            border-top: 4px solid #0d988d;
+            padding: 54px 0 0;
+        }
+        .zaqoota-footer .footer-wrapper {
+            display: grid;
+            gap: 50px;
+            grid-template-columns: minmax(260px, 1.35fr) minmax(180px, .7fr) minmax(260px, 1fr);
+            margin: 0;
+        }
+        .zaqoota-footer .footer-widget,
+        .zaqoota-footer .footer-widget.widget-links {
+            max-width: none;
+            width: auto;
+        }
+        .zaqoota-footer .footer-logo {
+            margin-bottom: 18px;
+            max-width: 158px;
+        }
+        .zaqoota-footer .footer-logo img {
+            filter: brightness(0) invert(1);
+            max-height: 56px;
+        }
+        .zaqoota-footer .txt {
+            color: #bdd0d1;
+            font-size: 14px;
+            line-height: 1.75;
+            max-width: 390px;
+        }
+        .zaqoota-footer .footer-widget .subtitle {
+            color: #fff;
+            font-size: 16px;
+            margin: 4px 0 20px !important;
+            padding-bottom: 12px;
+            position: relative;
+        }
+        .zaqoota-footer .footer-widget .subtitle::after {
+            background: #0d988d;
+            bottom: 0;
+            content: '';
+            height: 2px;
+            inset-inline-start: 0;
+            position: absolute;
+            width: 34px;
+        }
+        .zaqoota-footer .widget-links ul {
+            display: grid;
+            gap: 11px;
+        }
+        .zaqoota-footer .widget-links ul li a,
+        .zaqoota-footer .widget-links ul li > a:not([href]) {
+            align-items: flex-start;
+            color: #bdd0d1;
+            display: flex;
+            font-size: 14px;
+            gap: 9px;
+            line-height: 1.55;
+            transition: color .2s ease;
+        }
+        .zaqoota-footer .widget-links ul li a:hover {
+            color: #fff;
+            text-shadow: none;
+        }
+        .zaqoota-footer .widget-links svg {
+            flex: 0 0 auto;
+            margin: 3px 0 0;
+        }
+        .zaqoota-footer .social-icon {
+            gap: 9px;
+            margin: 22px 0 20px;
+        }
+        .zaqoota-footer .social-icon a {
+            align-items: center;
+            background: rgba(255,255,255,.08);
+            border: 1px solid rgba(255,255,255,.13);
+            border-radius: 4px;
+            display: flex;
+            height: 36px;
+            justify-content: center;
+            transition: background .2s ease, border-color .2s ease;
+            width: 36px;
+        }
+        .zaqoota-footer .social-icon a:hover {
+            background: #0d988d;
+            border-color: #0d988d;
+        }
+        .zaqoota-footer .social-icon img { height: 16px; width: 16px; }
+        .zaqoota-footer .app-btn-grp { gap: 10px; }
+        .zaqoota-footer .app-btn-grp a { max-width: 142px; }
+        .zaqoota-footer .copyright {
+            border-top: 1px solid rgba(255,255,255,.12);
+            color: #9eb5b7;
+            font-size: 12px;
+            line-height: 1.6;
+            margin-top: 44px !important;
+            padding: 20px 0;
+        }
+        @media (max-width: 991px) {
+            .zaqoota-footer .footer-wrapper { gap: 36px; grid-template-columns: 1fr 1fr; }
+            .zaqoota-footer .footer-widget:first-child { grid-column: 1 / -1; }
+        }
+        @media (max-width: 575px) {
+            .zaqoota-footer .footer-bottom { padding-top: 40px; }
+            .zaqoota-footer .footer-wrapper { gap: 32px; grid-template-columns: 1fr; }
+            .zaqoota-footer .footer-widget:first-child { grid-column: auto; }
+            .zaqoota-footer .copyright { margin-top: 34px !important; text-align: start !important; }
+        }
+    </style>
 </head>
 
 <body>
@@ -135,7 +246,7 @@
     @yield('content')
     <!-- ======= Footer Section ======= -->
 
-    <footer>
+    <footer class="zaqoota-footer">
         @php($fixed_newsletter_title = \App\Models\DataSetting::where(['type' => 'admin_landing_page','key' => 'fixed_newsletter_title'])->first())
         @php($fixed_newsletter_title = isset($fixed_newsletter_title->value) ? $fixed_newsletter_title->value: null)
         @php($fixed_newsletter_sub_title = \App\Models\DataSetting::where(['type' => 'admin_landing_page','key' => 'fixed_newsletter_sub_title'])->first())
@@ -144,11 +255,11 @@
         @php($fixed_footer_article_title = isset($fixed_footer_article_title->value) ? $fixed_footer_article_title->value: null)
         <div class="footer-bottom">
             <div class="container">
-                <div class="footer-wrapper ps-xl-5">
+                <div class="footer-wrapper">
                     <div class="footer-widget">
                         <div class="footer-logo">
-                            <a class="logo">
-                                <img  class="onerror-image"  data-onerror-image="{{ asset('public/assets/admin/img/160x160/img2.jpg') }}" src="{{\App\CentralLogics\Helpers::logoFullUrl()}}" alt="image">
+                            <a class="logo" href="{{ route('home') }}" aria-label="{{ translate('messages.home') }}">
+                                <img class="onerror-image" data-onerror-image="{{ asset('public/assets/admin/img/160x160/img2.jpg') }}" src="{{\App\CentralLogics\Helpers::logoFullUrl()}}" alt="{{ \App\CentralLogics\Helpers::get_settings('business_name') }}">
                             </a>
                         </div>
                         <div class="txt">
@@ -159,8 +270,8 @@
                             @if (isset($social_media))
                                 @foreach ($social_media as $social)
                                 <li>
-                                    <a href="{{ $social->link }}" target="_blank">
-                                        <img src="{{ asset('public/assets/landing/img/footer/'. $social->name.'.svg') }}" alt="">
+                                    <a href="{{ $social->link }}" target="_blank" rel="noopener noreferrer" aria-label="{{ ucfirst($social->name) }}">
+                                        <img src="{{ asset('public/assets/landing/img/footer/'. $social->name.'.svg') }}" alt="{{ ucfirst($social->name) }}">
                                     </a>
                                 </li>
                                 @endforeach
@@ -168,16 +279,16 @@
                         </ul>
                         @php($landing_page_links = \App\Models\DataSetting::where(['type' => 'admin_landing_page','key' => 'download_user_app_links'])->first())
                         @php($landing_page_links = isset($landing_page_links->value) ? json_decode($landing_page_links->value, true) : null)
-                        @if (isset($landing_page_links['playstore_url_status']) || isset( $landing_page_links['apple_store_url_status']))
+                        @if (($landing_page_links['playstore_url_status'] ?? 0) == 1 || ($landing_page_links['apple_store_url_status'] ?? 0) == 1)
                         <div class="app-btn-grp">
-                            @if (isset($landing_page_links['playstore_url_status']))
-                            <a href="{{ isset($landing_page_links['playstore_url']) ? $landing_page_links['playstore_url'] : '' }}">
-                                <img src="{{ asset('public/assets/landing/img/google.svg') }}" alt="">
+                            @if (($landing_page_links['playstore_url_status'] ?? 0) == 1)
+                            <a href="{{ $landing_page_links['playstore_url'] ?? '#' }}" target="_blank" rel="noopener noreferrer">
+                                <img src="{{ asset('public/assets/landing/img/google.svg') }}" alt="{{ translate('messages.Google Play') }}">
                             </a>
                             @endif
-                            @if (isset($landing_page_links['apple_store_url_status']))
-                            <a href="{{ isset($landing_page_links['apple_store_url']) ? $landing_page_links['apple_store_url'] : '' }}">
-                                <img src="{{ asset('public/assets/landing/img/apple.svg') }}" alt="">
+                            @if (($landing_page_links['apple_store_url_status'] ?? 0) == 1)
+                            <a href="{{ $landing_page_links['apple_store_url'] ?? '#' }}" target="_blank" rel="noopener noreferrer">
+                                <img src="{{ asset('public/assets/landing/img/apple.svg') }}" alt="{{ translate('messages.App Store') }}">
                             </a>
                             @endif
                         </div>
@@ -185,8 +296,11 @@
                     </div>
                     @php($landing_data =\App\Models\DataSetting::where('type', 'admin_landing_page')->whereIn('key', ['shipping_policy_status','refund_policy_status','cancellation_policy_status'])->pluck('value','key')->toArray())
                     <div class="footer-widget widget-links">
-                        <h5 class="subtitle mt-2 text-white">{{translate("messages.Suppport")}}</h5>
+                        <h5 class="subtitle">{{ translate('messages.Explore') }}</h5>
                         <ul>
+                            <li>
+                                <a href="{{ route('about-us') }}">{{ translate('messages.about_us') }}</a>
+                            </li>
                             <li>
                                 <a href="{{route('privacy-policy')}}">{{ translate('messages.privacy_policy') }}</a>
                             </li>
@@ -215,14 +329,17 @@
                             <li>
                                 <a href="{{route('account-deletion-request')}}">{{ translate('Account Deletion Request') }}</a>
                             </li>
+                            <li>
+                                <a href="{{ route('contact-us') }}">{{ translate('messages.Contact_Us') }}</a>
+                            </li>
 
                         </ul>
                     </div>
                     <div class="footer-widget widget-links">
-                        <h5 class="subtitle mt-2 text-white">{{translate("messages.Contact_Us")}} </h5>
+                        <h5 class="subtitle">{{ translate('messages.Contact_Us') }}</h5>
                         <ul>
                             <li>
-                                <a>
+                                <a href="https://www.google.com/maps/search/?api=1&query={{ data_get(\App\CentralLogics\Helpers::get_settings('default_location'), 'lat', 0) }},{{ data_get(\App\CentralLogics\Helpers::get_settings('default_location'), 'lng', 0) }}" target="_blank" rel="noopener">
                                     <svg width="16" height="16" viewBox="0 0 12 16" fill="none"
                                         xmlns="http://www.w3.org/2000/svg">
                                         <path
@@ -260,7 +377,7 @@
                         </ul>
                     </div>
                 </div>
-                <div class="copyright text-center mt-3">
+                <div class="copyright text-center">
                     &copy; {{ \App\CentralLogics\Helpers::get_settings('footer_text') }}
                         by {{ \App\CentralLogics\Helpers::get_settings('business_name') }}
                 </div>

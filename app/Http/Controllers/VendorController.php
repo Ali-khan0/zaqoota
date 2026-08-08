@@ -48,6 +48,7 @@ class VendorController extends Controller
 
     public function store(Request $request)
     {
+        $request->merge(['business_plan' => 'commission-base']);
         $validator = Validator::make([], []);
         $status = Helpers::get_business_settings ('toggle_store_registration');
         if(!isset($status) || $status == '0')
@@ -92,11 +93,12 @@ class VendorController extends Controller
             'phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:10|unique:vendors',
             'minimum_delivery_time' => 'required',
             'maximum_delivery_time' => 'required',
-            'password' => ['required', Password::min(8)->mixedCase()->letters()->numbers()->symbols()],
+            'password' => ['required', 'confirmed', Password::min(8)->mixedCase()->letters()->numbers()->symbols()],
             'zone_id' => 'required',
             'module_id' => 'required',
             'logo' => 'required|image|max:2048|mimes:'.IMAGE_FORMAT_FOR_VALIDATION,
-            'cover_photo' => 'nullable|image|max:2048|mimes:'.IMAGE_FORMAT_FOR_VALIDATION,
+            'cover_photo' => 'required|image|max:2048|mimes:'.IMAGE_FORMAT_FOR_VALIDATION,
+            'tin_certificate_image' => 'nullable|file|max:2048|mimes:pdf,doc,docx,jpg,jpeg,png',
             'delivery_time_type'=>'required',
         ],[
             'password.min_length' => translate('The password must be at least :min characters long'),
@@ -126,11 +128,6 @@ class VendorController extends Controller
         if ($module?->module_type == 'rental' && addon_published_status('Rental') && empty($request['pickup_zone_id'])){
             $validator->getMessageBag()->add('pickup_zone_id', translate('messages.You_must_select_a_pickup_zone'));
             return response()->json(['errors' => Helpers::error_processor($validator)]);
-        }
-
-        if ($request->business_plan == 'subscription-base' && $request->package_id == null ) {
-            $validator->getMessageBag()->add('package_id', translate('messages.You_must_select_a_package'));
-             return response()->json(['errors' => Helpers::error_processor($validator)]);
         }
 
         $vendor = new Vendor();
@@ -193,38 +190,14 @@ class VendorController extends Controller
             StoreLogic::insert_schedule($store->id);
         }
 
-        if (Helpers::subscription_check()) {
-            if ($request->business_plan == 'subscription-base' && $request->package_id != null ) {
+        $store->store_business_model = 'commission';
+        $store->package_id = null;
+        $store->save();
 
-                $store->package_id = $request->package_id;
-                $store->save();
-
-            }
-            elseif($request->business_plan == 'commission-base' ){
-                $store->store_business_model = 'commission';
-                $store->save();
-
-            }
-            // else{
-            //     $admin_commission= BusinessSetting::where('key','admin_commission')->first();
-            //     $business_name= BusinessSetting::where('key','business_name')->first();
-            //     $packages= SubscriptionPackage::where('status',1)->where('module_type', 'all')->get();
-            //     Toastr::error(translate('messages.please_follow_the_steps_properly.'));
-            //     return view('vendor-views.auth.register-step-2',[
-            //         'admin_commission'=> $admin_commission?->value,
-            //         'business_name'=> $business_name?->value,
-            //         'packages'=> $packages,
-            //         'store_id' =>$store->id,
-            //         'type'=>$request->type
-            //         ]);
-            // }
-        } else{
-            $store->store_business_model = 'commission';
-            $store->save();
-
-        }
-
-    return response()->json(['redirect_url' => route('restaurant.secondStep',['store_id' => $store->id,'business_plan'=>$request->business_plan])]);
+        return response()->json([
+            'success' => true,
+            'message' => translate('messages.Your partner application has been submitted successfully.'),
+        ]);
 
     }
 

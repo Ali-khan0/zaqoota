@@ -60,6 +60,9 @@
         .partner-form-area #map { border: 1px solid var(--partner-line); border-radius: 6px; overflow: hidden; }
         .partner-form-area .image--border,
         .partner-form-area .document-upload-wrapper { border: 2px dashed var(--partner-teal) !important; border-radius: 6px !important; background: rgba(13,152,141,.035) !important; overflow: hidden; }
+        .partner-form-area label.image--border,
+        .partner-form-area #doc-upload-wrapper.document-upload-wrapper { border-color: #0d988d !important; border-style: dashed !important; }
+        .partner-form-area .upload-file__textbox { background: rgba(13,152,141,.035) !important; }
         .partner-form-area .image--border:hover,
         .partner-form-area .document-upload-wrapper:hover { background: rgba(13,152,141,.075) !important; }
         .partner-form-area .image--border .text-info,
@@ -72,6 +75,8 @@
         .partner-form-area .cmn--btn:not(.btn--secondary) { background: var(--partner-teal); border-color: var(--partner-teal); border-radius: 5px !important; }
         .partner-form-area .btn--secondary { border-radius: 5px !important; }
         .partner-form-area .nav-tabs .nav-link.active { color: var(--partner-teal); border-bottom-color: var(--partner-teal); }
+        .partner-success-icon { width: 58px; height: 58px; margin: 0 auto 18px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgba(13,152,141,.12); color: var(--partner-teal); font-size: 30px; font-weight: 700; }
+        #partner-success-modal .modal-content { border: 0; border-radius: 8px; box-shadow: 0 20px 60px rgba(23,43,42,.18); }
         @media (max-width: 991px) {
             .partner-page { padding: 24px 12px 48px; }
             .partner-shell { display: block; max-width: 800px; }
@@ -109,31 +114,17 @@
                     <div class="partner-form-area">
                         <header class="partner-form-header">
                             <h2>{{ translate('messages.Become Partner') }}</h2>
-                            <p>{{ translate('messages.Tell us about your business and choose how you want to work with Zaqoota.') }}</p>
+                            <p>{{ translate('messages.Share your business details to start your partnership with Zaqoota.') }}</p>
                         </header>
             @php($language = \App\CentralLogics\Helpers::get_business_settings('language'))
 
-            <!-- Stepper -->
-            <div class="stepper">
-                <div id="show-step1" class="stepper-item active">
-                    <div class="step-name">{{ translate('General Info') }}</div>
-                </div>
-                <div class="stepper-item" id="show-step2">
-                    <div class="step-name">{{ translate('Business Plan') }}</div>
-                </div>
-                <div class="stepper-item">
-                    <div class="step-name">{{ translate('Complete') }}</div>
-                </div>
-            </div>
-            <!-- Stepper -->
-
-
             <form enctype="multipart/form-data" id="form-id">
+                <input type="hidden" name="business_plan" value="commission-base">
                 <div id="reg-form-div">
                     <div class="card __card mb-3">
                         <div class="card-header">
                             <h5 class="card-title">
-                                {{ translate('messages.vendor_info') }}
+                                {{ translate('messages.Partner Details') }}
                             </h5>
                         </div>
                         <div class="card-body p-4">
@@ -401,7 +392,7 @@
                                                     <div class="icon-file">
                                                         <input type="file" name="cover_photo" id="coverImageUpload"
                                                                class="form-control __form-control"
-                                                               accept="{{ IMAGE_EXTENSION }}">
+                                                               accept="{{ IMAGE_EXTENSION }}" required>
                                                         <img src="{{ asset('public/assets/admin/img/pen.png') }}"
                                                              alt="">
                                                     </div>
@@ -438,7 +429,7 @@
                                                     <div class="icon-file">
                                                         <input type="file" name="logo" id="customFileEg1"
                                                                class="form-control __form-control"
-                                                               accept="{{ IMAGE_EXTENSION }}">
+                                                               accept="{{ IMAGE_EXTENSION }}" required>
                                                         <img src="{{ asset('public/assets/admin/img/pen.png') }}"
                                                              alt="">
                                                     </div>
@@ -616,7 +607,7 @@
                                                     <input type="password" name="password"
                                                            placeholder="{{ translate('messages.password_length_placeholder', ['length' => '8+']) }}"
                                                            class="form-control __form-control form-control __form-control-user"
-                                                           minlength="6" id="exampleInputPassword" required
+                                                           minlength="8" id="exampleInputPassword" required
                                                            value="{{ old('password') }}">
                                                     <span class="show-password">
                                                         <span class="icon-2">
@@ -651,11 +642,11 @@
                                                     <span
                                                         class="text-danger">*</span></label>
                                                 <label class="position-relative m-0 d-block">
-                                                    <input type="password" name="confirm-password"
+                                                    <input type="password" name="password_confirmation"
                                                            class="form-control __form-control form-control __form-control-user"
-                                                           minlength="6" id="exampleRepeatPassword"
+                                                           minlength="8" id="exampleRepeatPassword"
                                                            placeholder="{{ translate('messages.password_length_placeholder', ['length' => '8+']) }}"
-                                                           required value="{{ old('confirm-password') }}">
+                                                           required value="{{ old('password_confirmation') }}">
                                                     <span class="show-password">
                                                         <span class="icon-2">
                                                             <svg xmlns="http://www.w3.org/2000/svg" fill="none"
@@ -711,17 +702,15 @@
                             <div class="text-end pt-4 d-flex flex-wrap justify-content-end gap-3">
                                 <button type="reset" id='reset-btn'
                                         class="cmn--btn btn--secondary shadow-none rounded-md border-0 outline-0">{{ translate('Reset') }}</button>
-                                <button
-                                    type="{{ \App\CentralLogics\Helpers::subscription_check() == 1 ? 'button' : 'submit' }}"
-                                    id="show-business-plan-div"
-                                    class="cmn--btn rounded-md border-0 outline-0 btn-disable">{{ \App\CentralLogics\Helpers::subscription_check() == 1 ? translate('Next') : translate('messages.submit') }}</button>
+                                <button type="submit" id="submit-partner-application"
+                                    class="cmn--btn rounded-md border-0 outline-0 btn-disable">{{ translate('messages.Submit Partner Application') }}</button>
                             </div>
                         </div>
                     </div>
 
                 </div>
 
-                @if (\App\CentralLogics\Helpers::subscription_check())
+                @if (false)
                     <div class="d-none" id="business-plan-div">
                         <div class="card __card mb-3">
                             <div class="card-header border-0">
@@ -815,6 +804,19 @@
 
 
     </section>
+
+    <div class="modal fade" id="partner-success-modal" tabindex="-1" role="dialog" aria-labelledby="partner-success-title" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-body text-center p-4 p-sm-5">
+                    <div class="partner-success-icon">✓</div>
+                    <h3 id="partner-success-title" class="mb-2">{{ translate('messages.Application Submitted') }}</h3>
+                    <p class="text-muted mb-4">{{ translate('messages.Your partner application has been submitted successfully. Our team will review it and contact you soon.') }}</p>
+                    <a href="{{ url('/') }}" class="cmn--btn border-0 outline-0">{{ translate('messages.Back to Home') }}</a>
+                </div>
+            </div>
+        </div>
+    </div>
 
 <div class="d-none" id="default-text-data"
      data-default-filesize="{{ translate('File size must be less than') }}"
@@ -996,32 +998,6 @@
 
     <script>
         function submitVendorRegistration(formEl) {
-            const radios = document.querySelectorAll('input[name="business_plan"]');
-            let selectedValue = null;
-
-            for (const radio of radios) {
-                if (radio.checked) {
-                    selectedValue = radio.value;
-                    break;
-                }
-            }
-
-            if (selectedValue === 'subscription-base') {
-                const package_radios = document.querySelectorAll('input[name="package_id"]');
-                let selectedpValue = null;
-                for (const pradio of package_radios) {
-                    if (pradio.checked) {
-                        selectedpValue = pradio.value;
-                        break;
-                    }
-                }
-
-                if (!selectedpValue) {
-                    toastr.error("{{ translate('You_must_select_a_package') }}");
-                    return false;
-                }
-            }
-
             $('.btn-disable').prop('disabled', true);
 
             let formData = new FormData(formEl);
@@ -1050,13 +1026,9 @@
                             });
                         }
                     } else {
-                        toastr.success("{{ translate('your_store_registration_is_successful') }}", {
-                            CloseButton: true,
-                            ProgressBar: true
-                        });
-                        setTimeout(function () {
-                            location.href = data.redirect_url;
-                        }, 1000);
+                        formEl.reset();
+                        $('.btn-disable').prop('disabled', false);
+                        $('#partner-success-modal').modal('show');
                     }
                 },
                 error: function () {

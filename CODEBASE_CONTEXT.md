@@ -477,6 +477,16 @@ For a gateway change, check:
 ### Public site, installation, update, and localization
 
 - Public pages/login/invoices: `routes/web.php` and top-level controllers.
+- About, Privacy Policy, Service Policy, Terms, and Contact share the responsive
+  public content system in `resources/views/partials/public-page-styles.blade.php`;
+  policy-like pages also use `partials/public-content-page.blade.php`. Their
+  admin-managed HTML remains authoritative, while Contact preserves the
+  existing message submission and CAPTCHA flow.
+- The shared landing footer is rendered directly by
+  `resources/views/layouts/landing/app.blade.php`. It uses the configured
+  business logo/article, active social records, app download links, optional
+  policy statuses, contact settings, and footer copyright text; styling is
+  scoped under `.zaqoota-footer` so it does not affect panel footers.
 - Installation/update: `InstallController`, `UpdateController`,
   `routes/install.php`, `routes/update.php`, and `installation/`.
 - Core views: `resources/views`.
@@ -725,6 +735,14 @@ map, zone/module discovery, TIN, account, CAPTCHA, business-plan, and AJAX
 behavior remains authoritative. Module lookup JavaScript must use the named
 `restaurant.get-all-modules` and `restaurant.get-module-type` routes so the
 canonical `/partner` prefix is not bypassed by legacy hardcoded `/vendor` URLs.
+Partner self-registration is commission-only even if subscription features are
+enabled elsewhere: `VendorController::store` overwrites incoming
+`business_plan` with `commission-base`, clears `package_id`, and persists
+`store_business_model = commission`. The public form does not render the old
+General Info/Business Plan/Complete stepper or subscription packages. It submits
+once by AJAX and shows `#partner-success-modal` only after a successful backend
+response; it no longer redirects to the legacy completion step. The visible
+form heading is `Partner Details`.
 Approving the rider approves/activates that first vehicle. An authenticated
 rider may submit one additional vehicle with
 `POST api/v1/delivery-man/ride-vehicles`; the total limit is two. Vehicle
