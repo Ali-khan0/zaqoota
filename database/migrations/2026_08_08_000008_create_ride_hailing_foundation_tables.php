@@ -11,7 +11,7 @@ return new class extends Migration
     {
         if (!Schema::hasColumn('delivery_men', 'work_mode')) {
             Schema::table('delivery_men', function (Blueprint $table) {
-                $table->string('work_mode', 20)->default('delivery')->after('available')->index();
+                $table->string('work_mode', 20)->default('delivery')->index();
             });
         }
 
