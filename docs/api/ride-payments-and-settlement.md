@@ -1,7 +1,8 @@
 # Ride Payments And Settlement API
 
-Backend status: cash selection/confirmation, online gateway links, idempotent
-wallet settlement, payment history, and JSON receipts are implemented.
+Backend status: cash selection/confirmation, online gateway links, customer
+wallet payment, wallet-plus-cash/online partial payment, cancellation dues,
+idempotent settlement, payment history, and JSON receipts are implemented.
 
 This contract follows `ride-trip-lifecycle.md`. Refunds, disputes, tips, fleet
 manager Ride commission, and downloadable PDF receipts remain future work.
@@ -11,35 +12,38 @@ manager Ride commission, and downloadable PDF receipts remain future work.
 For a completed ride:
 
 ```text
-customer payable = final accepted fare + waiting charge
+customer payable = final accepted fare - Ride coupon discount + waiting charge
 Zaqoota commission = commission percentage of final accepted fare only
 Captain earning = final accepted fare - Zaqoota commission + waiting charge
 ```
 
-Waiting charges go entirely to the Captain. They do not increase Zaqoota
-commission.
-
-When the customer cancels after Captain selection but before trip start:
-
-```text
-customer payable = configured cancellation charge
-Zaqoota commission = 0
-Captain earning = cancellation charge
-```
-
-Free/customer pre-selection cancellation and Captain cancellation have
+Waiting charges go entirely to the Captain. When a customer cancels after
+Captain selection but before trip start, the configured cancellation charge is
+payable, Zaqoota commission is zero, and the complete charge goes to the
+Captain. Free pre-selection customer cancellation and Captain cancellation use
 `payment_status: not_required`.
 
-## Authentication
+Ride coupons are admin-funded. Captain earning and Zaqoota gross commission
+remain based on the full accepted fare; the discount is stored separately as a
+`ride_coupon_discount` admin expense. See `ride-coupons.md`.
 
-Base URL:
+A chargeable cancellation remains attached to the cancelled Ride as an
+outstanding receivable. It does not make `users.wallet_balance` negative. The
+customer must settle all such dues before creating a new Ride request and may
+pay with wallet, cash, online, or an enabled partial combination.
 
-```text
-https://YOUR-DOMAIN.example/api/v1
-```
+## Authentication And Headers
+
+Base URL: `https://YOUR-DOMAIN.example/api/v1`
 
 Customer routes require Passport Bearer authentication. Captain cash
 confirmation uses the existing `dm.api` Bearer/token authentication.
+
+```http
+Authorization: Bearer YOUR_TOKEN
+Accept: application/json
+Content-Type: application/json
+```
 
 ## Customer Endpoints
 
@@ -52,36 +56,88 @@ GET /ride-hailing/customer/rides/{ride_id}/payment-summary
 ```json
 {
   "payment": {
-    "status": "unpaid",
-    "method": null,
+    "status": "partially_paid",
+    "method": "partial_payment",
     "gateway": null,
     "accepted_fare": 500,
     "waiting_charge": 20,
     "cancellation_charge": 0,
     "final_payable_amount": 520,
+    "wallet_paid_amount": 100,
+    "remaining_amount": 420,
+    "customer_wallet_balance": 0,
+    "wallet_enabled": true,
+    "partial_payment_enabled": true,
+    "partial_payment_method": "both",
     "paid_at": null,
     "receipt_number": null
   }
 }
 ```
 
-Payment can begin only for a completed ride or a cancelled ride with a positive
+Payment can begin only for a completed Ride or a cancelled Ride with a positive
 customer cancellation charge.
 
-### Select Cash
+### Outstanding Cancellation Dues
+
+```http
+GET /ride-hailing/customer/payment-due
+```
+
+```json
+{
+  "total_due": 80,
+  "rides": [
+    {
+      "id": 42,
+      "request_number": "ZQR-0000042",
+      "cancellation_charge": 100,
+      "wallet_paid_amount": 20,
+      "amount_due": 80,
+      "payment_status": "partially_paid",
+      "cancelled_at": "2026-08-09T10:30:00+05:00"
+    }
+  ]
+}
+```
+
+Call this during Ride entry/startup. `POST /ride-hailing/customer/rides`
+returns HTTP 403 with error code `ride_payment_due` and the oldest
+`outstanding_ride` when a cancellation due remains. Open that Ride's payment
+screen instead of creating a new request.
+
+### Pay Fully From Customer Wallet
 
 ```http
 POST /ride-hailing/customer/rides/{ride_id}/payments
 ```
 
 ```json
-{"payment_method": "cash"}
+{"payment_method": "wallet"}
 ```
 
-This creates one pending cash attempt. It does not mark the ride paid. The
-assigned Captain must confirm actual collection.
+The wallet must be enabled and contain the entire remaining amount. The backend
+debits it, creates a paid wallet component and completes settlement. The app
+must never subtract wallet balance itself.
 
-### Create Online Payment Link
+### Cash Or Wallet Plus Cash
+
+```http
+POST /ride-hailing/customer/rides/{ride_id}/payments
+```
+
+```json
+{"payment_method": "cash", "use_wallet": true}
+```
+
+With `use_wallet: false`, this creates a pending cash attempt for the full
+remaining amount. With `use_wallet: true`, the backend uses the available
+wallet balance and creates a pending cash component only for the remainder.
+Partial wallet plus cash requires global partial payment to be enabled and its
+configured method to be `cod` or `both`. The assigned Captain confirms actual
+cash collection.
+
+### Online Or Wallet Plus Online
 
 ```http
 POST /ride-hailing/customer/rides/{ride_id}/payments
@@ -92,19 +148,20 @@ POST /ride-hailing/customer/rides/{ride_id}/payments
   "payment_method": "digital",
   "payment_gateway": "assan_pay",
   "payment_platform": "app",
-  "callback_url": "zaqoota://ride-payment-result"
+  "callback_url": "zaqoota://ride-payment-result",
+  "use_wallet": true
 }
 ```
-
-Response:
 
 ```json
 {
   "message": "Payment link created.",
   "redirect_link": "https://example.com/payment/assan-pay/pay?payment_id=...",
+  "wallet_amount": 100,
+  "remaining_amount": 420,
   "payment": {
     "id": 18,
-    "amount": 520,
+    "amount": 420,
     "payment_method": "digital",
     "payment_gateway": "assan_pay",
     "status": "pending"
@@ -112,12 +169,15 @@ Response:
 }
 ```
 
-Open `redirect_link` in the established payment webview/browser flow. The
-gateway invokes `ride_payment_success` or `ride_payment_fail`. The success hook
-is the only authority that marks an online attempt paid and posts wallets.
+Wallet plus online requires partial payment method `digital_payment` or `both`.
+If the wallet covers the whole amount, `redirect_link` is `null` and
+`remaining_amount` is zero. Otherwise open the link in the established payment
+webview/browser flow. Only the `ride_payment_success` server hook marks the
+online component paid. Never trust the redirect flag alone.
 
-Only one pending attempt may exist. The app must wait for completion/failure
-before changing payment methods or creating another online attempt.
+Only one pending cash/online attempt may exist. After a failed online attempt,
+an already-paid wallet component remains valid and the customer retries only
+the remaining amount.
 
 ### Payment History
 
@@ -125,8 +185,8 @@ before changing payment methods or creating another online attempt.
 GET /ride-hailing/customer/rides/{ride_id}/payments?limit=20&page=1
 ```
 
-Returns paginated pending, failed, and paid attempts with method, gateway,
-amount, transaction reference, and timestamps.
+Returns paginated wallet, cash, and online components with amount, gateway,
+status, transaction reference, and timestamps.
 
 ### Receipt
 
@@ -134,74 +194,68 @@ amount, transaction reference, and timestamps.
 GET /ride-hailing/customer/rides/{ride_id}/receipt
 ```
 
-Available only after successful settlement. The JSON receipt includes receipt
-and ride numbers, route, Captain/vehicle, payment reference, accepted fare,
-waiting/cancellation charges, and total paid. The receipt number format is
-`ZQR-R-0000042`.
+Available only after complete settlement. It includes the wallet-paid amount,
+payment method, accepted fare, waiting/cancellation charges, total paid, route,
+Captain and vehicle. Receipt numbers use `ZQR-R-0000042`.
 
 ## Captain Endpoint
-
-### Confirm Cash Collection
 
 ```http
 POST /delivery-man/rides/{ride_id}/payments/cash/confirm
 ```
 
-No body is required. Only the assigned Captain can confirm a pending cash
-attempt. Confirmation atomically posts the Captain earning and cash collection,
-marks the ride paid, and creates the receipt.
+Only the assigned Captain can confirm a pending cash component. For partial
+payment, the Ride payload's `remaining_payment_amount` is the amount to collect,
+not `final_payable_amount`. Confirmation settles the full Ride exactly once.
 
 ## Wallet And Accounting
 
-Settlement locks the payment, ride, Captain wallet, and admin wallet. The
-`ride_requests.settled_at` timestamp is the idempotency barrier.
+Settlement locks the payment, Ride, Captain wallet, and admin wallet.
+`ride_requests.settled_at` is the idempotency barrier.
 
-Captain wallet:
+Customer wallet:
 
-- `total_earning` increases by the Captain net earning.
-- For cash, `collected_cash` increases by the full amount collected from the
-  customer. This naturally leaves the platform commission payable to Zaqoota.
-- For online payment, `collected_cash` does not change.
+- Full wallet payment creates a `trip_booking` debit transaction.
+- Partial wallet payment creates a `partial_payment` debit transaction.
+- Both use `ride:{ride_id}` as reference.
+- `ride_payments` stores wallet separately from cash/online remainder.
 
-Captain ledger rows:
+Captain wallet and ledgers:
 
-- `ride_earning`: gross Captain-side fare/charges credit.
-- `ride_platform_commission`: accepted-fare platform commission debit.
-- `ride_cash_collection`: full customer cash collection debit, cash only.
+- `total_earning` increases by the full Captain net earning once fully paid.
+- `collected_cash` increases only by the actual cash component.
+- Ledger types are `ride_earning`, `ride_platform_commission`, and cash-only
+  `ride_cash_collection`.
 
 Admin wallet:
 
 - `total_commission_earning` increases by accepted-fare commission.
-- `digital_received` increases by the full customer payment for online
-  payments.
+- `digital_received` increases only by the online component. Wallet funds are
+  not counted again when spent.
 
-The payment and every ledger row use `ride:{ride_id}` as their audit reference.
-No fleet-manager Ride commission is posted in this milestone because its Ride
-policy has not been defined.
+No fleet-manager Ride commission is posted because its policy is not defined.
 
-## Mobile Behavior
+## Mobile Screen Behavior
 
 Customer app:
 
-1. On completed or chargeable-cancelled status, load payment summary.
-2. Show accepted fare and waiting/cancellation lines separately.
-3. For cash, show `Waiting for Captain confirmation` while pending.
-4. For digital, open the returned redirect link and refresh payment summary
-   after callback/deep-link return.
-5. Never mark an online payment successful based only on the redirect flag;
-   require API `payment.status == paid`.
-6. Enable the receipt screen only when paid.
+1. Check `payment-due` when entering Ride Hailing.
+2. Show accepted fare, waiting/cancellation, wallet paid, and remaining due.
+3. Offer wallet only when `wallet_enabled`.
+4. Offer split payment only when the partial flags permit the remainder method.
+5. For cash, show `Waiting for Captain confirmation` while pending.
+6. For digital, refresh payment summary after callback/deep-link return.
+7. Enable the receipt only when `status` is `paid`.
 
 Captain app:
 
-1. For a completed cash ride, show the exact `final_payable_amount`.
+1. Collect `remaining_payment_amount` for cash.
 2. Require an explicit `Cash received` confirmation.
-3. Disable repeat confirmation while the request is in flight.
-4. Refresh the wallet after success.
+3. Disable repeat confirmation while in flight and refresh wallet after success.
 
 ## Errors And Security
 
-Errors use the existing envelope, generally HTTP 403:
+Errors use the existing HTTP 403 envelope:
 
 ```json
 {"errors":[{"code":"payment","message":"This ride has already been paid."}]}
@@ -209,10 +263,10 @@ Errors use the existing envelope, generally HTTP 403:
 
 - Customer ownership and Captain assignment are enforced server-side.
 - Client-supplied amounts are never accepted.
-- Gateway and callback fields are validated.
+- Wallet balance is locked and debited by the backend.
 - Payment and settlement use row locks.
-- Repeated gateway callbacks do not repost wallet balances.
-- Payment success is based on the server gateway callback, not mobile state.
+- Repeated callbacks cannot repost wallet balances.
+- A positive cancellation due blocks new Ride creation until settled.
 
 ## Backend Files
 
@@ -225,4 +279,5 @@ Errors use the existing envelope, generally HTTP 403:
 - `app/Services/RidePaymentService.php`
 - `app/Services/RideSettlementCalculator.php`
 - `database/migrations/2026_08_09_000004_add_ride_payment_and_settlement.php`
+- `database/migrations/2026_08_09_000005_add_wallet_payment_to_ride_requests.php`
 - `tests/Unit/RideSettlementCalculatorTest.php`

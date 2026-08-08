@@ -130,13 +130,16 @@ POST /ride-hailing/customer/rides
   "quote_token": "ENCRYPTED_OPAQUE_VALUE",
   "pickup_address": "Pickup display address",
   "destination_address": "Destination display address",
-  "customer_offer": 300
+  "customer_offer": 300,
+  "coupon_code": "ZAQOOTA20"
 }
 ```
 
 The offer must be between `minimum_negotiated_fare` and
 `maximum_negotiated_fare`. One customer may have only one active passenger
-request. Successful creation returns HTTP `201` with `message` and `ride`.
+request. `coupon_code` is optional; preview and final revalidation are defined
+in `ride-coupons.md`. Successful creation returns HTTP `201` with `message` and
+`ride`.
 
 ### List Customer Rides
 

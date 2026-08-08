@@ -12,6 +12,7 @@ class Expense extends Model
     protected $casts = [
         'id' => 'integer',
         'order_id' => 'integer',
+        'ride_request_id' => 'integer',
         'store_id' => 'integer',
         'amount' => 'float',
         'created_at' => 'datetime',
@@ -44,5 +45,10 @@ class Expense extends Model
     public function trip()
     {
         return $this->belongsTo(Trips::class, 'trip_id');
+    }
+
+    public function rideRequest()
+    {
+        return $this->belongsTo(RideRequest::class);
     }
 }

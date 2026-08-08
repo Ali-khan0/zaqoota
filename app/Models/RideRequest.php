@@ -40,6 +40,7 @@ class RideRequest extends Model
         'zone_id' => 'integer',
         'ride_category_id' => 'integer',
         'ride_fare_id' => 'integer',
+        'ride_coupon_id' => 'integer',
         'delivery_man_id' => 'integer',
         'ride_vehicle_id' => 'integer',
         'accepted_offer_id' => 'integer',
@@ -61,6 +62,9 @@ class RideRequest extends Model
         'minimum_negotiated_fare' => 'float',
         'maximum_negotiated_fare' => 'float',
         'customer_offer' => 'float',
+        'coupon_discount_amount' => 'float',
+        'admin_coupon_expense_amount' => 'float',
+        'coupon_payment_methods' => 'array',
         'final_accepted_fare' => 'float',
         'platform_commission_amount' => 'float',
         'rider_earning_amount' => 'float',
@@ -76,6 +80,7 @@ class RideRequest extends Model
         'charged_waiting_minutes' => 'integer',
         'waiting_charge_amount' => 'float',
         'final_payable_amount' => 'float',
+        'wallet_paid_amount' => 'float',
         'captain_total_earning_amount' => 'float',
         'current_latitude' => 'float',
         'current_longitude' => 'float',
@@ -104,6 +109,11 @@ class RideRequest extends Model
         return $this->belongsTo(RideFare::class, 'ride_fare_id');
     }
 
+    public function coupon(): BelongsTo
+    {
+        return $this->belongsTo(RideCoupon::class, 'ride_coupon_id');
+    }
+
     public function deliveryMan(): BelongsTo
     {
         return $this->belongsTo(DeliveryMan::class);
@@ -127,5 +137,10 @@ class RideRequest extends Model
     public function payments(): HasMany
     {
         return $this->hasMany(RidePayment::class);
+    }
+
+    public function couponUsages(): HasMany
+    {
+        return $this->hasMany(RideCouponUsage::class);
     }
 }

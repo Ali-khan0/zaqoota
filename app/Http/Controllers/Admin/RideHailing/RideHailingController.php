@@ -46,7 +46,7 @@ class RideHailingController extends Controller
                 ->when($zoneId !== 'all', fn ($query) => $query->where('zone_id', $zoneId))->count(),
             'completed_rides' => RideRequest::query()->where('status', RideRequest::STATUS_COMPLETED)
                 ->when($zoneId !== 'all', fn ($query) => $query->where('zone_id', $zoneId))->count(),
-            'unpaid_rides' => RideRequest::query()->whereIn('status', [RideRequest::STATUS_COMPLETED, RideRequest::STATUS_CANCELLED])->whereIn('payment_status', ['unpaid', 'pending'])
+            'unpaid_rides' => RideRequest::query()->whereIn('status', [RideRequest::STATUS_COMPLETED, RideRequest::STATUS_CANCELLED])->whereIn('payment_status', ['unpaid', 'pending', 'partially_paid'])
                 ->when($zoneId !== 'all', fn ($query) => $query->where('zone_id', $zoneId))->count(),
         ];
 

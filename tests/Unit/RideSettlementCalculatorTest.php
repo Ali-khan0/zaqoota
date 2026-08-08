@@ -15,10 +15,11 @@ class RideSettlementCalculatorTest extends TestCase
             'final_accepted_fare' => 500,
             'waiting_charge_amount' => 20,
             'platform_commission_amount' => 75,
+            'coupon_discount_amount' => 100,
         ], true);
 
         self::assertSame([
-            'final_payable_amount' => 520.0,
+            'final_payable_amount' => 420.0,
             'platform_commission_amount' => 75.0,
             'captain_total_earning_amount' => 445.0,
         ], (new RideSettlementCalculator)->calculate($ride));
@@ -37,5 +38,21 @@ class RideSettlementCalculatorTest extends TestCase
             'platform_commission_amount' => 0.0,
             'captain_total_earning_amount' => 100.0,
         ], (new RideSettlementCalculator)->calculate($ride));
+    }
+
+    public function test_wallet_can_cover_part_of_a_ride_payment(): void
+    {
+        self::assertSame([
+            'wallet_amount' => 125.25,
+            'remaining_amount' => 374.75,
+        ], (new RideSettlementCalculator)->paymentSplit(500, 125.25, true));
+    }
+
+    public function test_wallet_payment_never_exceeds_the_payable_amount(): void
+    {
+        self::assertSame([
+            'wallet_amount' => 500.0,
+            'remaining_amount' => 0.0,
+        ], (new RideSettlementCalculator)->paymentSplit(500, 800, true));
     }
 }

@@ -12,6 +12,7 @@ use App\Models\RideRequest as PassengerRide;
 use App\Models\User;
 use App\Models\Zone;
 use App\Services\RideCaptainEligibilityService;
+use App\Services\RideCouponService;
 use App\Services\RideFareCalculator;
 use App\Services\RideNotificationService;
 use App\Services\RidePaymentService;
@@ -35,7 +36,33 @@ class CustomerRideController extends Controller
         private readonly RideNotificationService $notificationService,
         private readonly RidePaymentService $paymentService,
         private readonly RideRealtimeService $realtimeService,
+        private readonly RideCouponService $couponService,
     ) {}
+
+    public function validateCoupon(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'coupon_code' => 'required|string|max:100',
+            'zone_id' => 'required|integer|exists:zones,id',
+            'ride_category_id' => 'required|integer|exists:ride_categories,id',
+            'fare' => 'required|numeric|min:0',
+        ]);
+        if ($validator->fails()) {
+            return response()->json(['errors' => Helpers::error_processor($validator)], 403);
+        }
+        try {
+            $result = $this->couponService->validateCode($request->coupon_code, $request->user()->id, $request->integer('zone_id'), $request->integer('ride_category_id'), (float) $request->fare);
+        } catch (\RuntimeException $exception) {
+            return $this->error('coupon_code', $exception->getMessage());
+        }
+
+        return response()->json(['coupon' => [
+            'code' => $result['coupon']->code,
+            'title' => $result['coupon']->title,
+            'discount_amount' => $result['discount_amount'],
+            'fare_after_discount' => round(max(0, (float) $request->fare - $result['discount_amount']), 2),
+        ]]);
+    }
 
     public function estimate(Request $request)
     {
@@ -131,6 +158,7 @@ class CustomerRideController extends Controller
             'pickup_address' => 'required|string|max:500',
             'destination_address' => 'required|string|max:500',
             'customer_offer' => 'required|numeric|min:0',
+            'coupon_code' => 'nullable|string|max:100',
         ]);
         if ($validator->fails()) {
             return response()->json(['errors' => Helpers::error_processor($validator)], 403);
@@ -150,8 +178,27 @@ class CustomerRideController extends Controller
             return $this->error('customer_offer', 'The customer offer must be inside the allowed negotiation range.');
         }
 
-        $ride = DB::transaction(function () use ($request, $quote, $customerOffer) {
+        $coupon = null;
+        if ($request->filled('coupon_code')) {
+            try {
+                $coupon = $this->couponService->validateCode($request->coupon_code, $request->user()->id, (int) $quote['zone_id'], (int) $quote['ride_category_id'], $customerOffer)['coupon'];
+            } catch (\RuntimeException $exception) {
+                return $this->error('coupon_code', $exception->getMessage());
+            }
+        }
+
+        $ride = DB::transaction(function () use ($request, $quote, $customerOffer, $coupon) {
             User::query()->whereKey($request->user()->id)->lockForUpdate()->firstOrFail();
+            $outstandingCancellation = PassengerRide::query()
+                ->where('user_id', $request->user()->id)
+                ->where('status', PassengerRide::STATUS_CANCELLED)
+                ->where('cancellation_charge_amount', '>', 0)
+                ->whereNotIn('payment_status', ['paid', 'not_required'])
+                ->oldest('id')
+                ->first();
+            if ($outstandingCancellation) {
+                return ['outstanding_cancellation' => $outstandingCancellation];
+            }
             if (PassengerRide::query()->where('user_id', $request->user()->id)->whereIn('status', PassengerRide::ACTIVE_CUSTOMER_STATUSES)->exists()) {
                 return null;
             }
@@ -160,6 +207,8 @@ class CustomerRideController extends Controller
                 'zone_id' => $quote['zone_id'],
                 'ride_category_id' => $quote['ride_category_id'],
                 'ride_fare_id' => $quote['ride_fare_id'],
+                'ride_coupon_id' => $coupon?->id,
+                'coupon_code' => $coupon?->code,
                 'status' => PassengerRide::STATUS_SEARCHING,
                 'pickup_address' => $request->pickup_address,
                 'pickup_latitude' => $quote['pickup_latitude'],
@@ -190,6 +239,22 @@ class CustomerRideController extends Controller
             return $ride->fresh(['category']);
         });
 
+        if (is_array($ride) && isset($ride['outstanding_cancellation'])) {
+            $dueRide = $ride['outstanding_cancellation'];
+
+            return response()->json([
+                'errors' => [[
+                    'code' => 'ride_payment_due',
+                    'message' => 'Pay the outstanding cancellation charge before requesting another ride.',
+                ]],
+                'outstanding_ride' => [
+                    'id' => (int) $dueRide->id,
+                    'request_number' => $dueRide->request_number,
+                    'amount_due' => round(max(0, (float) $dueRide->final_payable_amount - (float) $dueRide->wallet_paid_amount), 2),
+                    'payment_status' => $dueRide->payment_status,
+                ],
+            ], 403);
+        }
         if (! $ride) {
             return $this->error('ride', 'Complete or cancel your active ride request before creating another one.');
         }
@@ -209,7 +274,7 @@ class CustomerRideController extends Controller
 
     public function show(Request $request, int $rideId)
     {
-        $ride = PassengerRide::query()->where('user_id', $request->user()->id)->with(['category', 'deliveryMan', 'rideVehicle'])->findOrFail($rideId);
+        $ride = PassengerRide::query()->where('user_id', $request->user()->id)->with(['category', 'deliveryMan', 'rideVehicle', 'user'])->findOrFail($rideId);
 
         return response()->json(['ride' => $this->rideData($ride)]);
     }
@@ -222,6 +287,43 @@ class CustomerRideController extends Controller
             ->with(['deliveryMan.rating', 'rideVehicle.category'])->latest()->get()->map(fn ($offer) => $this->offerData($offer));
 
         return response()->json(['offers' => $offers]);
+    }
+
+    public function updateCoupon(Request $request, int $rideId)
+    {
+        $validator = Validator::make($request->all(), ['coupon_code' => 'nullable|string|max:100']);
+        if ($validator->fails()) {
+            return response()->json(['errors' => Helpers::error_processor($validator)], 403);
+        }
+
+        try {
+            $ride = DB::transaction(function () use ($request, $rideId) {
+                $ride = PassengerRide::query()->where('user_id', $request->user()->id)->lockForUpdate()->findOrFail($rideId);
+                if (! in_array($ride->status, [PassengerRide::STATUS_SEARCHING, PassengerRide::STATUS_NEGOTIATING], true)) {
+                    throw new \RuntimeException('A Ride coupon can only be changed before a Captain is selected.');
+                }
+                if (! $request->filled('coupon_code')) {
+                    $ride->update(['ride_coupon_id' => null, 'coupon_code' => null]);
+
+                    return $ride->fresh(['category']);
+                }
+                $coupon = $this->couponService->validateCode(
+                    $request->coupon_code,
+                    $request->user()->id,
+                    $ride->zone_id,
+                    $ride->ride_category_id,
+                    (float) $ride->customer_offer,
+                    $ride->id,
+                )['coupon'];
+                $ride->update(['ride_coupon_id' => $coupon->id, 'coupon_code' => $coupon->code]);
+
+                return $ride->fresh(['category']);
+            });
+        } catch (\RuntimeException $exception) {
+            return $this->error('coupon_code', $exception->getMessage());
+        }
+
+        return response()->json(['message' => $ride->coupon_code ? 'Ride coupon updated.' : 'Ride coupon removed.', 'ride' => $this->rideData($ride)]);
     }
 
     public function acceptOffer(Request $request, int $rideId, int $offerId)
@@ -243,6 +345,11 @@ class CustomerRideController extends Controller
                 return ['error' => 'This Captain is no longer available for the ride.'];
             }
             $settlement = $this->fareCalculator->settlement($offer->amount, $ride->platform_commission_percent);
+            try {
+                $coupon = $this->couponService->reserve($ride, (float) $offer->amount);
+            } catch (\RuntimeException $exception) {
+                return ['error' => $exception->getMessage(), 'error_code' => 'coupon_code'];
+            }
             $fromStatus = $ride->status;
             $offer->update(['status' => RideOffer::STATUS_ACCEPTED]);
             RideOffer::query()->where('ride_request_id', $ride->id)->whereKeyNot($offer->id)->where('status', RideOffer::STATUS_PENDING)->update(['status' => RideOffer::STATUS_REJECTED]);
@@ -254,6 +361,7 @@ class CustomerRideController extends Controller
                 'selected_at' => now(),
                 'trip_pin' => (string) random_int(1000, 9999),
                 ...$settlement,
+                ...$coupon,
             ]);
             $this->tripService->history($ride, $fromStatus, PassengerRide::STATUS_RIDER_SELECTED, 'customer', $request->user()->id, null, ['accepted_offer_id' => $offer->id]);
 
@@ -261,7 +369,7 @@ class CustomerRideController extends Controller
         });
 
         if (isset($result['error'])) {
-            return $this->error('offer', $result['error']);
+            return $this->error($result['error_code'] ?? 'offer', $result['error']);
         }
 
         $this->notificationService->captain($result['ride'], 'Ride offer accepted', 'The customer selected your offer. Start travelling to the pickup point.');
@@ -300,15 +408,40 @@ class CustomerRideController extends Controller
 
     public function paymentSummary(Request $request, int $rideId)
     {
-        $ride = PassengerRide::query()->where('user_id', $request->user()->id)->with(['category', 'deliveryMan', 'rideVehicle'])->findOrFail($rideId);
+        $ride = PassengerRide::query()->where('user_id', $request->user()->id)->with(['category', 'deliveryMan', 'rideVehicle', 'user'])->findOrFail($rideId);
 
         return response()->json(['payment' => $this->paymentSummaryData($ride)]);
+    }
+
+    public function paymentDue(Request $request)
+    {
+        $rides = PassengerRide::query()
+            ->where('user_id', $request->user()->id)
+            ->where('status', PassengerRide::STATUS_CANCELLED)
+            ->where('cancellation_charge_amount', '>', 0)
+            ->whereNotIn('payment_status', ['paid', 'not_required'])
+            ->oldest('id')
+            ->get();
+
+        return response()->json([
+            'total_due' => round((float) $rides->sum(fn ($ride) => max(0, (float) $ride->final_payable_amount - (float) $ride->wallet_paid_amount)), 2),
+            'rides' => $rides->map(fn ($ride) => [
+                'id' => (int) $ride->id,
+                'request_number' => $ride->request_number,
+                'cancellation_charge' => (float) $ride->cancellation_charge_amount,
+                'wallet_paid_amount' => (float) $ride->wallet_paid_amount,
+                'amount_due' => round(max(0, (float) $ride->final_payable_amount - (float) $ride->wallet_paid_amount), 2),
+                'payment_status' => $ride->payment_status,
+                'cancelled_at' => $ride->cancelled_at?->toIso8601String(),
+            ])->values(),
+        ]);
     }
 
     public function createPayment(Request $request, int $rideId)
     {
         $validator = Validator::make($request->all(), [
-            'payment_method' => 'required|in:cash,digital',
+            'payment_method' => 'required|in:cash,digital,wallet',
+            'use_wallet' => 'sometimes|boolean',
             'payment_gateway' => 'required_if:payment_method,digital|nullable|string|max:80',
             'callback_url' => 'required_if:payment_method,digital|nullable|url|max:1000',
             'payment_platform' => 'required_if:payment_method,digital|nullable|in:app,web',
@@ -319,20 +452,37 @@ class CustomerRideController extends Controller
 
         $ride = PassengerRide::query()->where('user_id', $request->user()->id)->with('user')->findOrFail($rideId);
         try {
-            if ($request->payment_method === 'cash') {
-                $payment = $this->paymentService->createCashAttempt($ride);
+            $this->couponService->assertPaymentMethod($ride, $request->payment_method, $request->boolean('use_wallet'));
+            if ($request->payment_method === 'wallet') {
+                $payment = $this->paymentService->createWalletAttempt($ride);
 
                 return response()->json([
-                    'message' => 'Cash payment selected. The Captain must confirm collection.',
+                    'message' => 'Ride payment completed from the customer wallet.',
                     'payment' => $this->paymentData($payment),
+                    'payment_summary' => $this->paymentSummaryData($ride->fresh('user')),
                 ], 201);
             }
 
-            $result = $this->paymentService->createDigitalAttempt($ride, $request->payment_gateway, $request->callback_url, $request->payment_platform);
+            if ($request->payment_method === 'cash') {
+                $result = $this->paymentService->createCashAttempt($ride, $request->boolean('use_wallet'));
+
+                return response()->json([
+                    'message' => $result['remaining_amount'] > 0
+                        ? 'Cash payment selected. The Captain must confirm collection.'
+                        : 'Ride payment completed from the customer wallet.',
+                    'wallet_amount' => $result['wallet_amount'],
+                    'remaining_amount' => $result['remaining_amount'],
+                    'payment' => $this->paymentData($result['payment']->fresh()),
+                ], 201);
+            }
+
+            $result = $this->paymentService->createDigitalAttempt($ride, $request->payment_gateway, $request->callback_url, $request->payment_platform, $request->boolean('use_wallet'));
 
             return response()->json([
-                'message' => 'Payment link created.',
+                'message' => $result['redirect_link'] ? 'Payment link created.' : 'Ride payment completed from the customer wallet.',
                 'redirect_link' => $result['redirect_link'],
+                'wallet_amount' => $result['wallet_amount'],
+                'remaining_amount' => $result['remaining_amount'],
                 'payment' => $this->paymentData($result['payment']),
             ], 201);
         } catch (\RuntimeException $exception) {
@@ -367,6 +517,8 @@ class CustomerRideController extends Controller
             'accepted_fare' => (float) $ride->final_accepted_fare,
             'waiting_charge' => (float) $ride->waiting_charge_amount,
             'cancellation_charge' => (float) $ride->cancellation_charge_amount,
+            'coupon_discount' => (float) $ride->coupon_discount_amount,
+            'wallet_paid_amount' => (float) $ride->wallet_paid_amount,
             'total_paid' => (float) $ride->final_payable_amount,
             'category' => $ride->category?->name,
             'pickup_address' => $ride->pickup_address,
@@ -387,6 +539,7 @@ class CustomerRideController extends Controller
             'suggested_fare' => (float) $ride->suggested_fare, 'customer_offer' => (float) $ride->customer_offer,
             'minimum_negotiated_fare' => (float) $ride->minimum_negotiated_fare, 'maximum_negotiated_fare' => (float) $ride->maximum_negotiated_fare,
             'final_accepted_fare' => $ride->final_accepted_fare,
+            'coupon' => $ride->ride_coupon_id ? ['code' => $ride->coupon_code, 'discount_amount' => (float) $ride->coupon_discount_amount] : null,
             'trip_pin' => in_array($ride->status, [PassengerRide::STATUS_RIDER_SELECTED, PassengerRide::STATUS_CAPTAIN_ARRIVING, PassengerRide::STATUS_ARRIVED], true) ? $ride->trip_pin : null,
             'free_waiting_minutes' => (int) $ride->free_waiting_minutes,
             'charged_waiting_minutes' => (int) $ride->charged_waiting_minutes,
@@ -397,6 +550,8 @@ class CustomerRideController extends Controller
             'payment_status' => $ride->payment_status,
             'payment_method' => $ride->payment_method,
             'final_payable_amount' => $ride->final_payable_amount,
+            'wallet_paid_amount' => (float) $ride->wallet_paid_amount,
+            'remaining_payment_amount' => $ride->payment_status === 'paid' ? 0.0 : round(max(0, (float) $ride->final_payable_amount - (float) $ride->wallet_paid_amount), 2),
             'receipt_number' => $ride->receipt_number,
             'captain_location' => $ride->location_updated_at ? ['latitude' => (float) $ride->current_latitude, 'longitude' => (float) $ride->current_longitude, 'updated_at' => $ride->location_updated_at->toIso8601String()] : null,
             'captain' => $ride->deliveryMan ? ['id' => (int) $ride->deliveryMan->id, 'name' => $ride->deliveryMan->full_name, 'phone' => $ride->deliveryMan->phone] : null,
@@ -430,7 +585,14 @@ class CustomerRideController extends Controller
             'accepted_fare' => (float) $ride->final_accepted_fare,
             'waiting_charge' => (float) $ride->waiting_charge_amount,
             'cancellation_charge' => (float) $ride->cancellation_charge_amount,
+            'coupon_discount' => (float) $ride->coupon_discount_amount,
             'final_payable_amount' => (float) $ride->final_payable_amount,
+            'wallet_paid_amount' => (float) $ride->wallet_paid_amount,
+            'remaining_amount' => $ride->payment_status === 'paid' ? 0.0 : round(max(0, (float) $ride->final_payable_amount - (float) $ride->wallet_paid_amount), 2),
+            'customer_wallet_balance' => (float) $ride->user?->wallet_balance,
+            'wallet_enabled' => (int) \App\Models\BusinessSetting::query()->where('key', 'wallet_status')->value('value') === 1,
+            'partial_payment_enabled' => (int) \App\Models\BusinessSetting::query()->where('key', 'partial_payment_status')->value('value') === 1,
+            'partial_payment_method' => (string) \App\Models\BusinessSetting::query()->where('key', 'partial_payment_method')->value('value'),
             'paid_at' => $ride->paid_at?->toIso8601String(),
             'receipt_number' => $ride->receipt_number,
         ];

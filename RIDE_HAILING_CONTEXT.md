@@ -13,8 +13,9 @@ ride requests, eligible-Captain polling, expiring Captain offers, and atomic
 customer offer selection. The trip lifecycle now covers Captain travel and
 arrival, customer-only Trip PIN verification, server-timed waiting, active
 ride-scoped location, completion, pre-start cancellation audit, and lifecycle
-push notifications. Cash and online gateway payments, idempotent Captain/admin
-wallet settlement, payment attempt history, JSON receipts, and authenticated
+push notifications. Cash, online gateway, customer-wallet and
+wallet-plus-cash/online partial payments, idempotent Captain/admin wallet
+settlement, payment component history, cancellation dues, JSON receipts, and authenticated
 private Ride realtime channels are implemented. The admin Ride Operations
 control room provides paginated monitoring, filtering, current-trip status,
 manual Captain assignment, latest Captain coordinates, offer/payment history,
@@ -38,6 +39,8 @@ All routes use the `admin.ride-hailing.*` name prefix and live under
   offers, payments, and settlement summary
 - `POST /rides/{ride}/assign` manually assigns an eligible Captain and bounded
   final fare while the ride is still searching or negotiating
+- `/coupons` Ride-specific admin coupon creation, editing, status and list
+- `/coupons/{coupon}/usages` reservation/redemption/release audit
 - `/vehicles` vehicle registry and approval
 - `/vehicles/create` register a rider vehicle
 - `/riders` existing shared rider accounts, work mode, and ride-vehicle summary
@@ -198,6 +201,50 @@ Ride earnings share the existing rider wallet but use separate
 
 The payment workflow now posts the earning, commission and cash-collection
 types transactionally. `ride_refund` remains reserved for a future refund flow.
+
+Customer wallet payment follows existing commerce settings and transactions.
+Full wallet payment uses `trip_booking`; a split wallet component uses
+`partial_payment`. `ride_requests.wallet_paid_amount` snapshots the applied
+wallet total, while separate `ride_payments` rows track wallet and cash/online
+components. Captain `collected_cash` increases only by the actual cash
+remainder, and admin `digital_received` increases only by the online remainder.
+Economic settlement waits until paid components equal the full payable amount.
+
+A customer cancellation after Captain selection creates an unpaid Ride
+receivable rather than a negative customer-wallet balance. The customer can
+discover it through `GET api/v1/ride-hailing/customer/payment-due` and must pay
+all such cancellation dues before creating another Ride request.
+
+## Ride coupons
+
+Ride promotions use dedicated `ride_coupons` and `ride_coupon_usages`; do not
+reuse commerce coupons, which are coupled to stores, orders and modules. Admin
+CRUD lives under `admin/ride-hailing/coupons`. Conditions include fixed or
+percentage discount with cap, minimum accepted fare, pickup zones, Ride
+categories, payment methods, first Ride, total/per-passenger limits and dates.
+
+The customer may preview a code and attach it when creating a Ride, but
+`RideCouponService` locks and authoritatively revalidates it against the final
+accepted Captain fare. The customer may replace or remove it while the Ride is
+still searching/negotiating through `PUT rides/{ride_id}/coupon`. Usage is reserved on selection, redeemed at trip start,
+and released on pre-start cancellation. The discount reduces passenger payable
+only; Captain earning and gross commission remain based on the full accepted
+fare. Settlement records the subsidy in `expenses` as
+`ride_coupon_discount` linked by `ride_request_id`. Coupons never discount
+waiting or cancellation charges. Allowed payment methods are snapshotted on the
+Ride at reservation. See `docs/api/ride-coupons.md`.
+
+## Ride promotions
+
+Ride promotions use dedicated `ride_banners` and `ride_push_notifications`
+instead of commerce banner/notification tables. The Ride sidebar exposes
+Coupons, Ride Banners and Push Notifications together. Banners support an
+all-zone or single-zone scope, optional category scope, active dates, ordering,
+and no-action/Ride-home/coupon/URL actions. Push history supports all customers
+or one zone and Ride-home/coupon/URL actions. Firebase uses
+`all_zone_customer` or `zone_{id}_customer` with `type=ride_promotion`.
+Authenticated customer endpoints provide active banners and a paginated 30-day
+notification feed. See `docs/api/ride-promotions.md`.
 
 ## Booking and bidding milestone
 

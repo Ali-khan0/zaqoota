@@ -248,6 +248,7 @@ class CaptainRideController extends Controller
         return [
             ...$this->requestData($ride),
             'final_accepted_fare' => (float) $ride->final_accepted_fare,
+            'coupon_discount_amount' => (float) $ride->coupon_discount_amount,
             'free_waiting_minutes' => (int) $ride->free_waiting_minutes,
             'charged_waiting_minutes' => (int) $ride->charged_waiting_minutes,
             'waiting_charge_amount' => (float) $ride->waiting_charge_amount,
@@ -257,6 +258,8 @@ class CaptainRideController extends Controller
             'payment_status' => $ride->payment_status,
             'payment_method' => $ride->payment_method,
             'final_payable_amount' => $ride->final_payable_amount,
+            'wallet_paid_amount' => (float) $ride->wallet_paid_amount,
+            'remaining_payment_amount' => $ride->payment_status === 'paid' ? 0.0 : round(max(0, (float) $ride->final_payable_amount - (float) $ride->wallet_paid_amount), 2),
             'captain_total_earning_amount' => $ride->captain_total_earning_amount,
             'receipt_number' => $ride->receipt_number,
             'next_action' => app(\App\Services\RideTripStateMachine::class)->actionFor($ride->status),

@@ -46,6 +46,9 @@ use App\Http\Controllers\Admin\SurgePriceController;
 use App\Http\Controllers\Admin\RideHailing\RideHailingSettingController;
 use App\Http\Controllers\Admin\RideHailing\RideHailingController;
 use App\Http\Controllers\Admin\RideHailing\RideOperationController;
+use App\Http\Controllers\Admin\RideHailing\RideCouponController;
+use App\Http\Controllers\Admin\RideHailing\RideBannerController;
+use App\Http\Controllers\Admin\RideHailing\RidePushNotificationController;
 
 Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
 
@@ -59,6 +62,24 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
             Route::get('rides', [RideOperationController::class, 'index'])->name('rides.index');
             Route::get('rides/{ride}', [RideOperationController::class, 'show'])->name('rides.show');
             Route::post('rides/{ride}/assign', [RideOperationController::class, 'assign'])->name('rides.assign');
+            Route::get('coupons', [RideCouponController::class, 'index'])->name('coupons.index');
+            Route::post('coupons', [RideCouponController::class, 'store'])->name('coupons.store');
+            Route::get('coupons/{coupon}/edit', [RideCouponController::class, 'edit'])->name('coupons.edit');
+            Route::put('coupons/{coupon}', [RideCouponController::class, 'update'])->name('coupons.update');
+            Route::put('coupons/{coupon}/status', [RideCouponController::class, 'status'])->name('coupons.status');
+            Route::delete('coupons/{coupon}', [RideCouponController::class, 'destroy'])->name('coupons.destroy');
+            Route::get('coupons/{coupon}/usages', [RideCouponController::class, 'usages'])->name('coupons.usages');
+            Route::get('banners', [RideBannerController::class, 'index'])->name('banners.index');
+            Route::post('banners', [RideBannerController::class, 'store'])->name('banners.store');
+            Route::get('banners/{banner}/edit', [RideBannerController::class, 'edit'])->name('banners.edit');
+            Route::put('banners/{banner}', [RideBannerController::class, 'update'])->name('banners.update');
+            Route::put('banners/{banner}/status', [RideBannerController::class, 'status'])->name('banners.status');
+            Route::delete('banners/{banner}', [RideBannerController::class, 'destroy'])->name('banners.destroy');
+            Route::get('push-notifications', [RidePushNotificationController::class, 'index'])->name('push-notifications.index');
+            Route::post('push-notifications', [RidePushNotificationController::class, 'store'])->name('push-notifications.store');
+            Route::post('push-notifications/{notification}/resend', [RidePushNotificationController::class, 'resend'])->name('push-notifications.resend');
+            Route::put('push-notifications/{notification}/status', [RidePushNotificationController::class, 'status'])->name('push-notifications.status');
+            Route::delete('push-notifications/{notification}', [RidePushNotificationController::class, 'destroy'])->name('push-notifications.destroy');
             Route::get('setup', [RideHailingSettingController::class, 'index'])->name('setup');
             Route::put('setup', [RideHailingSettingController::class, 'update'])->name('setup.update');
             Route::get('categories', [RideHailingController::class, 'categories'])->name('categories.index');

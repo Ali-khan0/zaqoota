@@ -15,6 +15,7 @@ class RideTripService
         private readonly RideTripStateMachine $stateMachine,
         private readonly RideFareCalculator $fareCalculator,
         private readonly RideSettlementCalculator $settlementCalculator,
+        private readonly RideCouponService $couponService,
     ) {}
 
     public function canCancel(string $status): bool
@@ -49,6 +50,7 @@ class RideTripService
                     (int) $ride->free_waiting_minutes,
                     (float) $ride->waiting_charge_per_minute,
                 );
+                $this->couponService->redeem($ride);
             } elseif ($toStatus === RideRequest::STATUS_COMPLETED) {
                 $updates['completed_at'] = now();
                 $updates += $this->settlementCalculator->calculate($ride);
@@ -91,8 +93,11 @@ class RideTripService
             'cancellation_reason' => $reason,
             'cancellation_charge_amount' => $charge,
             'rider_earning_amount' => $charge,
+            'coupon_discount_amount' => 0,
+            'admin_coupon_expense_amount' => 0,
             ...$financials,
         ]);
+        $this->couponService->release($ride);
         RideOffer::query()->where('ride_request_id', $ride->id)->where('status', RideOffer::STATUS_PENDING)->update(['status' => RideOffer::STATUS_REJECTED]);
         $this->history($ride, $fromStatus, RideRequest::STATUS_CANCELLED, $actorType, $actorId, $reason, ['cancellation_charge_amount' => $charge]);
 

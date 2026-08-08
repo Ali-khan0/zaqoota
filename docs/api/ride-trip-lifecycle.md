@@ -5,8 +5,9 @@ pre-start cancellation, and status notifications are implemented. Payment and
 wallet behavior is defined in `ride-payments-and-settlement.md`.
 
 This specification follows `ride-booking-and-bidding.md`. Payment collection,
-wallet posting, ratings, safety, chat, and post-completion settlement remain
-outside this milestone.
+wallet posting and post-completion settlement are implemented separately in
+`ride-payments-and-settlement.md`; ratings, safety and chat remain outside this
+milestone.
 
 ## Authentication And Headers
 
@@ -250,7 +251,8 @@ Captain app:
 - State transitions and cancellation lock the ride row.
 - Server timestamps, not device clocks, determine arrival and waiting.
 - Location input is coordinate-validated and accepted only for active rides.
-- Completion does not mutate wallet balances in this milestone.
+- Completion calculates the payable snapshot but does not itself mutate wallet
+  balances; the separate payment settlement flow performs those mutations.
 
 ## Backend Files
 

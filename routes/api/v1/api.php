@@ -83,14 +83,19 @@ Route::group(['namespace' => 'Api\V1', 'middleware'=>'localization'], function (
     Route::get('module', 'ModuleController@index');
     Route::get('ride-hailing/vehicle-options', 'RideHailingController@vehicleOptions');
     Route::group(['prefix' => 'ride-hailing/customer', 'middleware' => 'auth:api'], function () {
+        Route::get('banners', 'RidePromotionController@banners');
+        Route::get('notifications', 'RidePromotionController@notifications');
         Route::post('broadcasting/auth', 'RideBroadcastController@customerAuth')->middleware('throttle:60,1');
         Route::post('fare-estimate', 'CustomerRideController@estimate');
+        Route::post('coupons/validate', 'CustomerRideController@validateCoupon');
         Route::post('rides', 'CustomerRideController@store');
         Route::get('rides', 'CustomerRideController@index');
         Route::get('rides/{ride_id}', 'CustomerRideController@show');
         Route::delete('rides/{ride_id}', 'CustomerRideController@cancel');
         Route::get('rides/{ride_id}/offers', 'CustomerRideController@offers');
+        Route::put('rides/{ride_id}/coupon', 'CustomerRideController@updateCoupon');
         Route::post('rides/{ride_id}/offers/{offer_id}/accept', 'CustomerRideController@acceptOffer');
+        Route::get('payment-due', 'CustomerRideController@paymentDue');
         Route::get('rides/{ride_id}/payment-summary', 'CustomerRideController@paymentSummary');
         Route::post('rides/{ride_id}/payments', 'CustomerRideController@createPayment');
         Route::get('rides/{ride_id}/payments', 'CustomerRideController@payments');

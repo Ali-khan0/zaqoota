@@ -27,9 +27,10 @@ This backend release currently supports:
 - discovering eligible passenger ride requests and submitting or replacing a
   fare offer. See `docs/api/ride-booking-and-bidding.md` for those endpoints.
 
-It does **not** currently provide the post-acceptance trip lifecycle, live trip
-tracking, PIN verification, ride payments, or ride earnings APIs. Do not create
-fake local versions of those workflows in the rider app.
+Post-acceptance trip lifecycle, live trip tracking, PIN verification, Ride
+payment collection, and settlement APIs are now implemented in the dedicated
+contracts listed in section 15. The Captain app must use those server APIs and
+must not create local substitutes for their state or financial calculations.
 
 ## 2. Base URL and authentication
 
@@ -444,7 +445,8 @@ The passenger Ride backend now has dedicated mobile contracts:
 
 - `ride-booking-and-bidding.md`: discovery and Captain offers;
 - `ride-trip-lifecycle.md`: arrival, waiting, PIN, location and completion;
-- `ride-payments-and-settlement.md`: cash/digital payment and wallet posting;
+- `ride-payments-and-settlement.md`: cash/online/customer-wallet payment,
+  partial payment, cancellation dues and wallet posting;
 - `ride-realtime.md`: private channels, events and polling fallback.
 
 The Captain app should implement those contracts together and continue using

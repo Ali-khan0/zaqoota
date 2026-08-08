@@ -8,6 +8,7 @@ use App\Models\RideOffer;
 use App\Models\RideRequest;
 use App\Models\Zone;
 use App\Services\RideCaptainEligibilityService;
+use App\Services\RideCouponService;
 use App\Services\RideFareCalculator;
 use App\Services\RideNotificationService;
 use App\Services\RideRealtimeService;
@@ -27,6 +28,7 @@ class RideOperationController extends Controller
         private readonly RideTripService $tripService,
         private readonly RideNotificationService $notificationService,
         private readonly RideRealtimeService $realtimeService,
+        private readonly RideCouponService $couponService,
     ) {}
 
     public function index(Request $request): View
@@ -47,7 +49,7 @@ class RideOperationController extends Controller
             ->when($status === 'unassigned', fn ($query) => $query->whereIn('status', $unassignedStatuses))
             ->when($status === 'active', fn ($query) => $query->whereIn('status', $activeStatuses))
             ->when(! in_array($status, ['all', 'unassigned', 'active'], true), fn ($query) => $query->where('status', $status))
-            ->when($paymentStatus === 'due', fn ($query) => $query->whereIn('payment_status', ['unpaid', 'pending']))
+            ->when($paymentStatus === 'due', fn ($query) => $query->whereIn('payment_status', ['unpaid', 'pending', 'partially_paid']))
             ->when(! in_array($paymentStatus, ['all', 'due'], true), fn ($query) => $query->where('payment_status', $paymentStatus))
             ->when($zoneId, fn ($query) => $query->where('zone_id', $zoneId))
             ->when($categoryId, fn ($query) => $query->where('ride_category_id', $categoryId))
@@ -130,6 +132,11 @@ class RideOperationController extends Controller
                 ['ride_vehicle_id' => $vehicle->id, 'amount' => $fare, 'status' => RideOffer::STATUS_ACCEPTED, 'expires_at' => now()]
             );
             $fromStatus = $ride->status;
+            try {
+                $coupon = $this->couponService->reserve($ride, $fare);
+            } catch (\RuntimeException $exception) {
+                throw ValidationException::withMessages(['final_fare' => $exception->getMessage()]);
+            }
             $ride->update([
                 'accepted_offer_id' => $offer->id,
                 'delivery_man_id' => $captain->id,
@@ -138,6 +145,7 @@ class RideOperationController extends Controller
                 'selected_at' => now(),
                 'trip_pin' => (string) random_int(1000, 9999),
                 ...$this->fareCalculator->settlement($fare, $ride->platform_commission_percent),
+                ...$coupon,
             ]);
             $this->tripService->history(
                 $ride, $fromStatus, RideRequest::STATUS_RIDER_SELECTED,

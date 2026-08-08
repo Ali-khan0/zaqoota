@@ -797,16 +797,23 @@ authoritative during websocket disconnects and reconnect reconciliation.
 No wallet or payment balances are posted by the lifecycle transitions alone.
 See `docs/api/ride-trip-lifecycle.md`.
 
-The Ride payment milestone adds `ride_payments` attempts and final payment,
-receipt, and settlement snapshots on `ride_requests`. Customer APIs create cash
-or online attempts and expose summaries/history/JSON receipts; the assigned
-Captain confirms cash. Online payments reuse the generic payment gateway layer
-through `ride_payment_success`/`ride_payment_fail`. `RidePaymentService` posts
-Captain/admin wallets and dedicated Ride ledger rows exactly once under locked
-`settled_at` idempotency. Zaqoota commission remains based only on the accepted
-fare; waiting and customer cancellation charges go entirely to the Captain.
-Fleet-manager Ride commission, refunds and PDF receipts are not implemented.
-See `docs/api/ride-payments-and-settlement.md`.
+The Ride payment milestone adds component-level `ride_payments` attempts and
+final payment, receipt, and settlement snapshots on `ride_requests`. Customer
+APIs support full cash, online or wallet payment and wallet-plus-cash/online
+partial payment while honoring the existing global wallet and partial-payment
+settings. Customer wallet debits use the established `trip_booking` and
+`partial_payment` transaction types. The assigned Captain confirms only the
+cash remainder; online payments reuse the generic gateway layer through
+`ride_payment_success`/`ride_payment_fail`. `RidePaymentService` posts Captain
+and admin wallets and dedicated Ride ledger rows exactly once after all
+components are paid under locked `settled_at` idempotency. A chargeable customer
+cancellation remains a Ride receivable, is discoverable at
+`GET api/v1/ride-hailing/customer/payment-due`, and blocks a new Ride request
+until settled; customer wallets never become negative debt. Zaqoota commission
+remains based only on the accepted fare, while waiting and customer
+cancellation charges go entirely to the Captain. Fleet-manager Ride commission,
+refunds and PDF receipts are not implemented. See
+`docs/api/ride-payments-and-settlement.md`.
 
 Ride realtime uses explicit customer Passport and Captain `dm.api` broadcast
 auth endpoints plus private customer, Captain, and assigned-trip channels.
@@ -826,6 +833,29 @@ may manually assign only searching/negotiating rides; the server locks the ride,
 rechecks Captain eligibility, enforces the snapshotted negotiation range,
 records the accepted offer and status history, then emits notifications and
 realtime status. Admin-zone scoping applies to list, detail, and assignment.
+
+Ride coupons are a separate promotion domain under
+`admin/ride-hailing/coupons`, backed by `RideCoupon`, `RideCouponUsage` and
+`RideCouponService`. They support zone/category/payment scope, minimum accepted
+fare, fixed/percentage discounts and caps, first-Ride eligibility, dates and
+usage limits. Customer preview is
+`POST api/v1/ride-hailing/customer/coupons/validate`; an optional `coupon_code`
+is attached during Ride creation and revalidated under lock against the final
+accepted Captain offer. Before selection it can be replaced or removed through
+`PUT api/v1/ride-hailing/customer/rides/{ride_id}/coupon`. Usage is reserved on offer selection, redeemed at trip
+start and released on pre-start cancellation. Coupon subsidy reduces customer
+payable but not Captain earning or gross platform commission and is posted as
+an admin `ride_coupon_discount` expense linked to the Ride. See
+`docs/api/ride-coupons.md`.
+
+Ride banners and push-notification history are isolated from commerce promotion
+tables in `ride_banners` and `ride_push_notifications`. Admin CRUD/send pages
+live under `admin/ride-hailing/banners` and
+`admin/ride-hailing/push-notifications`. Authenticated customers read active,
+zone/category-scoped banners and the last 30 days of zone-scoped notification
+history under `/api/v1/ride-hailing/customer`. Firebase promotion messages use
+the existing customer zone topics and `type=ride_promotion`; mobile behavior is
+defined in `docs/api/ride-promotions.md`.
 
 Riders are freelancer-only. Registration APIs and landing/admin/vendor create
 or update paths set `delivery_men.earning = 1` server-side and do not accept a
