@@ -482,6 +482,11 @@ For a gateway change, check:
   policy-like pages also use `partials/public-content-page.blade.php`. Their
   admin-managed HTML remains authoritative, while Contact preserves the
   existing message submission and CAPTCHA flow.
+  The informational pages use a dark document-reader layout with print and
+  distraction-free reading controls plus a generated table of contents. TOC
+  entries come from saved `h1`/`h2`/`h3` markup, with leading bold paragraphs
+  supported as a fallback for older CKEditor content. Contact uses the same
+  reader header and dark visual system without a document TOC.
 - The shared landing footer is rendered directly by
   `resources/views/layouts/landing/app.blade.php`. It uses the configured
   business logo/article, active social records, app download links, optional
