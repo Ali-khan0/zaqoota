@@ -1,8 +1,8 @@
 # Ride Hailing Rider Work Mode API
 
 This contract lets the existing delivery-man application switch the same rider
-account between commerce delivery work and Ride Hailing work. A rider receives
-only one workload type at a time.
+account between commerce delivery work and Ride Hailing work. Parcel delivery
+remains available in both modes.
 
 ## Authentication and headers
 
@@ -43,6 +43,7 @@ PUT /api/v1/delivery-man/work-mode
   "message": "Rider work mode updated successfully.",
   "work_mode": "ride",
   "receives_delivery_orders": false,
+  "receives_parcel_orders": true,
   "receives_ride_requests": true,
   "active_ride_vehicle_id": 18
 }
@@ -50,14 +51,17 @@ PUT /api/v1/delivery-man/work-mode
 
 ### Rules and errors
 
-- A rider cannot switch to `ride` while `current_orders` is greater than zero.
+- A rider cannot switch to `ride` while a restaurant or grocery order is
+  active. An active parcel does not block the switch because parcel work is
+  valid in both modes.
 - A rider needs an approved active ride vehicle before switching to `ride`.
-- A rider can register at most two ride vehicles. Vehicle registration and
-  approval are currently administered from the Ride Hailing admin panel.
-- While in `ride` mode, the delivery latest-orders endpoint returns an empty
-  array and accepting a delivery order returns HTTP `409`.
-- Existing admin assignment lists use the `DeliveryMan::available()` scope and
-  therefore include only riders in `delivery` mode.
+- A rider registers the first vehicle with the account and can submit one more
+  vehicle later. See `rider-registration-and-vehicles.md`.
+- In `ride` mode, latest orders contain parcel orders only. Accepting a
+  restaurant or grocery order returns HTTP `409`; accepting a parcel remains
+  valid.
+- Store-order admin assignment lists apply `deliveryMode()`. Parcel assignment
+  lists intentionally accept eligible riders in either mode.
 
 Validation failure uses HTTP `422`. An active-delivery conflict uses HTTP `409`:
 

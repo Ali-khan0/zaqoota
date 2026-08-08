@@ -6,6 +6,8 @@ use App\Models\DeliveryMan;
 use Illuminate\Http\Request;
 use App\CentralLogics\Helpers;
 use App\Services\DeliveryManRegistrationFeeService;
+use App\Services\RideVehicleRegistrationService;
+use App\Models\RideVehicleType;
 use App\Models\Admin;
 use App\Models\BusinessSetting;
 use Gregwar\Captcha\CaptchaBuilder;
@@ -13,6 +15,7 @@ use Brian2694\Toastr\Facades\Toastr;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rules\Password;
 
 class DeliveryManController extends Controller
@@ -31,7 +34,13 @@ class DeliveryManController extends Controller
         $custome_recaptcha->build();
         Session::put('six_captcha', $custome_recaptcha->getPhrase());
 
-        return view('dm-registration', compact('custome_recaptcha'));
+        $rideVehicleTypes = RideVehicleType::query()
+            ->where('status', true)
+            ->with(['categories' => fn ($query) => $query->where('status', true)->orderBy('sort_order')])
+            ->orderBy('sort_order')
+            ->get();
+
+        return view('dm-registration', compact('custome_recaptcha', 'rideVehicleTypes'));
     }
 
     public function store(Request $request)
@@ -67,6 +76,7 @@ class DeliveryManController extends Controller
             return back();
         }
 
+        $vehicleService = app(RideVehicleRegistrationService::class);
         $request->validate([
             'f_name' => 'required|max:100',
             'l_name' => 'nullable|max:100',
@@ -74,13 +84,13 @@ class DeliveryManController extends Controller
             'email' => 'required|unique:delivery_men',
             'phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:10|unique:delivery_men',
             'zone_id' => 'required',
-            'vehicle_id' => 'required',
             'earning' => 'required',
             'password' => ['required', Password::min(8)->mixedCase()->letters()->numbers()->symbols()->uncompromised()],
+            ...$vehicleService->rules(),
         ], [
             'f_name.required' => translate('messages.first_name_is_required'),
             'zone_id.required' => translate('messages.select_a_zone'),
-            'vehicle_id.required' => translate('messages.select_a_vehicle'),
+            'ride_vehicle_type_id.required' => translate('messages.select_a_vehicle'),
             'earning.required' => translate('messages.select_dm_type')
         ]);
 
@@ -101,22 +111,29 @@ class DeliveryManController extends Controller
             $identity_image = json_encode([]);
         }
 
-        $dm = New DeliveryMan();
-        $dm->f_name = $request->f_name;
-        $dm->l_name = $request->l_name;
-        $dm->email = $request->email;
-        $dm->phone = $request->phone;
-        $dm->identity_number = $request->identity_number;
-        $dm->identity_type = $request->identity_type;
-        $dm->vehicle_id = $request->vehicle_id;
-        $dm->zone_id = $request->zone_id;
-        $dm->identity_image = $identity_image;
-        $dm->image = $image_name;
-        $dm->active = 0;
-        $dm->earning = $request->earning;
-        $dm->password = bcrypt($request->password);
-        $dm->application_status= 'pending';
-        $dm->save();
+        $dm = DB::transaction(function () use ($request, $identity_image, $image_name, $vehicleService) {
+            $dm = new DeliveryMan();
+            $dm->f_name = $request->f_name;
+            $dm->l_name = $request->l_name;
+            $dm->email = $request->email;
+            $dm->phone = $request->phone;
+            $dm->identity_number = $request->identity_number;
+            $dm->identity_type = $request->identity_type;
+            $dm->vehicle_id = $vehicleService->matchingDeliveryVehicleId((int) $request->ride_vehicle_type_id);
+            $dm->zone_id = $request->zone_id;
+            $dm->identity_image = $identity_image;
+            $dm->image = $image_name;
+            $dm->active = 0;
+            $dm->status = 0;
+            $dm->earning = $request->earning;
+            $dm->password = bcrypt($request->password);
+            $dm->application_status = 'pending';
+            $dm->save();
+
+            $vehicleService->createPendingVehicle($dm, $request->only(array_keys($vehicleService->rules())));
+
+            return $dm;
+        });
 
 
         app(DeliveryManRegistrationFeeService::class)->ensureRecordForDeliveryMan($dm->id);

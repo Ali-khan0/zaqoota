@@ -81,6 +81,7 @@ Route::group(['namespace' => 'Api\V1', 'middleware'=>'localization'], function (
 
     // Module
     Route::get('module', 'ModuleController@index');
+    Route::get('ride-hailing/vehicle-options', 'RideHailingController@vehicleOptions');
     Route::post('newsletter/subscribe','NewsletterController@index');
     Route::get('landing-page', 'ConfigController@landing_page');
     Route::get('react-landing-page', 'ConfigController@react_landing_page')->middleware('actch:react_web');
@@ -102,6 +103,7 @@ Route::group(['namespace' => 'Api\V1', 'middleware'=>'localization'], function (
             Route::post('update-active-status', 'DeliverymanController@activeStatus');
             Route::put('work-mode', 'DeliverymanController@updateWorkMode');
             Route::get('ride-vehicles', 'DeliverymanController@rideVehicles');
+            Route::post('ride-vehicles', 'DeliverymanController@storeRideVehicle');
             Route::put('ride-vehicles/{vehicle_id}/activate', 'DeliverymanController@activateRideVehicle');
             Route::get('current-orders', 'DeliverymanController@get_current_orders');
             Route::get('latest-orders', 'DeliverymanController@get_latest_orders');
@@ -137,9 +139,9 @@ Route::group(['namespace' => 'Api\V1', 'middleware'=>'localization'], function (
             Route::post('add-return-date', 'DeliverymanController@addReturnDate');
 
 
-            Route::post('make-collected-cash-payment', 'DeliverymanController@make_payment')->name('make_payment');
-            Route::post('make-wallet-adjustment', 'DeliverymanController@make_wallet_adjustment')->name('make_wallet_adjustment');
-            Route::get('wallet-payment-list', 'DeliverymanController@wallet_payment_list')->name('wallet_payment_list');
+            Route::post('make-collected-cash-payment', 'DeliverymanController@make_payment')->name('deliveryman.make_payment');
+            Route::post('make-wallet-adjustment', 'DeliverymanController@make_wallet_adjustment')->name('deliveryman.make_wallet_adjustment');
+            Route::get('wallet-payment-list', 'DeliverymanController@wallet_payment_list')->name('deliveryman.wallet_payment_list');
             Route::get('wallet-provided-earning-list', 'DeliverymanController@wallet_provided_earning_list')->name('wallet_provided_earning_list');
 
             Route::get('registration-fee-status', 'DeliverymanController@registration_fee_status');
@@ -202,9 +204,9 @@ Route::group(['namespace' => 'Api\V1', 'middleware'=>'localization'], function (
 
         Route::put('send-order-otp', 'VendorController@send_order_otp');
 
-        Route::post('make-collected-cash-payment', 'VendorController@make_payment')->name('make_payment');
-        Route::post('make-wallet-adjustment', 'VendorController@make_wallet_adjustment')->name('make_wallet_adjustment');
-        Route::get('wallet-payment-list', 'VendorController@wallet_payment_list')->name('wallet_payment_list');
+        Route::post('make-collected-cash-payment', 'VendorController@make_payment')->name('vendor.make_payment');
+        Route::post('make-wallet-adjustment', 'VendorController@make_wallet_adjustment')->name('vendor.make_wallet_adjustment');
+        Route::get('wallet-payment-list', 'VendorController@wallet_payment_list')->name('vendor.wallet_payment_list');
 
 
         Route::get('get-withdraw-method-list', 'WithdrawMethodController@withdraw_method_list');

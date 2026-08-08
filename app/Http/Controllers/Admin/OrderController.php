@@ -238,6 +238,7 @@ class OrderController extends Controller
                     })
                     ->where('id', '!=', $excludeDm)
                     ->available()
+                    ->deliveryMode()
                     ->active()
                     ->get();
             }
@@ -249,6 +250,7 @@ class OrderController extends Controller
                     })
                         ->where('id', '!=', $excludeDm)
                         ->available()
+                        ->deliveryMode()
                         ->active()
                         ->get():
                         [];
@@ -257,6 +259,7 @@ class OrderController extends Controller
                         ->where('vehicle_id',$order->dm_vehicle_id)
                         ->where('id', '!=', $excludeDm)
                         ->available()
+                        ->deliveryMode()
                         ->active()
                         ->get();
                 }
@@ -311,9 +314,9 @@ class OrderController extends Controller
         }])->where(['id' => $id])->first();
         if (isset($order)) {
             if (isset($order->store)) {
-                $deliveryMen = DeliveryMan::where('zone_id', $order->store->zone_id)->available()->active()->get();
+                $deliveryMen = DeliveryMan::where('zone_id', $order->store->zone_id)->available()->deliveryMode()->active()->get();
             } else {
-                $deliveryMen = isset($order->zone_id) ? DeliveryMan::where('zone_id', $order->zone_id)->zonewise()->available()->active()->get() : [];
+                $deliveryMen = isset($order->zone_id) ? DeliveryMan::where('zone_id', $order->zone_id)->zonewise()->available()->deliveryMode()->active()->get() : [];
             }
             $category = $request->query('category_id', 0);
             // $sub_category = $request->query('sub_category', 0);
@@ -588,7 +591,11 @@ class OrderController extends Controller
         }
         $order = Order::withOutGlobalScope(ZoneScope::class)->find($order_id);
 
-        $deliveryman = DeliveryMan::where('id', $delivery_man_id)->available()->active()->first();
+        $deliveryman = DeliveryMan::where('id', $delivery_man_id)
+            ->available()
+            ->when($order->order_type !== 'parcel', fn ($query) => $query->deliveryMode())
+            ->active()
+            ->first();
         if ($order->delivery_man_id == $delivery_man_id) {
             return response()->json(['message'=> translate('messages.order_already_assign_to_this_deliveryman')  ], 400);
         }

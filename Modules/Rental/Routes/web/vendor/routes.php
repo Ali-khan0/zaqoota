@@ -119,12 +119,11 @@ Route::group([ 'middleware' => ['vendor', 'provider-rental-module']], function (
 
     Route::group(['prefix' => 'custom-role', 'as' => 'custom-role.', 'middleware' => ['module:employee']], function () {
         Route::get('list', [ProviderController::class, 'role'])->name('list');
-        Route::get('update/{id}', [ProviderController::class, 'update'])->name('update');
+        Route::get('update/{id}', [ProviderController::class, 'update'])->name('rental-edit');
     });
 
 
     Route::get('rental-reviews', [ProviderController::class, 'reviews'])->name('rental.reviews')->middleware('module:reviews','subscription:reviews');
     Route::post('rental-review/{id}', [ProviderController::class, 'reviewReply'])->name('rental.review.reply')->middleware('module:reviews','subscription:reviews');
 });
-
 

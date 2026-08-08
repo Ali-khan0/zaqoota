@@ -227,7 +227,7 @@
                                 @if (auth('vendor_employee')?->user()?->employee_role_id  != $r['id'])
                                     <div class="btn--container justify-content-center">
                                         <a class="btn action-btn btn--primary btn-outline-primary"
-                                            href="{{route('vendor.custom-role.update',$r['id'])}}" title="{{translate('messages.edit_role')}}"><i class="tio-edit"></i>
+                                            href="{{route('vendor.custom-role.rental-edit',$r['id'])}}" title="{{translate('messages.edit_role')}}"><i class="tio-edit"></i>
                                         </a>
                                         <a class="btn action-btn btn--danger btn-outline-danger form-alert" href="javascript:"
                                            data-id="role-{{$r['id']}}" data-message="{{translate('messages.Want_to_delete_this_role')}}"
@@ -271,5 +271,4 @@
     </div>
 </div>
 @endsection
-
 

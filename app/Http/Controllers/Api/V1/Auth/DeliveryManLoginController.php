@@ -8,7 +8,9 @@ use App\Models\Admin;
 use App\Models\DeliveryMan;
 use App\Models\FleetManager;
 use App\Services\DeliveryManRegistrationFeeService;
+use App\Services\RideVehicleRegistrationService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -137,6 +139,7 @@ class DeliveryManLoginController extends Controller
 
     public function store(Request $request)
     {
+        $vehicleService = app(RideVehicleRegistrationService::class);
         $validator = Validator::make($request->all(), [
             'f_name' => 'required',
             'identity_type' => 'required|in:passport,driving_license,nid',
@@ -145,13 +148,13 @@ class DeliveryManLoginController extends Controller
             'phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:10|unique:delivery_men',
             'password' => ['required', Password::min(8)->mixedCase()->letters()->numbers()->symbols()->uncompromised()],
             'zone_id' => 'required',
-            'vehicle_id' => 'required',
-            'earning' => 'required'
+            'earning' => 'required',
+            ...$vehicleService->rules(),
         ], [
             'f_name.required' => translate('messages.first_name_is_required'),
             'zone_id.required' => translate('messages.select_a_zone'),
             'earning.required' => translate('messages.select_dm_type'),
-            'vehicle_id.required' => translate('messages.select_a_vehicle'),
+            'ride_vehicle_type_id.required' => translate('messages.select_a_vehicle'),
             'password.required' => translate('The password is required'),
             'password.min_length' => translate('The password must be at least :min characters long'),
             'password.mixed' => translate('The password must contain both uppercase and lowercase letters'),
@@ -183,24 +186,29 @@ class DeliveryManLoginController extends Controller
             $identity_image = json_encode([]);
         }
 
-        $dm = New DeliveryMan();
-        $dm->f_name = $request->f_name;
-        $dm->l_name = $request->l_name;
-        $dm->email = $request->email;
-        $dm->phone = $request->phone;
-        $dm->identity_number = $request->identity_number;
-        $dm->identity_type = $request->identity_type;
-        $dm->identity_image = $identity_image;
-        $dm->vehicle_id = $request->vehicle_id;
-        $dm->image = $image_name;
-        $dm->status = 0;
-        $dm->active = 0;
-        $dm->application_status = 'pending';
-        $dm->zone_id = $request->zone_id;
-        $dm->earning = $request->earning;
-        $dm->password = bcrypt($request->password);
+        $dm = DB::transaction(function () use ($request, $identity_image, $image_name, $vehicleService) {
+            $dm = new DeliveryMan();
+            $dm->f_name = $request->f_name;
+            $dm->l_name = $request->l_name;
+            $dm->email = $request->email;
+            $dm->phone = $request->phone;
+            $dm->identity_number = $request->identity_number;
+            $dm->identity_type = $request->identity_type;
+            $dm->identity_image = $identity_image;
+            $dm->vehicle_id = $vehicleService->matchingDeliveryVehicleId((int) $request->ride_vehicle_type_id);
+            $dm->image = $image_name;
+            $dm->status = 0;
+            $dm->active = 0;
+            $dm->application_status = 'pending';
+            $dm->zone_id = $request->zone_id;
+            $dm->earning = $request->earning;
+            $dm->password = bcrypt($request->password);
+            $dm->save();
 
-        $dm->save();
+            $vehicleService->createPendingVehicle($dm, $request->only(array_keys($vehicleService->rules())));
+
+            return $dm;
+        });
         
         app(DeliveryManRegistrationFeeService::class)->ensureRecordForDeliveryMan($dm->id);
         

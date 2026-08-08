@@ -139,7 +139,7 @@ class DashboardController extends Controller
 
         $deliveryMen = DeliveryMan::with('last_location')->when(is_numeric($params['zone_id']), function ($q) use ($params) {
             return $q->where('zone_id', $params['zone_id']);
-        })->zonewise()->available()->active()->get();
+        })->zonewise()->available()->deliveryMode()->active()->get();
 
         $deliveryMen = Helpers::deliverymen_list_formatting($deliveryMen);
 
@@ -201,7 +201,7 @@ class DashboardController extends Controller
         $available_deliveryman = DeliveryMan::when(is_numeric($params['zone_id']), function ($q) use ($params) {
             return $q->where('zone_id', $params['zone_id']);
         })
-            ->Zonewise()->where('active', 1)->Available()->count();
+            ->Zonewise()->where('active', 1)->Available()->deliveryMode()->count();
 
         $newly_joined_deliveryman = DeliveryMan::when(is_numeric($params['zone_id']), function ($q) use ($params) {
             return $q->where('zone_id', $params['zone_id']);
@@ -209,7 +209,7 @@ class DashboardController extends Controller
             ->Zonewise()->whereDate('created_at', '>=', now()->subDays(30)->format('Y-m-d'))->count();
         $deliveryMen = DeliveryMan::when(is_numeric($params['zone_id']), function ($q) use ($params) {
             return $q->where('zone_id', $params['zone_id']);
-        })->zonewise()->available()->active()->get();
+        })->zonewise()->available()->deliveryMode()->active()->get();
 
         $deliveryMen = Helpers::deliverymen_list_formatting($deliveryMen);
 

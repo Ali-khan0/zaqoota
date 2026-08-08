@@ -696,6 +696,17 @@ mode API behavior is specified in `docs/api/ride-hailing-rider-mode.md`.
 The consolidated mobile implementation handoff is
 `docs/api/ride-hailing-rider-app-integration.md`.
 
+Rider onboarding is shared across every workload. Both
+`POST api/v1/auth/delivery-man/store` and the landing-page `deliveryman/apply`
+form create the rider plus a first pending `ride_vehicle` in one transaction.
+Approving the rider approves/activates that first vehicle. An authenticated
+rider may submit one additional vehicle with
+`POST api/v1/delivery-man/ride-vehicles`; the total limit is two. Vehicle
+options are public at `GET api/v1/ride-hailing/vehicle-options`. Delivery mode
+receives restaurant, grocery, and parcel work; Ride mode retains parcel work
+and will additionally receive passenger rides. See
+`docs/api/rider-registration-and-vehicles.md`.
+
 ## 11. Verification commands
 
 Dependencies are not currently present in this backup (`vendor/autoload.php` is
@@ -721,6 +732,12 @@ production database merely to validate them.
 ## 12. Known risks and cleanup targets
 
 These findings affect future work and deployment:
+
+- Route caching was verified after removing legacy duplicate names across
+  Rental provider/email routes, Store account lookup, Rental vendor role edit,
+  delivery-man/vendor wallet APIs, and admin custom-role/employee form routes.
+  GET form pages and POST submissions must keep distinct `create`/`store` or
+  view/update names even when they share a URI.
 
 - **Critical security concern:** `oAMv1Zx7default.php` and
   `uiXNZJyLdefault.php` are roughly 0.9–1.0 MB, obfuscated PHP files in the

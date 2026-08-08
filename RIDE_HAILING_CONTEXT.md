@@ -45,12 +45,16 @@ online status, and wallet are reused.
 
 Rules:
 
-- A rider receives only work matching the selected mode.
-- `DeliveryMan::available()` includes only `delivery` mode riders.
-- A rider cannot switch to Ride mode while `current_orders > 0`.
+- Delivery mode receives restaurant, grocery, and parcel work.
+- Ride mode receives passenger rides (when implemented) and parcel work.
+- `DeliveryMan::available()` checks order capacity only. Store-order queries
+  additionally use `deliveryMode()`; parcel queries intentionally do not.
+- A rider cannot switch to Ride mode while a restaurant/grocery order is
+  active; an active parcel does not block the switch.
 - Ride mode requires an approved active `RideVehicle`.
-- Delivery latest-order discovery returns an empty list in Ride mode.
-- Delivery order acceptance independently rejects Ride mode riders.
+- Latest-order discovery returns parcel orders only in Ride mode.
+- Order acceptance rejects restaurant/grocery orders in Ride mode but permits
+  parcels.
 
 The endpoint contract is documented in
 `docs/api/ride-hailing-rider-mode.md`. The complete rider-app implementation
@@ -70,13 +74,18 @@ Ride Hailing uses:
 - `ride_vehicles`: actual rider vehicle, make, model, year, colour, number
   plate, fuel, approval, and active state.
 
-A rider may have at most two ride vehicles. Only one approved vehicle can be
-active at a time. The limit and category/type/fuel compatibility are enforced
-in the admin controller inside database transactions.
+A rider selects Bike, Car, or Rickshaw and submits the first real vehicle with
+mobile or landing-page registration. Admin rider approval also approves and
+activates that first pending vehicle. After approval, the rider may submit one
+additional vehicle from the rider app; it remains pending until separately
+approved. A rider may have at most two vehicles and only one approved vehicle
+can be active. Shared validation lives in
+`app/Services/RideVehicleRegistrationService.php`.
 
-Ride Hailing does not create a second rider identity. The admin vehicle form
-searches and links an existing approved `delivery_men` account. The Ride Riders
-page is an operational view of those shared accounts, not a registration page.
+Ride Hailing does not create, enroll, or attach a second rider identity. The
+Ride Riders page is an operational view of shared `delivery_men` accounts, not
+a registration page. Mobile details are in
+`docs/api/rider-registration-and-vehicles.md`.
 
 ## Fare configuration
 

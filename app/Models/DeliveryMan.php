@@ -181,8 +181,12 @@ class DeliveryMan extends Authenticatable
 
     public function scopeAvailable($query)
     {
-        return $query->where('work_mode', 'delivery')
-            ->where('current_orders', '<' ,config('dm_maximum_orders')??1);
+        return $query->where('current_orders', '<' ,config('dm_maximum_orders')??1);
+    }
+
+    public function scopeDeliveryMode($query)
+    {
+        return $query->where('work_mode', 'delivery');
     }
 
     public function scopeRideMode($query)

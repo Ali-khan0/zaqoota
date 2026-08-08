@@ -34,6 +34,7 @@ use App\Models\WithdrawRequest;
 use App\Traits\Payment;
 use App\Services\DeliveryManMilestoneBonusService;
 use App\Services\DeliveryManRegistrationFeeService;
+use App\Services\RideVehicleRegistrationService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Config;
@@ -207,7 +208,12 @@ class DeliverymanController extends Controller
         return DB::transaction(function () use ($request) {
             $dm = DeliveryMan::query()->lockForUpdate()->where(['auth_token' => $request['token']])->first();
             $dm->load('activeRideVehicle');
-            if ($request->work_mode === 'ride' && $dm->current_orders > 0) {
+            $hasActiveCommerceOrder = Order::query()
+                ->where('delivery_man_id', $dm->id)
+                ->where('order_type', '!=', 'parcel')
+                ->whereIn('order_status', ['accepted', 'confirmed', 'pending', 'processing', 'picked_up', 'handover'])
+                ->exists();
+            if ($request->work_mode === 'ride' && $hasActiveCommerceOrder) {
                 return response()->json(['errors' => [[
                     'code' => 'work_mode',
                     'message' => translate('messages.Complete your active deliveries before switching to Ride mode.'),
@@ -227,6 +233,7 @@ class DeliverymanController extends Controller
                 'message' => translate('messages.Rider work mode updated successfully.'),
                 'work_mode' => $dm->work_mode,
                 'receives_delivery_orders' => $dm->work_mode === 'delivery',
+                'receives_parcel_orders' => true,
                 'receives_ride_requests' => $dm->work_mode === 'ride',
                 'active_ride_vehicle_id' => $dm->activeRideVehicle?->id,
             ]);
@@ -244,6 +251,26 @@ class DeliverymanController extends Controller
             'registered_vehicle_count' => $vehicles->count(),
             'can_register_more' => $vehicles->count() < \App\Models\RideVehicle::MAX_PER_RIDER,
         ]);
+    }
+
+    public function storeRideVehicle(Request $request, RideVehicleRegistrationService $vehicleService)
+    {
+        $validator = Validator::make($request->all(), $vehicleService->rules());
+        if ($validator->fails()) {
+            return response()->json(['errors' => Helpers::error_processor($validator)], 422);
+        }
+
+        $vehicle = DB::transaction(function () use ($request, $vehicleService, $validator) {
+            $dm = DeliveryMan::query()->lockForUpdate()->where(['auth_token' => $request['token']])->firstOrFail();
+
+            return $vehicleService->createPendingVehicle($dm, $validator->validated());
+        });
+        $vehicle->load(['vehicleType', 'category']);
+
+        return response()->json([
+            'message' => translate('messages.Ride vehicle submitted for approval.'),
+            'vehicle' => $this->formatRideVehicle($vehicle),
+        ], 201);
     }
 
     public function activateRideVehicle(Request $request, $vehicleId)
@@ -320,11 +347,11 @@ class DeliverymanController extends Controller
     {
         $dm = DeliveryMan::where(['auth_token' => $request['token']])->first();
 
-        if ($dm->work_mode !== 'delivery') {
-            return response()->json([], 200);
-        }
-
         $orders = Order::with(['customer', 'store', 'parcel_category']);
+
+        if ($dm->work_mode === 'ride') {
+            $orders->where('order_type', 'parcel');
+        }
 
         if ($dm->type == 'zone_wise') {
             $orders = $orders->where('zone_id', $dm->zone_id)
@@ -399,7 +426,7 @@ class DeliverymanController extends Controller
                 ],
             ], 404);
         }
-        if ($dm->work_mode !== 'delivery') {
+        if ($dm->work_mode !== 'delivery' && $order->order_type !== 'parcel') {
             return response()->json([
                 'errors' => [
                     ['code' => 'work_mode', 'message' => translate('messages.Switch to Delivery mode before accepting a delivery order.')],

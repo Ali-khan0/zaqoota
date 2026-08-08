@@ -10,17 +10,20 @@ until their backend APIs are implemented.
 The same authenticated rider account is used for food/grocery delivery and
 Ride Hailing. The rider selects exactly one work mode:
 
-- `delivery`: receives commerce delivery orders only.
-- `ride`: will receive passenger ride requests only when matching APIs are
-  implemented.
+- `delivery`: receives restaurant/grocery and parcel delivery orders.
+- `ride`: receives parcel orders and will receive passenger ride requests when
+  matching APIs are implemented.
 
 This backend release currently supports:
 
 - reading the rider's current `work_mode` from the existing profile endpoint;
 - switching between Delivery and Ride modes;
 - listing up to two registered ride vehicles;
+- registering the first vehicle with the rider account and submitting a second
+  vehicle later;
 - selecting one approved ride vehicle as active;
-- preventing Ride-mode riders from discovering or accepting delivery orders;
+- preventing Ride-mode riders from discovering or accepting restaurant and
+  grocery orders while preserving parcel work;
 - returning vehicle type, ride category, fuel, approval, and identity details.
 
 It does **not** currently provide passenger ride discovery, driver matching,
@@ -167,8 +170,9 @@ GET /api/v1/delivery-man/ride-vehicles
 - Show an Active label only when `is_active` is true.
 - Disable vehicle selection for `pending` and `rejected` vehicles.
 - Show `admin_note` for rejected vehicles when it is non-empty.
-- Use `can_register_more` only to show future registration eligibility. Vehicle
-  registration from the app is not supported by this backend release.
+- Show Add vehicle when `can_register_more` is true and submit it using
+  `POST /delivery-man/ride-vehicles` as documented in
+  `rider-registration-and-vehicles.md`.
 
 ## 6. Select the active ride vehicle
 
@@ -246,6 +250,7 @@ PUT /api/v1/delivery-man/work-mode
   "message": "Rider work mode updated successfully.",
   "work_mode": "ride",
   "receives_delivery_orders": false,
+  "receives_parcel_orders": true,
   "receives_ride_requests": true,
   "active_ride_vehicle_id": 18
 }
@@ -254,7 +259,8 @@ PUT /api/v1/delivery-man/work-mode
 ### Server rules
 
 - `work_mode` is required and must be `delivery` or `ride`.
-- Switching to Ride mode fails while `current_orders > 0`.
+- Switching to Ride mode fails while a restaurant or grocery order is active;
+  an active parcel does not block it.
 - Switching to Ride mode requires one approved active ride vehicle.
 - Switching mode does not change the existing online/offline `active` status.
 - Delivery assignment lists, latest-order discovery, and delivery acceptance
@@ -308,8 +314,8 @@ Behavior:
 2. Do not optimistically commit the visual state before the API succeeds.
 3. When Ride is tapped, verify locally that an approved active vehicle is
    present, but still call the backend because server validation is final.
-4. On success, clear delivery offer/order discovery state and refresh the home
-   screen.
+4. On success, clear restaurant/grocery offer state, retain parcel work, and
+   refresh the home screen.
 5. On failure, retain the old mode and show the backend message.
 6. The online/offline control remains separate.
 
@@ -322,7 +328,8 @@ Add a screen reachable from the profile/menu:
 - vehicle identity details;
 - category and passenger capacity;
 - select an approved vehicle;
-- explain that registration/approval is managed by Zaqoota for now.
+- add one more vehicle when `can_register_more` is true and show its approval
+  status.
 
 Do not add an upload or registration form until its API is implemented.
 

@@ -96,18 +96,36 @@ $countryCode= strtolower($country?$country->value:'auto');
                                 </div>
                                 <div class="col-sm-6 col-12">
                                     <div class="form-group">
-                                      <label class="input-label"
-                                                for="exampleFormControlInput1">{{ translate('messages.Vehicle') }}</label>
-                                            <select name="vehicle_id" class="form-control js-select2-custom h--45px" required
-                                                data-placeholder="{{ translate('messages.select_vehicle') }}">
-                                                <option value="" readonly="true" hidden="true">{{ translate('messages.select_vehicle') }}</option>
-                                                @foreach (\App\Models\DMVehicle::where('status',1)->get(['id','type']) as $v)
-                                                            <option value="{{ $v->id }}" >{{ $v->type }}
-                                                            </option>
-                                                @endforeach
-                                            </select>
+                                        <label class="input-label">{{ translate('messages.Vehicle Type') }}</label>
+                                        <select name="ride_vehicle_type_id" id="ride_vehicle_type_id" class="form-control h--45px" required>
+                                            <option value="">{{ translate('messages.select_vehicle') }}</option>
+                                            @foreach ($rideVehicleTypes as $type)
+                                                <option value="{{ $type->id }}" @selected(old('ride_vehicle_type_id') == $type->id)>{{ $type->name }}</option>
+                                            @endforeach
+                                        </select>
                                     </div>
                                 </div>
+                                <div class="col-sm-6 col-12">
+                                    <div class="form-group">
+                                        <label class="input-label">{{ translate('messages.Vehicle Category') }}</label>
+                                        <select name="ride_category_id" id="ride_category_id" class="form-control h--45px" required></select>
+                                    </div>
+                                </div>
+                                <div class="col-sm-4">
+                                    <div class="form-group mb-3">
+                                        <label class="input-label">{{ translate('messages.Fuel Type') }}</label>
+                                        <select name="fuel_type" id="fuel_type" class="form-control" required>
+                                            @foreach (\App\Models\RideVehicle::FUEL_TYPES as $fuelType)
+                                                <option value="{{ $fuelType }}" @selected(old('fuel_type') === $fuelType)>{{ ucfirst($fuelType) }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-sm-4"><div class="form-group mb-3"><label class="input-label">{{ translate('messages.Vehicle Make') }}</label><input name="make" class="form-control" value="{{ old('make') }}" required></div></div>
+                                <div class="col-sm-4"><div class="form-group mb-3"><label class="input-label">{{ translate('messages.Vehicle Model') }}</label><input name="model" class="form-control" value="{{ old('model') }}" required></div></div>
+                                <div class="col-sm-4"><div class="form-group mb-3"><label class="input-label">{{ translate('messages.Model Year') }}</label><input type="number" name="model_year" min="1980" max="{{ now()->year + 1 }}" class="form-control" value="{{ old('model_year') }}"></div></div>
+                                <div class="col-sm-4"><div class="form-group mb-3"><label class="input-label">{{ translate('messages.Vehicle Color') }}</label><input name="color" class="form-control" value="{{ old('color') }}" required></div></div>
+                                <div class="col-sm-4"><div class="form-group mb-3"><label class="input-label">{{ translate('messages.Registration Number') }}</label><input name="registration_number" class="form-control" value="{{ old('registration_number') }}" required></div></div>
                                 <div class="col-sm-6">
                                     <div class="form-group mb-3">
                                         <label class="input-label"
@@ -233,6 +251,30 @@ $countryCode= strtolower($country?$country->value:'auto');
 @endsection
 
 @push('script_2')
+
+    <script>
+        const rideVehicleTypes = @json($rideVehicleTypes);
+        const oldRideCategoryId = @json(old('ride_category_id'));
+
+        function updateRideCategories() {
+            const selectedType = rideVehicleTypes.find(type => String(type.id) === String($('#ride_vehicle_type_id').val()));
+            const categorySelect = $('#ride_category_id');
+            categorySelect.empty().append(new Option('{{ translate('messages.Select vehicle category') }}', ''));
+            (selectedType?.categories || []).forEach(category => {
+                const option = new Option(category.name, category.id, false, String(category.id) === String(oldRideCategoryId));
+                option.dataset.fuelType = category.fuel_type || '';
+                categorySelect.append(option);
+            });
+            categorySelect.trigger('change');
+        }
+
+        $('#ride_vehicle_type_id').on('change', updateRideCategories);
+        $('#ride_category_id').on('change', function () {
+            const fuelType = this.options[this.selectedIndex]?.dataset?.fuelType;
+            if (fuelType) $('#fuel_type').val(fuelType);
+        });
+        updateRideCategories();
+    </script>
 
     <script>
         function readURL(input) {

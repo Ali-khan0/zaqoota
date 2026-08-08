@@ -18,7 +18,7 @@
         </h1>
     </div>
     <!-- Content Row -->
-    <form action="{{route('admin.users.employee.add-new')}}" method="post" enctype="multipart/form-data" class="js-validate">
+    <form action="{{route('admin.users.employee.store')}}" method="post" enctype="multipart/form-data" class="js-validate">
         @csrf
         <div class="card mb-4">
             <div class="card-header">

@@ -488,7 +488,17 @@ class DeliveryManController extends BaseController
             return back();
         }
 
-        $this->deliveryManRepo->update(id: $request->id, data: ['application_status' => 'approved', 'status' => 1]);
+        DB::transaction(function () use ($request) {
+            $this->deliveryManRepo->update(id: $request->id, data: ['application_status' => 'approved', 'status' => 1]);
+            $firstVehicle = \App\Models\RideVehicle::query()
+                ->where('delivery_man_id', $request->id)
+                ->oldest('id')
+                ->lockForUpdate()
+                ->first();
+            if ($firstVehicle && $firstVehicle->status === 'pending') {
+                $firstVehicle->update(['status' => 'approved', 'is_active' => true]);
+            }
+        });
         $deliveryMan = $this->deliveryManRepo->getFirstWhere(params: ['id' => $request->id]);
 
         $feeService->ensureRecordForDeliveryMan((int) $request->id);
