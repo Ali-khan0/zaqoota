@@ -43,6 +43,7 @@ use App\Http\Controllers\Admin\Promotion\AdvertisementController;
 use App\Http\Controllers\Admin\Notification\NotificationController;
 use App\Http\Controllers\Admin\Subscription\SubscriptionController;
 use App\Http\Controllers\Admin\SurgePriceController;
+use App\Http\Controllers\Admin\RideHailing\RideHailingSettingController;
 
 Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
 
@@ -50,6 +51,11 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
     Route::get(Zone::GET_ALL_ZONE_COORDINATES[URI].'/{id?}', [ZoneController::class, 'getAllZoneCoordinates'])->name('zone.zoneCoordinates');
 
     Route::group(['middleware' => ['admin', 'current-module','actch:admin_panel']], function () {
+
+        Route::group(['prefix' => 'ride-hailing', 'as' => 'ride-hailing.', 'middleware' => ['module:settings']], function () {
+            Route::get('setup', [RideHailingSettingController::class, 'index'])->name('setup');
+            Route::put('setup', [RideHailingSettingController::class, 'update'])->name('setup.update');
+        });
 
         Route::post('search-routing', 'SearchRoutingController@index')->name('search.routing');
         Route::get('recent-search', 'SearchRoutingController@recentSearch')->name('recent.search');

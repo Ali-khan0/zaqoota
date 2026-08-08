@@ -28,6 +28,7 @@ class ModuleController extends Controller
                 ->whereHas('zones', function ($query) use ($zone_id) {
                     $query->whereIn('zone_id', $zone_id);
                 })
+                ->discoverable()
                 ->active()
                 ->get();
         } else {
@@ -44,6 +45,7 @@ class ModuleController extends Controller
                     $query->where('zone_id', $request->zone_id);
                 })->notParcel();
             })
+            ->discoverable()
             ->active()
             ->get();
         }

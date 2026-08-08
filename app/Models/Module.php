@@ -144,6 +144,16 @@ class Module extends Model
         return $query->where('module_type', '!=' ,'rental');
     }
 
+    public function scopeCommerce($query): mixed
+    {
+        return $query->whereNotIn('module_type', ['rental', 'ride_hailing']);
+    }
+
+    public function scopeDiscoverable($query): mixed
+    {
+        return $query->where('module_type', '!=', 'ride_hailing');
+    }
+
     /**
      * @param $query
      * @return mixed

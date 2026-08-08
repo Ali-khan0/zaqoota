@@ -654,6 +654,40 @@ Use this decision sequence:
 | New AI-generated field | AI prompt/resource/response/service, admin/API controllers, target product form/model validation |
 | New realtime event | event/channel authorization, broadcaster config, job/listener, Echo client subscriber, retry/failure handling |
 | New fleet-manager capability | manager zone scope and capacity, assignment history, rider profile contract, fleet-manager API permission, admin audit trail, due-recovery effects |
+| New ride-hailing capability | core `ride_hailing` module registration, dedicated admin setup/sidebar, then separately define vehicles, drivers, fares, trips, booking API, payments, safety, dispatch, notifications, and reports |
+
+### Ride Hailing foundation
+
+Ride Hailing is registered as the core module type `ride_hailing`. It is not a
+store/item/order commerce module and is not part of the Rental addon. The
+registration migration is
+`database/migrations/2026_08_08_000007_register_ride_hailing_module.php`; it
+creates the active module row only when that module type does not already exist
+and seeds its initial business-setting keys.
+
+The initial admin surface is intentionally limited to platform setup:
+
+- Routes: `GET|PUT admin/ride-hailing/setup`, named
+  `admin.ride-hailing.setup` and `.setup.update`.
+- Controller:
+  `App\Http\Controllers\Admin\RideHailing\RideHailingSettingController`.
+- View: `resources/views/admin-views/ride-hailing/settings.blade.php`.
+- Navigation:
+  `resources/views/layouts/admin/partials/_sidebar_ride_hailing.blade.php`.
+- Settings: service name, distance unit, support email, and support phone in
+  `business_settings` using the `ride_hailing_*` prefix.
+
+Selecting the module redirects the generic admin dashboard to this setup page,
+preventing the incomplete module from falling through to commerce dashboards.
+The `Module::commerce()` scope excludes both Rental and Ride Hailing from
+store-based workflows such as onboarding invoice store selection.
+`Module::discoverable()` excludes Ride Hailing from existing customer module
+and config APIs until its mobile booking contract exists.
+
+No customer/driver mobile API, vehicle, fare, trip, dispatch, payment, safety,
+notification, or reporting behavior exists at this stage. Those contracts must
+be designed and documented under `docs/api/` when mobile-facing development
+begins.
 
 ## 11. Verification commands
 

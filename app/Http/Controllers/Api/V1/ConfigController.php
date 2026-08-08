@@ -199,7 +199,7 @@ class ConfigController extends Controller
 
         $additional_charge = isset($settings['additional_charge']) ? (float)$settings['additional_charge'] : 0;
         $module = Cache::rememberForever('module_config', function () {
-            return Module::active()->count() == 1 ? Module::active()->first() : null;
+            return Module::active()->discoverable()->count() == 1 ? Module::active()->discoverable()->first() : null;
         });
         $languages = Helpers::get_business_settings('language');
         $lang_array = [];

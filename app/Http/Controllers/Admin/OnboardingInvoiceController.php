@@ -57,7 +57,7 @@ class OnboardingInvoiceController extends Controller
 
     public function create()
     {
-        $modules = Module::query()->active()->notRental()->orderBy('module_name')->get(['id', 'module_name']);
+        $modules = Module::query()->active()->commerce()->orderBy('module_name')->get(['id', 'module_name']);
         $invoiceNumber = $this->nextInvoiceNumber();
 
         return view('admin-views.onboarding-invoice.create', compact('modules', 'invoiceNumber'));
@@ -71,7 +71,7 @@ class OnboardingInvoiceController extends Controller
             'page' => ['nullable', 'integer', 'min:1'],
         ]);
 
-        $module = Module::query()->active()->notRental()->findOrFail($validated['module_id']);
+        $module = Module::query()->active()->commerce()->findOrFail($validated['module_id']);
         $term = trim((string) ($validated['q'] ?? ''));
         $stores = Store::withoutGlobalScopes()
             ->with('vendor:id,f_name,l_name,email')
@@ -114,7 +114,7 @@ class OnboardingInvoiceController extends Controller
 
     public function store(OnboardingInvoiceStoreRequest $request): RedirectResponse
     {
-        $module = Module::query()->active()->notRental()->findOrFail($request->integer('module_id'));
+        $module = Module::query()->active()->commerce()->findOrFail($request->integer('module_id'));
         $store = Store::withoutGlobalScopes()->with('vendor')->where('module_id', $module->id)->findOrFail($request->integer('store_id'));
         $invoice = DB::transaction(function () use ($request, $module, $store) {
             OnboardingInvoice::query()->lockForUpdate()->latest('id')->first();

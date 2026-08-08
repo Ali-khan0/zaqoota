@@ -219,6 +219,11 @@ class DashboardController extends Controller
 
     public function dashboard(Request $request)
     {
+        $module_type = Config::get('module.current_module_type');
+        if ($module_type === 'ride_hailing') {
+            return redirect()->route('admin.ride-hailing.setup');
+        }
+
         $params = [
             'zone_id' => $request['zone_id'] ?? 'all',
             'module_id' => Config::get('module.current_module_id'),
@@ -233,7 +238,6 @@ class DashboardController extends Controller
         $commission = $data['commission'];
         $delivery_commission = $data['delivery_commission'];
         $label = $data['label'];
-        $module_type = Config::get('module.current_module_type');
         if ($module_type == 'settings') {
             return redirect()->route('admin.business-settings.business-setup');
         }
