@@ -39,7 +39,9 @@ class ZoneModuleUpdateRequest extends FormRequest
             // 'digital_payment' => 'required_without_all:cash_on_delivery,offline_payment',
             // 'offline_payment' => 'required_without_all:cash_on_delivery,digital_payment',
             // 'increased_delivery_fee' => 'nullable|numeric|between:0,999.99|required_if:increased_delivery_fee_status,1',
-            'module_data' => 'required'
+            'module_id' => ['required', 'array', 'min:1'],
+            'module_id.*' => ['integer', 'exists:modules,id'],
+            'module_data' => ['required', 'array'],
         ];
     }
 

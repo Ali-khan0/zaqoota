@@ -37,7 +37,7 @@
                     [translate('messages.Approved Vehicles'), $stats['approved_vehicles'], 'public/assets/admin/img/campaign-approved.png', route('admin.ride-hailing.vehicles.index')],
                     [translate('messages.Pending Approval'), $stats['pending_vehicles'], 'public/assets/admin/img/transactions/pending.png', route('admin.ride-hailing.vehicles.index')],
                     [translate('messages.Active Categories'), $stats['categories'], 'public/assets/admin/img/category.png', route('admin.ride-hailing.categories.index')],
-                    [translate('messages.Configured Zone Fares'), $stats['configured_fares'], 'public/assets/admin/img/money.png', route('admin.ride-hailing.fares.index')],
+                    [translate('messages.Configured Zone Fares'), $stats['configured_fares'], 'public/assets/admin/img/money.png', route('admin.business-settings.zone.home')],
                 ] as [$label, $value, $icon, $url])
                     <div class="col-sm-6 col-lg-4">
                         <a href="{{ $url }}" class="__dashboard-card-2 h-100 d-block">

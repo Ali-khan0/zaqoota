@@ -67,8 +67,6 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
             Route::get('riders/search', [RideHailingController::class, 'searchRiders'])->name('riders.search');
             Route::put('vehicles/{vehicle}/status', [RideHailingController::class, 'vehicleStatus'])->name('vehicles.status');
             Route::put('vehicles/{vehicle}/activate', [RideHailingController::class, 'activateVehicle'])->name('vehicles.activate');
-            Route::get('fares', [RideHailingController::class, 'fares'])->name('fares.index');
-            Route::put('fares', [RideHailingController::class, 'updateFares'])->name('fares.update');
         });
 
         Route::post('search-routing', 'SearchRoutingController@index')->name('search.routing');

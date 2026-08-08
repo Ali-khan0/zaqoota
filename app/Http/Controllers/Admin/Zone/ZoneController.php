@@ -24,6 +24,10 @@ use App\Contracts\Repositories\ZoneRepositoryInterface;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use App\Contracts\Repositories\TranslationRepositoryInterface;
 use App\Models\Module;
+use App\Models\RideCategory;
+use App\Models\RideFare;
+use App\Services\RideFareService;
+use Illuminate\Support\Facades\DB;
 
 class ZoneController extends BaseController
 {
@@ -163,8 +167,10 @@ class ZoneController extends BaseController
         $cash_on_delivery=Helpers::get_business_settings('cash_on_delivery');
         $digital_payment=Helpers::get_business_settings('digital_payment');
         $offline_payment=Helpers::get_business_settings('offline_payment_status');
+        $rideCategories = RideCategory::query()->where('status', true)->with('vehicleType')->orderBy('sort_order')->get();
+        $rideFares = RideFare::query()->where('zone_id', $zone->id)->get()->keyBy('ride_category_id');
 
-        return view(ZoneViewPath::MODULE_SETUP[VIEW], compact('zone','cash_on_delivery','digital_payment','offline_payment'));
+        return view(ZoneViewPath::MODULE_SETUP[VIEW], compact('zone','cash_on_delivery','digital_payment','offline_payment', 'rideCategories', 'rideFares'));
     }
 
     public function getLatestModuleSetupView(): View
@@ -172,7 +178,13 @@ class ZoneController extends BaseController
         $zone=$this->zoneRepo->getLatest(
             relations: ['modules']
         );
-        return view(ZoneViewPath::MODULE_SETUP[VIEW], compact('zone'));
+        $cash_on_delivery=Helpers::get_business_settings('cash_on_delivery');
+        $digital_payment=Helpers::get_business_settings('digital_payment');
+        $offline_payment=Helpers::get_business_settings('offline_payment_status');
+        $rideCategories = RideCategory::query()->where('status', true)->with('vehicleType')->orderBy('sort_order')->get();
+        $rideFares = RideFare::query()->where('zone_id', $zone->id)->get()->keyBy('ride_category_id');
+
+        return view(ZoneViewPath::MODULE_SETUP[VIEW], compact('zone','cash_on_delivery','digital_payment','offline_payment', 'rideCategories', 'rideFares'));
     }
 
     public function updateModuleSetup(ZoneModuleUpdateRequest $request, $id): RedirectResponse
@@ -197,7 +209,7 @@ class ZoneController extends BaseController
             $module = Module::find($data['module_id']);
             $moduleName = $module?->module_name ?? 'Unknown Module';
 
-            if (!in_array($module?->module_type, ['parcel', 'rental'])) {
+            if (!in_array($module?->module_type, ['parcel', 'rental', 'ride_hailing'])) {
                 switch ($data['flag']) {
                     case 'fixed_required':
                         Toastr::error(translate("Fixed delivery charge is required for module:").''.$moduleName);
@@ -226,7 +238,21 @@ class ZoneController extends BaseController
         $filteredModuleData = collect($request->module_data)
         ->only($request->module_id)
         ->toArray();
-        $this->zoneRepo->zoneModuleSetupUpdate(id: $id ,data: $paymentData,moduleData: $filteredModuleData);
+
+        $rideModule = Module::query()->where('module_type', 'ride_hailing')->first();
+        $rideSelected = $rideModule && in_array($rideModule->id, array_map('intval', $request->module_id), true);
+        $rideFareService = app(RideFareService::class);
+        $validatedRideFares = [];
+        if ($rideSelected) {
+            $validatedRideFares = $request->validate($rideFareService->rules())['ride_fares'];
+        }
+
+        DB::transaction(function () use ($id, $paymentData, $filteredModuleData, $rideSelected, $rideFareService, $validatedRideFares, $request) {
+            $this->zoneRepo->zoneModuleSetupUpdate(id: $id, data: $paymentData, moduleData: $filteredModuleData);
+            if ($rideSelected) {
+                $rideFareService->saveForZone((int) $id, $validatedRideFares, $request);
+            }
+        });
 
         Toastr::success(translate('messages.zone_module_updated_successfully'));
         return redirect()->route('admin.business-settings.zone.home');

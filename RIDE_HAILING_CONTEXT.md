@@ -22,7 +22,8 @@ All routes use the `admin.ride-hailing.*` name prefix and live under
 - `/vehicles/create` register a rider vehicle
 - `/riders` existing shared rider accounts, work mode, and ride-vehicle summary
 - `/categories` ride-category setup
-- `/fares` zone/category pricing
+- Zone module setup under `admin/business-settings/zone/module-setup/{zone}`
+  connects Ride Hailing and configures every category fare in one form
 - `/setup` basic service settings
 
 Controllers:
@@ -100,7 +101,12 @@ vehicle fields change.
 
 ## Fare configuration
 
-`ride_fares` has one row per zone and active ride category. It stores:
+`ride_fares` has one row per connected zone and active ride category. Zone
+availability is authoritative in the existing `module_zone` connection; fare
+rows do not activate a zone. The same Zone Module Setup save synchronizes the
+module connection and fare rows inside one database transaction. Disconnecting
+the module makes saved fares inactive operationally but retains them for a
+future reconnect. It stores:
 
 - base and minimum fare;
 - per-kilometre and per-minute charge;

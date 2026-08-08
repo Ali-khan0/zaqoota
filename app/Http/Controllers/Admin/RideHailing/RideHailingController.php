@@ -37,6 +37,7 @@ class RideHailingController extends Controller
                 ->when($zoneId !== 'all', fn ($query) => $query->whereHas('deliveryMan', fn ($rider) => $rider->where('zone_id', $zoneId)))->count(),
             'categories' => RideCategory::query()->where('status', true)->count(),
             'configured_fares' => RideFare::query()->where('status', true)
+                ->whereHas('zone.modules', fn ($query) => $query->where('module_type', 'ride_hailing'))
                 ->when($zoneId !== 'all', fn ($query) => $query->where('zone_id', $zoneId))->count(),
         ];
 
@@ -216,49 +217,4 @@ class RideHailingController extends Controller
         return back()->with('success', translate('messages.Active ride vehicle updated.'));
     }
 
-    public function fares(Request $request): View
-    {
-        $zones = Zone::query()->where('status', 1)->orderBy('name')->get(['id', 'name']);
-        $zoneId = $request->integer('zone_id') ?: $zones->first()?->id;
-        $categories = RideCategory::query()->where('status', true)->with('vehicleType')->orderBy('sort_order')->get();
-        $fares = RideFare::query()->where('zone_id', $zoneId)->get()->keyBy('ride_category_id');
-
-        return view('admin-views.ride-hailing.fares', compact('zones', 'zoneId', 'categories', 'fares'));
-    }
-
-    public function updateFares(Request $request): RedirectResponse
-    {
-        $validated = $request->validate([
-            'zone_id' => ['required', 'exists:zones,id'],
-            'fares' => ['required', 'array'],
-            'fares.*.base_fare' => ['required', 'numeric', 'min:0'],
-            'fares.*.minimum_fare' => ['required', 'numeric', 'min:0'],
-            'fares.*.per_km_charge' => ['required', 'numeric', 'min:0'],
-            'fares.*.per_minute_charge' => ['required', 'numeric', 'min:0'],
-            'fares.*.pickup_distance_charge' => ['required', 'numeric', 'min:0'],
-            'fares.*.waiting_charge_per_minute' => ['required', 'numeric', 'min:0'],
-            'fares.*.cancellation_charge' => ['required', 'numeric', 'min:0'],
-            'fares.*.platform_commission_percent' => ['required', 'numeric', 'between:0,100'],
-            'fares.*.negotiation_min_percent' => ['required', 'numeric', 'between:0,500'],
-            'fares.*.negotiation_max_percent' => ['required', 'numeric', 'between:0,500'],
-            'fares.*.surge_multiplier' => ['required', 'numeric', 'between:1,10'],
-        ]);
-
-        DB::transaction(function () use ($request, $validated) {
-            foreach ($validated['fares'] as $categoryId => $fare) {
-                if (!RideCategory::query()->whereKey($categoryId)->where('status', true)->exists()) {
-                    throw ValidationException::withMessages(['fares' => translate('messages.One of the selected ride categories is invalid.')]);
-                }
-                if ($fare['negotiation_min_percent'] > $fare['negotiation_max_percent']) {
-                    throw ValidationException::withMessages(["fares.{$categoryId}.negotiation_min_percent" => translate('messages.Minimum negotiation percentage cannot exceed maximum percentage.')]);
-                }
-                RideFare::updateOrCreate(
-                    ['zone_id' => $validated['zone_id'], 'ride_category_id' => $categoryId],
-                    [...$fare, 'surge_enabled' => $request->boolean("fares.{$categoryId}.surge_enabled"), 'status' => true]
-                );
-            }
-        });
-
-        return back()->with('success', translate('messages.Zone ride fares updated successfully.'));
-    }
 }

@@ -707,6 +707,14 @@ receives restaurant, grocery, and parcel work; Ride mode retains parcel work
 and will additionally receive passenger rides. See
 `docs/api/rider-registration-and-vehicles.md`.
 
+Ride Hailing zone activation and category pricing use the existing Zone Module
+Setup workflow. Selecting the `ride_hailing` module on
+`admin/business-settings/zone/module-setup/{zone}` reveals all active ride
+categories and saves `ride_fares` together with the `module_zone` connection in
+one transaction through `RideFareService`. There is no standalone Ride fare
+setup route. A fare row never activates service in a zone; the module-zone
+connection is authoritative.
+
 ## 11. Verification commands
 
 Dependencies are not currently present in this backup (`vendor/autoload.php` is

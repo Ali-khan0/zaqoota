@@ -9272,4 +9272,8 @@ Smartly or Earn. ',
   'Online' => 'Online',
   'Offline' => 'Offline',
   'No riders found.' => 'No riders found.',
+  'Zone Fare Setup' => 'Zone Fare Setup',
+  'Fare setup is required for every active ride category.' => 'Fare setup is required for every active ride category.',
+  'Manage rides, riders, vehicles and fares by zone.' => 'Manage rides, riders, vehicles and fares by zone.',
+  'Delivery mode receives food, grocery and parcel work. Ride mode receives rides and parcel work.' => 'Delivery mode receives food, grocery and parcel work. Ride mode receives rides and parcel work.',
 );

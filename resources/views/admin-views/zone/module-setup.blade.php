@@ -124,7 +124,25 @@
             @if (count($modules) > 0)
                 @foreach ($modules as $module)
                     @php($pivot = \App\Models\ModuleZone::where('zone_id', $zone->id)->where('module_id', $module->id)->first())
-                    @if ($module->module_type == 'parcel')
+                    @if ($module->module_type == 'ride_hailing')
+                        <div class="col-md-12 mb-2" id="module_{{ $module->id }}">
+                            <div class="module-row card view-details-container overflow-hidden">
+                                <a href="#0" class="card-header border-0 view-btn d-flex align-items-center justify-content-between flex-wrap gap-1">
+                                    <h5 class="m-0">{{ $module->module_name }} {{ translate('Fare Setup') }}</h5>
+                                    <i class="tio-chevron-down fs-24 text-title"></i>
+                                </a>
+                                <div class="card-body view-details border-top">
+                                    @include('admin-views.zone.partials._ride-fares')
+                                </div>
+                            </div>
+                        </div>
+                        <input type="hidden" value="distance" name="module_data[{{ $module->id }}][delivery_charge_type]">
+                        <input type="hidden" value="0" name="module_data[{{ $module->id }}][fixed_shipping_charge]">
+                        <input type="hidden" value="0" name="module_data[{{ $module->id }}][per_km_shipping_charge]">
+                        <input type="hidden" value="0" name="module_data[{{ $module->id }}][minimum_shipping_charge]">
+                        <input type="hidden" value="0" name="module_data[{{ $module->id }}][maximum_shipping_charge]">
+                        <input type="hidden" value="0" name="module_data[{{ $module->id }}][maximum_cod_order_amount]">
+                    @elseif ($module->module_type == 'parcel')
                         <div class="col-md-12 mb-2" id="module_{{ $module->id }}">
                             <div class="module-row card view-details-container overflow-hidden">
                                 <a href="#0"
