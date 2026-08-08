@@ -13,11 +13,6 @@
     @php($recaptcha = \App\CentralLogics\Helpers::get_business_settings('recaptcha'))
 
     <main class="public-page">
-        <div class="public-reader-bar">
-            <div class="container public-reader-bar__inner">
-                <a href="{{ route('home') }}" class="public-reader-bar__back"><span aria-hidden="true">&larr;</span> {{ translate('messages.Return to home page') }}</a>
-            </div>
-        </div>
         <header class="public-page__hero">
             <div class="container">
                 <div class="public-page__eyebrow">{{ translate('messages.Zaqoota Support') }}</div>

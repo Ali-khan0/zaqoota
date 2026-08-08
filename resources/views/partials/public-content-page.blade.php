@@ -1,16 +1,6 @@
 @include('partials.public-page-styles')
 
 <main class="public-page">
-    <div class="public-reader-bar">
-        <div class="container public-reader-bar__inner">
-            <a href="{{ route('home') }}" class="public-reader-bar__back"><span aria-hidden="true">&larr;</span> {{ translate('messages.Return to home page') }}</a>
-            <div class="public-reader-actions">
-                <button type="button" class="public-reader-action js-public-print" title="{{ translate('messages.Print') }}"><i class="fas fa-print" aria-hidden="true"></i><span>{{ translate('messages.Print') }}</span></button>
-                <button type="button" class="public-reader-action js-public-zen" title="{{ translate('messages.Reading mode') }}"><i class="fas fa-book-open" aria-hidden="true"></i><span>{{ translate('messages.Reading mode') }}</span></button>
-            </div>
-        </div>
-    </div>
-
     <header class="public-page__hero">
         <div class="container">
             <div class="public-page__eyebrow">{{ translate('messages.Zaqoota Information') }}</div>
@@ -70,15 +60,6 @@
                         headings.forEach(function (heading) { observer.observe(heading); });
                     }
                 }
-                document.querySelectorAll('.js-public-print').forEach(function (button) {
-                    button.addEventListener('click', function () { window.print(); });
-                });
-                document.querySelectorAll('.js-public-zen').forEach(function (button) {
-                    button.addEventListener('click', function () {
-                        document.body.classList.toggle('public-zen');
-                        button.classList.toggle('active');
-                    });
-                });
             });
         </script>
     @endpush

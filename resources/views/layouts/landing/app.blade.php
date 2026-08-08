@@ -39,13 +39,6 @@
         </style>
     @endif
     <style>
-        body > header,
-        body > header.active {
-            background: #fff;
-            box-shadow: 0 1px 0 rgba(18, 58, 60, .1);
-            top: 0;
-        }
-        body > header.active::after { display: none; }
         .zaqoota-footer .footer-bottom {
             background: #0d988d;
             border-radius: 0;

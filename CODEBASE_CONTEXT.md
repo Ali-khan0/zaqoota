@@ -482,11 +482,11 @@ For a gateway change, check:
   policy-like pages also use `partials/public-content-page.blade.php`. Their
   admin-managed HTML remains authoritative, while Contact preserves the
   existing message submission and CAPTCHA flow.
-  The informational pages use a dark document-reader layout with print and
-  distraction-free reading controls plus a generated table of contents. TOC
+  The informational pages use a light document layout with a generated table of contents. TOC
   entries come from saved `h1`/`h2`/`h3` markup, with leading bold paragraphs
   supported as a fallback for older CKEditor content. Contact uses the same
-  reader header and dark visual system without a document TOC.
+  light visual system without a document TOC. The former return/print/reading
+  action bar is intentionally not rendered.
 - The shared landing footer is rendered directly by
   `resources/views/layouts/landing/app.blade.php`. It uses the configured
   business logo/article, active social records, app download links, optional
@@ -494,8 +494,7 @@ For a gateway change, check:
   scoped under `.zaqoota-footer` so it does not affect panel footers.
   Its visual background is the Zaqoota primary teal (`#0d988d`) and the
   configured footer logo is rendered as white for reliable contrast. The
-  landing header uses a stable opaque surface instead of the former translucent
-  scroll overlay so it cannot obscure public-page content.
+  landing header retains its original glassmorphism and scroll behavior.
 - Installation/update: `InstallController`, `UpdateController`,
   `routes/install.php`, `routes/update.php`, and `installation/`.
 - Core views: `resources/views`.
