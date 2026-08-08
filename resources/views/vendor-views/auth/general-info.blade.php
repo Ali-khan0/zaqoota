@@ -27,17 +27,91 @@
         .pickup-zone-container {
             display: none;
         }
+
+        :root { --partner-teal: #0d988d; --partner-ink: #172b2a; --partner-line: #dce9e7; }
+        .partner-page { background: #f5f8f8; padding: 48px 0 72px; }
+        .partner-shell { max-width: 1320px; margin: 0 auto; display: grid; grid-template-columns: minmax(300px, 32%) minmax(0, 1fr); background: #fff; border: 1px solid var(--partner-line); border-radius: 8px; overflow: hidden; box-shadow: 0 18px 50px rgba(23,43,42,.08); }
+        .partner-visual { position: relative; min-height: 100%; padding: 52px 42px; background: var(--partner-teal); color: #fff; overflow: hidden; }
+        .partner-visual-inner { position: sticky; top: 32px; display: flex; min-height: calc(100vh - 64px); flex-direction: column; }
+        .partner-brand { font-size: 26px; font-weight: 800; letter-spacing: 0; }
+        .partner-visual h1 { margin: 60px 0 14px; color: #fff; font-size: 38px; line-height: 1.14; letter-spacing: 0; }
+        .partner-visual p { color: rgba(255,255,255,.86); font-size: 16px; line-height: 1.7; }
+        .partner-art { width: 100%; margin: auto 0 0; border-radius: 6px; border: 1px solid rgba(255,255,255,.3); }
+        .partner-mobile-head { display: none; background: var(--partner-teal); color: #fff; padding: 22px 20px; }
+        .partner-mobile-head strong { display: block; font-size: 21px; }
+        .partner-form-area { padding: 42px 46px 48px; min-width: 0; }
+        .partner-form-header { margin-bottom: 26px; }
+        .partner-form-header h2 { color: var(--partner-ink); font-size: 28px; margin-bottom: 7px; letter-spacing: 0; }
+        .partner-form-header p { color: #6d807e; margin: 0; }
+        .partner-form-area .stepper { margin-bottom: 32px; }
+        .partner-form-area .stepper-item.active::before,
+        .partner-form-area .stepper-item.active .step-name { color: var(--partner-teal); }
+        .partner-form-area #reg-form-div > .card,
+        .partner-form-area #business-plan-div > .card { border: 0; box-shadow: none; background: transparent; }
+        .partner-form-area #reg-form-div > .card > .card-header { padding: 0 0 18px; background: transparent; border-bottom: 1px solid var(--partner-line); }
+        .partner-form-area #reg-form-div > .card > .card-body { padding: 28px 0 0 !important; }
+        .partner-form-area .card.__card.bg-F8F9FC { background: transparent !important; border: 0; border-bottom: 1px solid var(--partner-line); border-radius: 0; box-shadow: none; padding-bottom: 24px; margin-bottom: 28px !important; }
+        .partner-form-area .card.__card.bg-F8F9FC > .card-header { padding: 0 0 16px; background: transparent; border: 0; }
+        .partner-form-area .card.__card.bg-F8F9FC > .card-body { padding: 0 !important; }
+        .partner-form-area .card-title { color: var(--partner-ink); letter-spacing: 0; }
+        .partner-form-area .form-control { min-height: 46px; border: 1px solid #cadbd8; border-radius: 5px; color: var(--partner-ink); }
+        .partner-form-area .form-control:focus { border-color: var(--partner-teal); box-shadow: 0 0 0 3px rgba(13,152,141,.12); }
+        .partner-form-area .input-label { color: #344b49; font-weight: 600; margin-bottom: 8px; }
+        .partner-form-area #map { border: 1px solid var(--partner-line); border-radius: 6px; overflow: hidden; }
+        .partner-form-area .image--border,
+        .partner-form-area .document-upload-wrapper { border: 2px dashed var(--partner-teal) !important; border-radius: 6px !important; background: rgba(13,152,141,.035) !important; overflow: hidden; }
+        .partner-form-area .image--border:hover,
+        .partner-form-area .document-upload-wrapper:hover { background: rgba(13,152,141,.075) !important; }
+        .partner-form-area .image--border .text-info,
+        .partner-form-area .document-upload-wrapper .font-semibold { color: var(--partner-teal) !important; }
+        .partner-form-area .image--border .icon-file-group { display: block !important; position: absolute; inset: 0; z-index: 3; }
+        .partner-form-area .image--border .icon-file,
+        .partner-form-area .image--border .icon-file input { position: absolute; inset: 0; width: 100%; height: 100%; }
+        .partner-form-area .image--border .icon-file input { opacity: 0; cursor: pointer; }
+        .partner-form-area .document-upload-wrapper { min-height: 145px; }
+        .partner-form-area .cmn--btn:not(.btn--secondary) { background: var(--partner-teal); border-color: var(--partner-teal); border-radius: 5px !important; }
+        .partner-form-area .btn--secondary { border-radius: 5px !important; }
+        .partner-form-area .nav-tabs .nav-link.active { color: var(--partner-teal); border-bottom-color: var(--partner-teal); }
+        @media (max-width: 991px) {
+            .partner-page { padding: 24px 12px 48px; }
+            .partner-shell { display: block; max-width: 800px; }
+            .partner-visual { display: none; }
+            .partner-mobile-head { display: block; }
+            .partner-form-area { padding: 30px 28px 38px; }
+        }
+        @media (max-width: 575px) {
+            .partner-page { padding: 0 0 32px; }
+            .partner-shell { border-width: 0 0 1px; border-radius: 0; box-shadow: none; }
+            .partner-form-area { padding: 26px 18px 34px; }
+            .partner-form-header h2 { font-size: 24px; }
+            .partner-form-area .step-name { font-size: 11px; }
+            .partner-form-area .d-flex.flex-column.flex-sm-row.gap-4 { gap: 16px !important; }
+        }
     </style>
 @endpush
 @section('content')
-    <section class="m-0 py-5">
-        <div class="container">
-            <!-- Page Header -->
-            <div class="section-header">
-                <h2 class="title mb-2">{{ translate('messages.Become Partner') }}</h2>
-            </div>
+    <section class="partner-page">
+        <div class="container-fluid px-0 px-lg-3">
+            <div class="partner-shell">
+                <aside class="partner-visual" aria-label="{{ translate('messages.Become Partner') }}">
+                    <div class="partner-visual-inner">
+                        <div class="partner-brand">ZAQOOTA</div>
+                        <h1>{{ translate('messages.Grow your business with Zaqoota.') }}</h1>
+                        <p>{{ translate('messages.Create your partner account, reach more customers, and manage your business from one place.') }}</p>
+                        <img class="partner-art" src="{{ asset('public/assets/admin/img/store-reg.png') }}" alt="Zaqoota Partner">
+                    </div>
+                </aside>
+                <div>
+                    <div class="partner-mobile-head">
+                        <strong>ZAQOOTA</strong>
+                        <span>{{ translate('messages.Become Partner') }}</span>
+                    </div>
+                    <div class="partner-form-area">
+                        <header class="partner-form-header">
+                            <h2>{{ translate('messages.Become Partner') }}</h2>
+                            <p>{{ translate('messages.Tell us about your business and choose how you want to work with Zaqoota.') }}</p>
+                        </header>
             @php($language = \App\CentralLogics\Helpers::get_business_settings('language'))
-            <!-- End Page Header -->
 
             <!-- Stepper -->
             <div class="stepper">
@@ -734,6 +808,9 @@
                     </div>
                 @endif
             </form>
+                    </div>
+                </div>
+            </div>
         </div>
 
 
@@ -851,7 +928,7 @@
         $(document).ready(function () {
             $('#module_id').select2({
                 ajax: {
-                    url: '{{ url('/') }}/vendor/get-all-modules/',
+                    url: '{{ route('restaurant.get-all-modules') }}',
                     data: function (params) {
                         return {
                             q: params.term, // search term
@@ -878,7 +955,7 @@
             $('#module_id').on('change', function () {
                 var moduleId = $(this).val();
                 $.ajax({
-                    url: '{{ url('/') }}/vendor/get-module-type',
+                    url: '{{ route('restaurant.get-module-type') }}',
                     method: 'GET',
                     data: {
                         id: moduleId

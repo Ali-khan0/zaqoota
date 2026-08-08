@@ -9309,4 +9309,7 @@ Smartly or Earn. ',
   'Security Check' => 'Security Check',
   'Submit Captain Application' => 'Submit Captain Application',
   'Invalid recaptcha key' => 'Invalid recaptcha key',
+  'Grow your business with Zaqoota.' => 'Grow your business with Zaqoota.',
+  'Create your partner account, reach more customers, and manage your business from one place.' => 'Create your partner account, reach more customers, and manage your business from one place.',
+  'Tell us about your business and choose how you want to work with Zaqoota.' => 'Tell us about your business and choose how you want to work with Zaqoota.',
 );

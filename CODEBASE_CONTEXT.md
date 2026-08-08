@@ -716,6 +716,15 @@ delivery-man notification keys. The Captain page uses a desktop split layout
 with a teal visual panel and a structured form; the visual panel is replaced by
 a compact branded header on tablet/mobile. Verification uploads use dotted teal
 drop zones with local previews.
+
+The `/partner/apply` general-information step follows the same responsive
+Zaqoota registration system: a sticky teal business visual on desktop, a compact
+brand header on tablet/mobile, and a quiet form surface with teal focus states
+and dotted logo, cover, and document upload areas. Its existing multilingual,
+map, zone/module discovery, TIN, account, CAPTCHA, business-plan, and AJAX
+behavior remains authoritative. Module lookup JavaScript must use the named
+`restaurant.get-all-modules` and `restaurant.get-module-type` routes so the
+canonical `/partner` prefix is not bypassed by legacy hardcoded `/vendor` URLs.
 Approving the rider approves/activates that first vehicle. An authenticated
 rider may submit one additional vehicle with
 `POST api/v1/delivery-man/ride-vehicles`; the total limit is two. Vehicle
