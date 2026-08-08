@@ -693,6 +693,8 @@ ride-vehicle registry, Bike/Car/Rickshaw types, Petrol/EV and car service
 categories, and zone/category fare settings. The detailed and current map is
 `RIDE_HAILING_CONTEXT.md`; read it before modifying this bounded context. Rider
 mode API behavior is specified in `docs/api/ride-hailing-rider-mode.md`.
+The consolidated mobile implementation handoff is
+`docs/api/ride-hailing-rider-app-integration.md`.
 
 ## 11. Verification commands
 

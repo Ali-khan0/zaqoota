@@ -98,8 +98,10 @@ List the authenticated rider's registered vehicles:
 GET /api/v1/delivery-man/ride-vehicles
 ```
 
-The response is an array containing at most two vehicles. Each vehicle includes
-its `vehicle_type`, `category`, approval `status`, and `is_active` flag.
+The response contains at most two vehicles under `vehicles`. Each vehicle
+includes its `vehicle_type`, `category`, approval `status`, and `is_active`
+flag. See `ride-hailing-rider-app-integration.md` for the complete stable JSON
+contract and mobile implementation workflow.
 
 Select an approved vehicle for Ride mode:
 

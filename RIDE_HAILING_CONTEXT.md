@@ -51,7 +51,10 @@ Rules:
 - Delivery latest-order discovery returns an empty list in Ride mode.
 - Delivery order acceptance independently rejects Ride mode riders.
 
-The mobile API is documented in `docs/api/ride-hailing-rider-mode.md`.
+The endpoint contract is documented in
+`docs/api/ride-hailing-rider-mode.md`. The complete rider-app implementation
+handoff is `docs/api/ride-hailing-rider-app-integration.md`; give that file to
+the coding agent working in the mobile repository.
 
 ## Vehicles and categories
 

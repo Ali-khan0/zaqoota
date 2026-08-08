@@ -238,7 +238,12 @@ class DeliverymanController extends Controller
         $dm = DeliveryMan::where(['auth_token' => $request['token']])->first();
         $vehicles = $dm->rideVehicles()->with(['vehicleType', 'category'])->orderByDesc('is_active')->get();
 
-        return response()->json($vehicles);
+        return response()->json([
+            'vehicles' => $vehicles->map(fn ($vehicle) => $this->formatRideVehicle($vehicle))->values(),
+            'maximum_vehicle_limit' => \App\Models\RideVehicle::MAX_PER_RIDER,
+            'registered_vehicle_count' => $vehicles->count(),
+            'can_register_more' => $vehicles->count() < \App\Models\RideVehicle::MAX_PER_RIDER,
+        ]);
     }
 
     public function activateRideVehicle(Request $request, $vehicleId)
@@ -267,6 +272,33 @@ class DeliverymanController extends Controller
             'message' => translate('messages.Active ride vehicle updated.'),
             'active_ride_vehicle_id' => $vehicle->id,
         ]);
+    }
+
+    private function formatRideVehicle($vehicle): array
+    {
+        return [
+            'id' => (int) $vehicle->id,
+            'vehicle_type' => [
+                'id' => (int) $vehicle->vehicleType->id,
+                'name' => $vehicle->vehicleType->name,
+                'slug' => $vehicle->vehicleType->slug,
+            ],
+            'category' => [
+                'id' => (int) $vehicle->category->id,
+                'name' => $vehicle->category->name,
+                'slug' => $vehicle->category->slug,
+                'passenger_capacity' => (int) $vehicle->category->passenger_capacity,
+            ],
+            'fuel_type' => $vehicle->fuel_type,
+            'make' => $vehicle->make,
+            'model' => $vehicle->model,
+            'model_year' => $vehicle->model_year ? (int) $vehicle->model_year : null,
+            'color' => $vehicle->color,
+            'registration_number' => $vehicle->registration_number,
+            'status' => $vehicle->status,
+            'is_active' => (bool) $vehicle->is_active,
+            'admin_note' => $vehicle->admin_note,
+        ];
     }
 
     public function get_current_orders(Request $request)
