@@ -221,7 +221,7 @@ class DashboardController extends Controller
     {
         $module_type = Config::get('module.current_module_type');
         if ($module_type === 'ride_hailing') {
-            return redirect()->route('admin.ride-hailing.setup');
+            return redirect()->route('admin.ride-hailing.dashboard');
         }
 
         $params = [

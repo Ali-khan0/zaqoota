@@ -38,6 +38,12 @@ class CurrentModule
             Config::set('module.current_module_id', null);
             Config::set('module.current_module_type', 'settings');
         }
+        if (Request::is('admin/ride-hailing*')) {
+            $rideModule = Module::query()->active()->where('module_type', 'ride_hailing')->first();
+            Config::set('module.current_module_id', $rideModule?->id);
+            Config::set('module.current_module_type', 'ride_hailing');
+            Config::set('module.current_module_name', $rideModule?->module_name ?? 'Ride Hailing');
+        }
         if (Request::is('admin/users*')) {
             Config::set('module.current_module_id', null);
             Config::set('module.current_module_type', 'users');

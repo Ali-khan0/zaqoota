@@ -684,10 +684,15 @@ store-based workflows such as onboarding invoice store selection.
 `Module::discoverable()` excludes Ride Hailing from existing customer module
 and config APIs until its mobile booking contract exists.
 
-No customer/driver mobile API, vehicle, fare, trip, dispatch, payment, safety,
-notification, or reporting behavior exists at this stage. Those contracts must
-be designed and documented under `docs/api/` when mobile-facing development
-begins.
+No customer booking, trip, dispatch, payment, safety, notification, or ride
+reporting behavior exists at this stage. Those contracts must be designed and
+documented under `docs/api/` when mobile-facing development begins.
+
+The foundation has since been extended with rider work modes, a maximum-two
+ride-vehicle registry, Bike/Car/Rickshaw types, Petrol/EV and car service
+categories, and zone/category fare settings. The detailed and current map is
+`RIDE_HAILING_CONTEXT.md`; read it before modifying this bounded context. Rider
+mode API behavior is specified in `docs/api/ride-hailing-rider-mode.md`.
 
 ## 11. Verification commands
 

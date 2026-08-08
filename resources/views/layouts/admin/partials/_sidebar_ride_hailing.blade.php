@@ -3,7 +3,7 @@
         <div class="navbar-vertical-container">
             <div class="navbar-brand-wrapper justify-content-between">
                 @php($store_logo = \App\Models\BusinessSetting::where(['key' => 'logo'])->first())
-                <a class="navbar-brand" href="{{ route('admin.ride-hailing.setup') }}" aria-label="Zaqoota">
+                <a class="navbar-brand" href="{{ route('admin.ride-hailing.dashboard') }}" aria-label="Zaqoota">
                     <img class="navbar-brand-logo initial--36 onerror-image"
                         data-onerror-image="{{ asset('public/assets/admin/img/160x160/img2.jpg') }}"
                         src="{{ \App\CentralLogics\Helpers::get_full_url('business', $store_logo?->value ?? '', $store_logo?->storage[0]?->value ?? 'public', 'favicon') }}"
@@ -36,10 +36,17 @@
                 </form>
 
                 <ul class="navbar-nav navbar-nav-lg nav-tabs">
+                    <li class="navbar-vertical-aside-has-menu {{ Request::is('admin/ride-hailing') ? 'active' : '' }}">
+                        <a class="js-navbar-vertical-aside-menu-link nav-link" href="{{ route('admin.ride-hailing.dashboard') }}" title="{{ translate('messages.Dashboard') }}"><i class="tio-home-vs-1-outlined nav-icon"></i><span class="navbar-vertical-aside-mini-mode-hidden-elements text-truncate">{{ translate('messages.Dashboard') }}</span></a>
+                    </li>
                     <li class="nav-item">
-                        <small class="nav-subtitle">{{ translate('messages.Ride Hailing') }}</small>
+                        <small class="nav-subtitle">{{ translate('messages.Ride Management') }}</small>
                         <small class="tio-more-horizontal nav-subtitle-replacer"></small>
                     </li>
+                    <li class="navbar-vertical-aside-has-menu {{ Request::is('admin/ride-hailing/vehicles*') ? 'active' : '' }}"><a class="js-navbar-vertical-aside-menu-link nav-link" href="{{ route('admin.ride-hailing.vehicles.index') }}" title="{{ translate('messages.Ride Vehicles') }}"><i class="tio-car nav-icon"></i><span class="navbar-vertical-aside-mini-mode-hidden-elements text-truncate">{{ translate('messages.Ride Vehicles') }}</span></a></li>
+                    <li class="navbar-vertical-aside-has-menu {{ Request::is('admin/ride-hailing/categories*') ? 'active' : '' }}"><a class="js-navbar-vertical-aside-menu-link nav-link" href="{{ route('admin.ride-hailing.categories.index') }}" title="{{ translate('messages.Ride Categories') }}"><i class="tio-category nav-icon"></i><span class="navbar-vertical-aside-mini-mode-hidden-elements text-truncate">{{ translate('messages.Ride Categories') }}</span></a></li>
+                    <li class="navbar-vertical-aside-has-menu {{ Request::is('admin/ride-hailing/fares*') ? 'active' : '' }}"><a class="js-navbar-vertical-aside-menu-link nav-link" href="{{ route('admin.ride-hailing.fares.index') }}" title="{{ translate('messages.Zone Ride Pricing') }}"><i class="tio-money nav-icon"></i><span class="navbar-vertical-aside-mini-mode-hidden-elements text-truncate">{{ translate('messages.Zone Ride Pricing') }}</span></a></li>
+                    <li class="nav-item"><small class="nav-subtitle">{{ translate('messages.Configuration') }}</small><small class="tio-more-horizontal nav-subtitle-replacer"></small></li>
                     <li class="navbar-vertical-aside-has-menu {{ Request::is('admin/ride-hailing/setup*') ? 'active' : '' }}">
                         <a class="js-navbar-vertical-aside-menu-link nav-link"
                             href="{{ route('admin.ride-hailing.setup') }}"

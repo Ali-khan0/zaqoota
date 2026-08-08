@@ -100,6 +100,9 @@ Route::group(['namespace' => 'Api\V1', 'middleware'=>'localization'], function (
             Route::get('notifications', 'DeliverymanController@get_notifications');
             Route::put('update-profile', 'DeliverymanController@update_profile');
             Route::post('update-active-status', 'DeliverymanController@activeStatus');
+            Route::put('work-mode', 'DeliverymanController@updateWorkMode');
+            Route::get('ride-vehicles', 'DeliverymanController@rideVehicles');
+            Route::put('ride-vehicles/{vehicle_id}/activate', 'DeliverymanController@activateRideVehicle');
             Route::get('current-orders', 'DeliverymanController@get_current_orders');
             Route::get('latest-orders', 'DeliverymanController@get_latest_orders');
             Route::post('record-location-data', 'DeliverymanController@record_location_data');

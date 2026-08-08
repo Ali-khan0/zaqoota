@@ -46,7 +46,8 @@ class DeliverymanController extends Controller
 {
     public function get_profile(Request $request)
     {
-        $dm = DeliveryMan::with(['rating', 'fleetManager.primaryZone'])->where(['auth_token' => $request['token']])->first();
+        $dm = DeliveryMan::with(['rating', 'fleetManager.primaryZone', 'rideVehicles.vehicleType', 'rideVehicles.category', 'activeRideVehicle'])
+            ->where(['auth_token' => $request['token']])->first();
         $min_amount_to_pay_dm = BusinessSetting::where('key', 'min_amount_to_pay_dm')->first()->value ?? 0;
         $dm['avg_rating'] = (float) (! empty($dm->rating[0]) ? $dm->rating[0]->average : 0);
         $dm['rating_count'] = (float) (! empty($dm->rating[0]) ? $dm->rating[0]->rating_count : 0);
@@ -194,6 +195,80 @@ class DeliverymanController extends Controller
         return response()->json(['message' => translate('messages.active_status_updated')], 200);
     }
 
+    public function updateWorkMode(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'work_mode' => 'required|in:delivery,ride',
+        ]);
+        if ($validator->fails()) {
+            return response()->json(['errors' => Helpers::error_processor($validator)], 422);
+        }
+
+        return DB::transaction(function () use ($request) {
+            $dm = DeliveryMan::query()->lockForUpdate()->where(['auth_token' => $request['token']])->first();
+            $dm->load('activeRideVehicle');
+            if ($request->work_mode === 'ride' && $dm->current_orders > 0) {
+                return response()->json(['errors' => [[
+                    'code' => 'work_mode',
+                    'message' => translate('messages.Complete your active deliveries before switching to Ride mode.'),
+                ]]], 409);
+            }
+            if ($request->work_mode === 'ride' && !$dm->activeRideVehicle) {
+                return response()->json(['errors' => [[
+                    'code' => 'ride_vehicle',
+                    'message' => translate('messages.An approved active ride vehicle is required for Ride mode.'),
+                ]]], 422);
+            }
+
+            $dm->work_mode = $request->work_mode;
+            $dm->save();
+
+            return response()->json([
+                'message' => translate('messages.Rider work mode updated successfully.'),
+                'work_mode' => $dm->work_mode,
+                'receives_delivery_orders' => $dm->work_mode === 'delivery',
+                'receives_ride_requests' => $dm->work_mode === 'ride',
+                'active_ride_vehicle_id' => $dm->activeRideVehicle?->id,
+            ]);
+        });
+    }
+
+    public function rideVehicles(Request $request)
+    {
+        $dm = DeliveryMan::where(['auth_token' => $request['token']])->first();
+        $vehicles = $dm->rideVehicles()->with(['vehicleType', 'category'])->orderByDesc('is_active')->get();
+
+        return response()->json($vehicles);
+    }
+
+    public function activateRideVehicle(Request $request, $vehicleId)
+    {
+        $dm = DeliveryMan::where(['auth_token' => $request['token']])->first();
+        $vehicle = $dm->rideVehicles()->whereKey($vehicleId)->first();
+        if (!$vehicle) {
+            return response()->json(['errors' => [[
+                'code' => 'ride_vehicle',
+                'message' => translate('messages.Ride vehicle not found.'),
+            ]]], 404);
+        }
+        if ($vehicle->status !== 'approved') {
+            return response()->json(['errors' => [[
+                'code' => 'ride_vehicle',
+                'message' => translate('messages.Only an approved ride vehicle can be activated.'),
+            ]]], 422);
+        }
+
+        DB::transaction(function () use ($dm, $vehicle) {
+            $dm->rideVehicles()->update(['is_active' => false]);
+            $vehicle->update(['is_active' => true]);
+        });
+
+        return response()->json([
+            'message' => translate('messages.Active ride vehicle updated.'),
+            'active_ride_vehicle_id' => $vehicle->id,
+        ]);
+    }
+
     public function get_current_orders(Request $request)
     {
         $dm = DeliveryMan::where(['auth_token' => $request['token']])->first();
@@ -212,6 +287,10 @@ class DeliverymanController extends Controller
     public function get_latest_orders(Request $request)
     {
         $dm = DeliveryMan::where(['auth_token' => $request['token']])->first();
+
+        if ($dm->work_mode !== 'delivery') {
+            return response()->json([], 200);
+        }
 
         $orders = Order::with(['customer', 'store', 'parcel_category']);
 
@@ -287,6 +366,13 @@ class DeliverymanController extends Controller
                     ['code' => 'active_status', 'message' => translate('messages.You_can_not_accept_order_on_offline')],
                 ],
             ], 404);
+        }
+        if ($dm->work_mode !== 'delivery') {
+            return response()->json([
+                'errors' => [
+                    ['code' => 'work_mode', 'message' => translate('messages.Switch to Delivery mode before accepting a delivery order.')],
+                ],
+            ], 409);
         }
         if ($dm->current_orders >= config('dm_maximum_orders')) {
             return response()->json([

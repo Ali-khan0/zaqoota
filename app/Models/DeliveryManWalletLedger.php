@@ -17,6 +17,14 @@ class DeliveryManWalletLedger extends Model
 
     public const TYPE_FLEET_PAYMENT_RECOVERY = 'fleet_payment_recovery';
 
+    public const TYPE_RIDE_EARNING = 'ride_earning';
+
+    public const TYPE_RIDE_PLATFORM_COMMISSION = 'ride_platform_commission';
+
+    public const TYPE_RIDE_CASH_COLLECTION = 'ride_cash_collection';
+
+    public const TYPE_RIDE_REFUND = 'ride_refund';
+
     public const DIR_DEBIT = 'debit';
 
     public const DIR_CREDIT = 'credit';

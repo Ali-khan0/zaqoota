@@ -256,6 +256,7 @@ class OrderController extends Controller
                     $deliveryMen = DeliveryMan::where('zone_id', '=', NULL)
                         ->where('vehicle_id',$order->dm_vehicle_id)
                         ->where('id', '!=', $excludeDm)
+                        ->available()
                         ->active()
                         ->get();
                 }

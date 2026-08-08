@@ -44,6 +44,7 @@ use App\Http\Controllers\Admin\Notification\NotificationController;
 use App\Http\Controllers\Admin\Subscription\SubscriptionController;
 use App\Http\Controllers\Admin\SurgePriceController;
 use App\Http\Controllers\Admin\RideHailing\RideHailingSettingController;
+use App\Http\Controllers\Admin\RideHailing\RideHailingController;
 
 Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
 
@@ -53,8 +54,20 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
     Route::group(['middleware' => ['admin', 'current-module','actch:admin_panel']], function () {
 
         Route::group(['prefix' => 'ride-hailing', 'as' => 'ride-hailing.', 'middleware' => ['module:settings']], function () {
+            Route::get('/', [RideHailingController::class, 'dashboard'])->name('dashboard');
             Route::get('setup', [RideHailingSettingController::class, 'index'])->name('setup');
             Route::put('setup', [RideHailingSettingController::class, 'update'])->name('setup.update');
+            Route::get('categories', [RideHailingController::class, 'categories'])->name('categories.index');
+            Route::post('categories', [RideHailingController::class, 'storeCategory'])->name('categories.store');
+            Route::put('categories/{category}/status', [RideHailingController::class, 'categoryStatus'])->name('categories.status');
+            Route::get('vehicles', [RideHailingController::class, 'vehicles'])->name('vehicles.index');
+            Route::get('vehicles/create', [RideHailingController::class, 'createVehicle'])->name('vehicles.create');
+            Route::post('vehicles', [RideHailingController::class, 'storeVehicle'])->name('vehicles.store');
+            Route::get('riders/search', [RideHailingController::class, 'searchRiders'])->name('riders.search');
+            Route::put('vehicles/{vehicle}/status', [RideHailingController::class, 'vehicleStatus'])->name('vehicles.status');
+            Route::put('vehicles/{vehicle}/activate', [RideHailingController::class, 'activateVehicle'])->name('vehicles.activate');
+            Route::get('fares', [RideHailingController::class, 'fares'])->name('fares.index');
+            Route::put('fares', [RideHailingController::class, 'updateFares'])->name('fares.update');
         });
 
         Route::post('search-routing', 'SearchRoutingController@index')->name('search.routing');

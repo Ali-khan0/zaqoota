@@ -24,6 +24,7 @@ class DeliveryMan extends Authenticatable
         'current_orders'=>'integer',
         'vehicle_id'=>'integer',
         'fleet_manager_id'=>'integer',
+        'work_mode'=>'string',
     ];
 
     protected $hidden = [
@@ -55,6 +56,16 @@ class DeliveryMan extends Authenticatable
     public function vehicle()
     {
         return $this->belongsTo(DMVehicle::class);
+    }
+
+    public function rideVehicles()
+    {
+        return $this->hasMany(RideVehicle::class);
+    }
+
+    public function activeRideVehicle()
+    {
+        return $this->hasOne(RideVehicle::class)->where('is_active', true)->where('status', 'approved');
     }
 
     public function wallet()
@@ -170,7 +181,13 @@ class DeliveryMan extends Authenticatable
 
     public function scopeAvailable($query)
     {
-        return $query->where('current_orders', '<' ,config('dm_maximum_orders')??1);
+        return $query->where('work_mode', 'delivery')
+            ->where('current_orders', '<' ,config('dm_maximum_orders')??1);
+    }
+
+    public function scopeRideMode($query)
+    {
+        return $query->where('work_mode', 'ride');
     }
 
     public function scopeUnavailable($query)

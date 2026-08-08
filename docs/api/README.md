@@ -20,6 +20,7 @@ applications.
 |---|---|---|
 | Fleet-manager mobile routing, riders, payables, commission and withdrawals | [fleet-management.md](fleet-management.md) | Backend implemented |
 | Vendor store self-registration and email side effects | [vendor-registration.md](vendor-registration.md) | Backend implemented |
+| Ride Hailing rider work mode and vehicle eligibility | [ride-hailing-rider-mode.md](ride-hailing-rider-mode.md) | Backend foundation implemented |
 
 ## Common conventions
 

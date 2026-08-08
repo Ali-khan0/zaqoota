@@ -11,6 +11,8 @@
             </h1>
         </div>
 
+        @include('admin-views.ride-hailing.partials.alerts')
+
         <form action="{{ route('admin.ride-hailing.setup.update') }}" method="post">
             @csrf
             @method('PUT')
