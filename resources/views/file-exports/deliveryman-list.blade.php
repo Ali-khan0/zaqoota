@@ -44,7 +44,6 @@
             <th>{{ translate('last_name') }}</th>
             <th>{{ translate('phone') }}</th>
             <th>{{ translate('email') }}</th>
-            <th>{{ translate('delivery_man_type') }}</th>
             <th>{{ translate('total_completed') }}</th>
             <th>{{ translate('total_running_orders') }}</th>
             <th>{{ translate('status') }}</th>
@@ -62,7 +61,6 @@
             <td>{{  $item['l_name']  }}</td>
             <td>{{  $item['phone']  }}</td>
             <td>{{  $item['email']  }}</td>
-            <td>{{ $item->earning?translate('messages.freelancer'):translate('messages.salary_based') }}</td>
             <td>{{ $item['order_count'] }}</td>
             <td>{{ $item['current_orders'] }}</td>
             <td>{{ $item->active?translate('messages.online'):translate('messages.offline') }}</td>

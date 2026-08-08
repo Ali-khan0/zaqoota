@@ -263,25 +263,6 @@
                                 data-message="{{ $deliveryMan->status ? translate('messages.you_want_to_suspend_this_deliveryman') : translate('messages.you_want_to_unsuspend_this_deliveryman') }}">
                                 {{ $deliveryMan->status ? translate('messages.suspend_this_delivery_man') : translate('messages.unsuspend_this_delivery_man') }}
                             </a>
-                        <div class="hs-unfold">
-                            <div class="dropdown">
-                                <button class="btn btn--primary dropdown-toggle" type="button" id="dropdownMenuButton"
-                                    data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                    {{ translate('messages.type') }}
-                                    ({{ $deliveryMan->earning ? translate('messages.freelancer') : translate('messages.salary_based') }})
-                                </button>
-                                <div class="dropdown-menu text-capitalize" aria-labelledby="dropdownMenuButton">
-                                    <a class="dropdown-item {{ $deliveryMan->earning ? 'active' : '' }} request-alert"
-                                        data-url="{{ route('admin.users.delivery-man.earning', [$deliveryMan['id'], 1]) }}"
-                                        data-message="{{ translate('messages.want_to_enable_earnings') }}"
-                                        href="javascript:">{{ translate('messages.freelancer') }}</a>
-                                    <a class="dropdown-item {{ $deliveryMan->earning ? '' : 'active' }} request-alert"
-                                        data-url="{{ route('admin.users.delivery-man.earning', [$deliveryMan['id'], 0]) }}"
-                                        data-message="{{ translate('messages.want_to_disable_earnings') }}"
-                                        href="javascript:">{{ translate('messages.salary_based') }}</a>
-                                </div>
-                            </div>
-                        </div>
                     </div>
 
 
@@ -310,14 +291,15 @@
 
                             <div class="col-md-6 col-xl-4 col-xxl-3">
                                 <div class="d-flex justify-content-center justify-content-md-start gap-3">
-                                    <img class="rounded-circle"
-                                        src="{{ asset('public/assets/admin/img/icons/job-type.png') }}" width="35"
-                                        height="35" alt="">
-                                    <div class="">
-                                        <h6 class="mb-1">{{ translate('messages.Job_Type') }} </h6>
-                                        <p class="mb-0 font-weight-normal">
-                                            {{ $deliveryMan->earning ? translate('messages.freelancer') : translate('messages.salary_based') }}
-                                        </p>
+                                    <span class="rounded-circle bg-light d-flex align-items-center justify-content-center"
+                                        style="width:35px;height:35px;flex:0 0 35px">
+                                        <i class="{{ $deliveryMan->work_mode === 'ride' ? 'tio-taxi' : 'tio-bike' }}"></i>
+                                    </span>
+                                    <div>
+                                        <h6 class="mb-1">{{ translate('messages.Work Mode') }}</h6>
+                                        <span class="badge badge-soft-{{ $deliveryMan->work_mode === 'ride' ? 'primary' : 'info' }}">
+                                            {{ $deliveryMan->work_mode === 'ride' ? translate('messages.Ride Mode') : translate('messages.Delivery Mode') }}
+                                        </span>
                                     </div>
                                 </div>
                             </div>

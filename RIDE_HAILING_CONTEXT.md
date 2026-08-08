@@ -50,6 +50,10 @@ pattern and support zone filtering.
 The same rider authentication, profile, location, fleet-manager relationship,
 online status, and wallet are reused.
 
+All riders are freelancers (`delivery_men.earning = 1`). Rider registration and
+editing surfaces do not expose an earning model or salary option; the backend
+sets the value authoritatively.
+
 Rules:
 
 - Delivery mode receives restaurant, grocery, and parcel work.
@@ -94,10 +98,16 @@ Ride Riders page is an operational view of shared `delivery_men` accounts, not
 a registration page. Mobile details are in
 `docs/api/rider-registration-and-vehicles.md`.
 
+The Ride Riders admin page is intentionally restricted to approved riders whose
+current `work_mode` is `ride`. It is paginated at 20 rows, supports search and
+zone filtering, and links the rider name to the shared Deliveryman Preview.
+Delivery-mode riders remain available in the normal Delivery Man list and may
+still have pending/approved ride vehicles managed from Ride Vehicles.
+
 The standard admin delivery-man detail page loads `rideVehicles.vehicleType`
 and `rideVehicles.category` and shows the rider's vehicle count, identity,
-approval status, and active vehicle. Keep this shared profile view current when
-vehicle fields change.
+approval status, active vehicle, and current Delivery/Ride work mode. Keep this
+shared profile view current when vehicle fields change.
 
 ## Fare configuration
 

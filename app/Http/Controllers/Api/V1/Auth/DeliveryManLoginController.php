@@ -148,12 +148,10 @@ class DeliveryManLoginController extends Controller
             'phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:10|unique:delivery_men',
             'password' => ['required', Password::min(8)->mixedCase()->letters()->numbers()->symbols()->uncompromised()],
             'zone_id' => 'required',
-            'earning' => 'required',
             ...$vehicleService->rules(),
         ], [
             'f_name.required' => translate('messages.first_name_is_required'),
             'zone_id.required' => translate('messages.select_a_zone'),
-            'earning.required' => translate('messages.select_dm_type'),
             'ride_vehicle_type_id.required' => translate('messages.select_a_vehicle'),
             'password.required' => translate('The password is required'),
             'password.min_length' => translate('The password must be at least :min characters long'),
@@ -201,7 +199,7 @@ class DeliveryManLoginController extends Controller
             $dm->active = 0;
             $dm->application_status = 'pending';
             $dm->zone_id = $request->zone_id;
-            $dm->earning = $request->earning;
+            $dm->earning = 1;
             $dm->password = bcrypt($request->password);
             $dm->save();
 

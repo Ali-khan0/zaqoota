@@ -76,22 +76,6 @@
                                 <div class="col-sm-6">
                                     <div class="form-group mb-0">
                                         <label class="input-label"
-                                            for="exampleFormControlInput1">{{ translate('messages.deliveryman_type') }}
-                                            <span class="form-label-secondary text-danger" data-toggle="tooltip"
-                                                data-placement="right"
-                                                data-original-title="{{ translate('messages.Required.') }}"> *
-                                            </span>
-                                        </label>
-                                        <select name="earning" data-placeholder="{{ translate('messages.Select_deliveryman_type') }}" required class="form-control js-select2-custom">
-                                            <option value="" readonly="true" hidden="true" > {{ translate('messages.Select_deliveryman_type') }}</option>
-                                            <option value="1">{{ translate('messages.freelancer') }}</option>
-                                            <option value="0">{{ translate('messages.salary_based') }}</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="col-sm-6">
-                                    <div class="form-group mb-0">
-                                        <label class="input-label"
                                             for="exampleFormControlInput1">{{ translate('messages.zone') }} <span
                                                 class="form-label-secondary text-danger" data-toggle="tooltip"
                                                 data-placement="right"

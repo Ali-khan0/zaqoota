@@ -64,17 +64,7 @@ $countryCode= strtolower($country?$country->value:'auto');
                                             placeholder="{{ translate('messages.Ex:') }} ex@example.com" value="{{ old('email') }}" required>
                                     </div>
                                 </div>
-                                <div class="col-sm-4">
-                                    <div class="form-group mb-3">
-                                        <label class="input-label"
-                                            for="exampleFormControlInput1">{{ translate('messages.deliveryman_type') }}</label>
-                                        <select name="earning" class="form-control __form-control">
-                                            <option value="1">{{ translate('messages.freelancer') }}</option>
-                                            <option value="0">{{ translate('messages.salary_based') }}</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="col-sm-4">
+                                <div class="col-sm-8">
                                     <div class="form-group mb-3">
                                         <label class="input-label"
                                             for="exampleFormControlInput1">{{ translate('messages.zone') }}</label>

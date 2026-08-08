@@ -42,7 +42,9 @@ Content-Type: multipart/form-data
 ```
 
 Existing rider fields remain required: `f_name`, `identity_type`,
-`identity_number`, `email`, `phone`, `password`, `zone_id`, and `earning`.
+`identity_number`, `email`, `phone`, `password`, and `zone_id`.
+Riders are always created as freelancers; mobile must not display or send an
+`earning`, salary, or rider-type choice.
 The old client field `vehicle_id` is replaced by the first vehicle fields:
 
 | Field | Type | Required | Notes |
@@ -111,4 +113,3 @@ number, or the two-vehicle limit.
 - `app/Services/RideVehicleRegistrationService.php`
 - `app/Http/Controllers/Admin/DeliveryMan/DeliveryManController.php`
 - `resources/views/dm-registration.blade.php`
-

@@ -84,14 +84,12 @@ class DeliveryManController extends Controller
             'email' => 'required|unique:delivery_men',
             'phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:10|unique:delivery_men',
             'zone_id' => 'required',
-            'earning' => 'required',
             'password' => ['required', Password::min(8)->mixedCase()->letters()->numbers()->symbols()->uncompromised()],
             ...$vehicleService->rules(),
         ], [
             'f_name.required' => translate('messages.first_name_is_required'),
             'zone_id.required' => translate('messages.select_a_zone'),
-            'ride_vehicle_type_id.required' => translate('messages.select_a_vehicle'),
-            'earning.required' => translate('messages.select_dm_type')
+            'ride_vehicle_type_id.required' => translate('messages.select_a_vehicle')
         ]);
 
         if ($request->has('image')) {
@@ -125,7 +123,7 @@ class DeliveryManController extends Controller
             $dm->image = $image_name;
             $dm->active = 0;
             $dm->status = 0;
-            $dm->earning = $request->earning;
+            $dm->earning = 1;
             $dm->password = bcrypt($request->password);
             $dm->application_status = 'pending';
             $dm->save();

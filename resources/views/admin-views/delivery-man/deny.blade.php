@@ -84,7 +84,6 @@
                         <th class="border-0 text-capitalize">{{translate('messages.name')}}</th>
                         <th class="border-0 text-capitalize">{{translate('messages.contact_info')}}</th>
                         <th class="border-0 text-capitalize">{{translate('messages.zone')}}</th>
-                        <th class="border-0 text-capitalize">{{translate('messages.job_type')}}</th>
                         <th class="border-0 text-capitalize">{{translate('messages.join_request_date')}}</th>
                         <th class="border-0 text-center text-capitalize">{{translate('messages.action')}}</th>
                     </tr>
@@ -114,9 +113,6 @@
                                 @else
                                 <label class="text--title font-medium mb-0">{{translate('messages.zone_deleted')}}</label>
                                 @endif
-                            </td>
-                            <td>
-                                {{ $dm->earning ==  1 ?  translate('messages.freelancer')  : translate('messages.salary_based')}}
                             </td>
                             <td>
                                 {{\App\CentralLogics\Helpers::time_date_format($dm->created_at )   }}

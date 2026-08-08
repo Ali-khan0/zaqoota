@@ -35,14 +35,6 @@
                             <option {{  request()?->get('filter') == 'blocked' ? 'selected' : '' }}  value="blocked">{{ translate('messages.Suspended') }}</option>
                         </select>
                     </div>
-                    <div class="min--200">
-                        <select name="job_type" class="form-control js-select2-custom set-filter" data-filter="job_type"
-                        data-url="{{ url()->full() }}">
-                            <option  value="all">{{ translate('messages.All_Job_Types') }}</option>
-                            <option  {{ request()?->get('job_type') == 'freelancer' ? 'selected' : '' }} value="freelancer">{{ translate('messages.Freelancer') }}</option>
-                            <option {{  request()?->get('job_type') == 'salary_base' ? 'selected' : '' }}  value="salary_base">{{ translate('messages.Salary_Base') }}</option>
-                        </select>
-                    </div>
                     @if(!isset(auth('admin')->user()->zone_id))
                     <div class="min--200">
                         <select name="zone_id" class="form-control js-select2-custom set-filter" data-filter="zone_id"

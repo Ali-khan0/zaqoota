@@ -77,7 +77,6 @@ class DeliveryManController extends BaseController
             searchValue: $request['search'],
             filters: ['type' => 'zone_wise','application_status' => 'approved'],
             additionalFilter: $request['filter'],
-            jobType: $request['job_type'],
             relations: ['zone', 'wallet', 'registrationFee'],
             dataLimit: config('default_pagination')
         );
@@ -255,13 +254,6 @@ class DeliveryManController extends BaseController
         Toastr::success(translate('messages.deliveryman_status_updated'));
         return back();
     }
-    public function updateEarning(Request $request): RedirectResponse
-    {
-        $this->deliveryManRepo->update(id: $request['id'] ,data: ['earning'=>$request['status']]);
-        Toastr::success(translate('messages.deliveryman_type_updated'));
-        return back();
-    }
-
     public function exportList(Request $request): BinaryFileResponse
     {
         $zoneId = $request->query('zone_id', 'all');

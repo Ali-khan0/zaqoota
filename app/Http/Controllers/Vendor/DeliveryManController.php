@@ -106,7 +106,7 @@ class DeliveryManController extends Controller
         $dm->identity_image = $identity_image;
         $dm->image = $image_name;
         $dm->active = 0;
-        $dm->earning = 0;
+        $dm->earning = 1;
         $dm->type = 'restaurant_wise';
         $dm->password = bcrypt($request->password);
         $dm->save();
@@ -178,17 +178,6 @@ class DeliveryManController extends Controller
         $delivery_man->save();
 
         Toastr::success(translate('messages.deliveryman_status_updated'));
-        return back();
-    }
-
-    public function earning(Request $request)
-    {
-        $delivery_man = DeliveryMan::find($request->id);
-        $delivery_man->earning = $request->status;
-
-        $delivery_man->save();
-
-        Toastr::success(translate('messages.deliveryman_type_updated'));
         return back();
     }
 

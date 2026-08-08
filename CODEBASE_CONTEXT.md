@@ -715,6 +715,13 @@ one transaction through `RideFareService`. There is no standalone Ride fare
 setup route. A fare row never activates service in a zone; the module-zone
 connection is authoritative.
 
+Riders are freelancer-only. Registration APIs and landing/admin/vendor create
+or update paths set `delivery_men.earning = 1` server-side and do not accept a
+salary/type selection. Migration
+`2026_08_08_000009_make_all_delivery_men_freelancers.php` normalizes existing
+accounts without altering historical wallet or transaction rows. Do not
+reintroduce salary/freelancer controls in rider clients or admin views.
+
 ## 11. Verification commands
 
 Dependencies are not currently present in this backup (`vendor/autoload.php` is

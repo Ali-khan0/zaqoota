@@ -46,7 +46,6 @@ class DeliveryManAddRequest extends FormRequest
             'email' => 'required|unique:delivery_men',
             'phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:10|max:20|unique:delivery_men',
             'zone_id' => 'required',
-            'earning' => 'required',
             'vehicle_id' => 'required',
             'password' => ['required', Password::min(8)->mixedCase()->letters()->numbers()->symbols()->uncompromised(),
                 function ($attribute, $value, $fail) {
@@ -64,7 +63,6 @@ class DeliveryManAddRequest extends FormRequest
             'f_name.required' => translate('messages.first_name_is_required'),
             'zone_id.required' => translate('messages.select_a_zone'),
             'vehicle_id.required' => translate('messages.select_a_vehicle'),
-            'earning.required' => translate('messages.select_dm_type'),
             'password.required' => translate('The password is required'),
             'password.min_length' => translate('The password must be at least :min characters long'),
             'password.mixed' => translate('The password must contain both uppercase and lowercase letters'),

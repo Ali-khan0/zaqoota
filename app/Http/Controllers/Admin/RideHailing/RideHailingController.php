@@ -100,12 +100,19 @@ class RideHailingController extends Controller
     public function riders(Request $request): View
     {
         $search = trim((string) $request->input('search'));
-        $mode = $request->input('work_mode');
+        $adminZoneId = auth('admin')->user()?->zone_id;
+        $zoneId = $adminZoneId ?: ($request->integer('zone_id') ?: null);
+        $zones = Zone::query()
+            ->where('status', 1)
+            ->when($adminZoneId, fn ($query) => $query->whereKey($adminZoneId))
+            ->orderBy('name')
+            ->get(['id', 'name']);
         $riders = DeliveryMan::withoutGlobalScopes()
             ->with(['rideVehicles.vehicleType', 'rideVehicles.category', 'activeRideVehicle.vehicleType', 'activeRideVehicle.category'])
             ->withCount('rideVehicles')
             ->where('application_status', 'approved')
-            ->when(in_array($mode, ['delivery', 'ride'], true), fn ($query) => $query->where('work_mode', $mode))
+            ->where('work_mode', 'ride')
+            ->when($zoneId, fn ($query) => $query->where('zone_id', $zoneId))
             ->when($search !== '', fn ($query) => $query->where(fn ($nested) => $nested
                 ->where('f_name', 'like', "%{$search}%")
                 ->orWhere('l_name', 'like', "%{$search}%")
@@ -116,7 +123,7 @@ class RideHailingController extends Controller
             ->paginate(20)
             ->withQueryString();
 
-        return view('admin-views.ride-hailing.riders', compact('riders', 'search', 'mode'));
+        return view('admin-views.ride-hailing.riders', compact('riders', 'search', 'zones', 'zoneId', 'adminZoneId'));
     }
 
     public function createVehicle(): View
