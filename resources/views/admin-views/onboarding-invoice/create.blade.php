@@ -76,9 +76,20 @@
                     </div>
                 </div>
                 <div class="mt-4">
-                    <div class="d-flex justify-content-between align-items-center mb-2"><label class="input-label mb-0">{{ translate('Invoice Items') }}</label><button type="button" id="add-invoice-item" class="btn btn-sm btn-outline-primary"><i class="tio-add mr-1"></i>{{ translate('Add Item') }}</button></div>
+                    <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-2">
+                        <label class="input-label mb-0">{{ translate('Invoice Items') }}</label>
+                        <div class="d-flex align-items-end gap-2">
+                            <div><label class="input-label mb-1" for="service-preset">{{ translate('Add Service') }}</label><select id="service-preset" class="form-control"><option value="">{{ translate('Select a service') }}</option><option>Product photography</option><option>Video shoot</option><option>Menu design</option><option>Menu data entry</option><option>Promotional banner design</option><option>Social media content</option><option>Featured store placement</option><option>Staff training</option><option>Additional technical support</option><option>Custom integration</option><option>Other service</option></select></div>
+                            <button type="button" id="add-preset-item" class="btn btn-outline-primary">{{ translate('Add Service') }}</button>
+                            <button type="button" id="add-invoice-item" class="btn btn-outline-secondary"><i class="tio-add mr-1"></i>{{ translate('Custom Item') }}</button>
+                        </div>
+                    </div>
                     <div class="table-responsive"><table class="table table-bordered" id="invoice-items-table"><thead class="thead-light"><tr><th>{{ translate('Description') }}</th><th style="width:130px">{{ translate('Quantity') }}</th><th style="width:180px">{{ translate('Unit Price') }}</th><th style="width:150px" class="text-right">{{ translate('Line Total') }}</th><th style="width:55px"></th></tr></thead><tbody>
-                        @php($oldItems = old('items', [['description' => old('invoice_type', 'onboarding') === 'onboarding' ? 'Onboarding service' : 'Other service', 'quantity' => 1, 'unit_price' => '']]))
+                        @php($oldItems = old('items', old('invoice_type', 'onboarding') === 'onboarding' ? [
+                            ['description' => 'Partner account onboarding', 'quantity' => 1, 'unit_price' => ''],
+                            ['description' => 'Store profile and menu configuration', 'quantity' => 1, 'unit_price' => ''],
+                            ['description' => 'Delivery zone setup and initial technical support', 'quantity' => 1, 'unit_price' => ''],
+                        ] : [['description' => 'Other service', 'quantity' => 1, 'unit_price' => '']]))
                         @foreach($oldItems as $index => $item)
                         <tr class="invoice-item-row"><td><input class="form-control" name="items[{{ $index }}][description]" value="{{ $item['description'] ?? '' }}" maxlength="255" required></td><td><input type="number" class="form-control item-quantity" name="items[{{ $index }}][quantity]" value="{{ $item['quantity'] ?? 1 }}" min="0.01" step="0.01" required></td><td><input type="number" class="form-control item-price" name="items[{{ $index }}][unit_price]" value="{{ $item['unit_price'] ?? '' }}" min="0" step="0.01" required></td><td class="text-right align-middle font-weight-bold item-total">0.00</td><td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger remove-invoice-item" title="{{ translate('Remove') }}"><i class="tio-delete"></i></button></td></tr>
                         @endforeach
@@ -120,6 +131,12 @@
             $('#invoice-total').text(total.toFixed(2));
         }
 
+        function appendInvoiceItem(description) {
+            const safeDescription = $('<div>').text(description || '').html();
+            $('#invoice-items-table tbody').append(`<tr class="invoice-item-row"><td><input class="form-control" name="items[${itemIndex}][description]" value="${safeDescription}" maxlength="255" required></td><td><input type="number" class="form-control item-quantity" name="items[${itemIndex}][quantity]" value="1" min="0.01" step="0.01" required></td><td><input type="number" class="form-control item-price" name="items[${itemIndex}][unit_price]" min="0" step="0.01" required></td><td class="text-right align-middle font-weight-bold item-total">0.00</td><td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger remove-invoice-item"><i class="tio-delete"></i></button></td></tr>`);
+            itemIndex++;
+        }
+
         function setupStoreSearch() {
             if ($store.hasClass('select2-hidden-accessible')) {
                 $store.select2('destroy');
@@ -145,8 +162,13 @@
 
         $module.on('change', setupStoreSearch);
         $('#add-invoice-item').on('click', function () {
-            $('#invoice-items-table tbody').append(`<tr class="invoice-item-row"><td><input class="form-control" name="items[${itemIndex}][description]" maxlength="255" required></td><td><input type="number" class="form-control item-quantity" name="items[${itemIndex}][quantity]" value="1" min="0.01" step="0.01" required></td><td><input type="number" class="form-control item-price" name="items[${itemIndex}][unit_price]" min="0" step="0.01" required></td><td class="text-right align-middle font-weight-bold item-total">0.00</td><td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger remove-invoice-item"><i class="tio-delete"></i></button></td></tr>`);
-            itemIndex++;
+            appendInvoiceItem('');
+        });
+        $('#add-preset-item').on('click', function () {
+            const description = $('#service-preset').val();
+            if (!description) return;
+            appendInvoiceItem(description);
+            $('#service-preset').val('');
         });
         $(document).on('input', '.item-quantity,.item-price', calculateInvoiceTotal);
         $(document).on('click', '.remove-invoice-item', function () {

@@ -342,6 +342,12 @@ signature support is intentionally deferred.
   computed unpaid/due-soon/overdue/paid/void presentation states, and voiding
   with a mandatory reason. Void invoices are retained for audit, cannot be sent
   or updated financially, and are excluded from receivable totals.
+- New onboarding invoices start with three concise, removable lines: partner
+  account onboarding; store profile and menu configuration; and delivery-zone
+  setup with initial technical support. The form can add blank custom rows or
+  presets for photography, video, menu/data/design, promotion, training,
+  support, featured placement, integration and other services. All descriptions,
+  quantities and prices remain editable before issue.
 - The primary snapshotted store email cannot be removed. Additional recipients
   can be added or removed after creation and selected for invoice resends.
   Unpaid invoices support payment reminders with a repeat guard. Every
