@@ -50,7 +50,9 @@ class OnboardingInvoiceController extends Controller
             ->paginate(20)
             ->withQueryString();
 
-        return view('admin-views.onboarding-invoice.index', compact('invoices', 'totals'));
+        $bankDetails = $this->bankData();
+
+        return view('admin-views.onboarding-invoice.index', compact('invoices', 'totals', 'bankDetails'));
     }
 
     public function create()
@@ -87,6 +89,27 @@ class OnboardingInvoiceController extends Controller
             ]),
             'pagination' => ['more' => $stores->hasMorePages()],
         ]);
+    }
+
+    public function bankDetails(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'bank_name' => ['required', 'string', 'max:150'],
+            'account_title' => ['required', 'string', 'max:150'],
+            'iban' => ['required', 'string', 'max:50'],
+            'account_number' => ['required', 'string', 'max:50'],
+        ]);
+        $keys = [
+            'bank_name' => 'onboarding_invoice_bank_name',
+            'account_title' => 'onboarding_invoice_account_title',
+            'iban' => 'onboarding_invoice_iban',
+            'account_number' => 'onboarding_invoice_account_number',
+        ];
+        foreach ($keys as $field => $key) {
+            BusinessSetting::updateOrCreate(['key' => $key], ['value' => trim($validated[$field])]);
+        }
+
+        return back()->with('success', translate('Invoice payment details updated successfully.'));
     }
 
     public function store(OnboardingInvoiceStoreRequest $request): RedirectResponse
@@ -135,7 +158,7 @@ class OnboardingInvoiceController extends Controller
     public function show(OnboardingInvoice $onboarding_invoice)
     {
         $onboarding_invoice->load(['items', 'deliveries' => fn ($query) => $query->latest(), 'events' => fn ($query) => $query->latest()]);
-        return view('admin-views.onboarding-invoice.show', ['invoice' => $onboarding_invoice]);
+        return view('admin-views.onboarding-invoice.show', ['invoice' => $onboarding_invoice, 'bankDetails' => $this->bankData()]);
     }
 
     public function download(OnboardingInvoice $onboarding_invoice): Response
@@ -276,8 +299,24 @@ class OnboardingInvoiceController extends Controller
     {
         $invoice->loadMissing('items');
         $business = BusinessSetting::whereIn('key', ['business_name', 'address', 'phone', 'email_address'])->pluck('value', 'key');
+        $bankDetails = $this->bankData();
 
-        return compact('invoice', 'business');
+        return compact('invoice', 'business', 'bankDetails');
+    }
+
+    private function bankData(): array
+    {
+        $values = BusinessSetting::whereIn('key', [
+            'onboarding_invoice_bank_name', 'onboarding_invoice_account_title',
+            'onboarding_invoice_iban', 'onboarding_invoice_account_number',
+        ])->pluck('value', 'key');
+
+        return [
+            'bank_name' => $values['onboarding_invoice_bank_name'] ?? 'Askari Bank',
+            'account_title' => $values['onboarding_invoice_account_title'] ?? 'Zaqoota',
+            'iban' => $values['onboarding_invoice_iban'] ?? 'PK02ASCM0009010200001008',
+            'account_number' => $values['onboarding_invoice_account_number'] ?? '09010200001008',
+        ];
     }
 
     private function logEvent(OnboardingInvoice $invoice, string $type, string $description, array $metadata = []): void

@@ -59,6 +59,7 @@
         </table>
         <table class="total"><tr><td>Total</td><td class="right">{{ \App\CentralLogics\Helpers::format_currency($invoice->amount) }}</td></tr></table>
         @if($invoice->public_note)<div class="note"><strong>Note</strong><br>{{ $invoice->public_note }}</div>@endif
+        @if($invoice->payment_status === 'unpaid' && !$invoice->voided_at)<div class="note"><strong>Payment Details</strong><br>Bank: {{ $bankDetails['bank_name'] }}<br>Account title: {{ $bankDetails['account_title'] }}<br>IBAN: {{ $bankDetails['iban'] }}<br>Account number: {{ $bankDetails['account_number'] }}<br><span class="muted">Please use {{ $invoice->invoice_number }} as your payment reference.</span></div>@endif
         @if($invoice->payment_status === 'paid' && $invoice->payment_method)<div class="note"><strong>Payment</strong><br>{{ $invoice->payment_method }}@if($invoice->payment_reference) · {{ $invoice->payment_reference }}@endif</div>@endif
         @if($invoice->voided_at)<div class="note" style="border-color:#c0392b;"><strong>VOID</strong><br>{{ $invoice->void_reason }}</div>@endif
 

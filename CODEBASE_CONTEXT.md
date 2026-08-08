@@ -355,6 +355,12 @@ signature support is intentionally deferred.
   delivery type, success/failure, error and acting admin. Creation, recipient,
   delivery, reminder, payment and void actions append immutable
   `OnboardingInvoiceEvent` timeline records.
+- Unpaid, non-void invoices show configurable bank-transfer instructions in the
+  admin detail, HTML mail and attached PDF. Defaults are stored as
+  `BusinessSetting` keys (`onboarding_invoice_bank_name`,
+  `onboarding_invoice_account_title`, `onboarding_invoice_iban`, and
+  `onboarding_invoice_account_number`) and can be edited above the invoice
+  history. Paid and void invoices suppress the transfer instructions.
 
 Order commission reporting convention:
 

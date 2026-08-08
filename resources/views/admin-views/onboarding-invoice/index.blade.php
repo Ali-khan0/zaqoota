@@ -17,6 +17,17 @@
     @if(session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
     @if(session('error'))<div class="alert alert-danger">{{ session('error') }}</div>@endif
 
+    <div class="card mb-3">
+        <div class="card-header"><h4 class="card-title mb-0">{{ translate('Invoice Payment Details') }}</h4></div>
+        <div class="card-body"><form action="{{ route('admin.transactions.onboarding-invoices.bank-details') }}" method="post">@csrf @method('PATCH')<div class="row g-3">
+            <div class="col-md-6 col-xl-3"><label class="input-label">{{ translate('Bank Name') }}</label><input name="bank_name" class="form-control" value="{{ old('bank_name', $bankDetails['bank_name']) }}" required></div>
+            <div class="col-md-6 col-xl-3"><label class="input-label">{{ translate('Account Title') }}</label><input name="account_title" class="form-control" value="{{ old('account_title', $bankDetails['account_title']) }}" required></div>
+            <div class="col-md-6 col-xl-3"><label class="input-label">{{ translate('IBAN') }}</label><input name="iban" class="form-control" value="{{ old('iban', $bankDetails['iban']) }}" required></div>
+            <div class="col-md-6 col-xl-3"><label class="input-label">{{ translate('Account Number') }}</label><input name="account_number" class="form-control" value="{{ old('account_number', $bankDetails['account_number']) }}" required></div>
+            <div class="col-12 text-right"><button class="btn btn-primary"><i class="tio-save mr-1"></i>{{ translate('Save Payment Details') }}</button></div>
+        </div></form></div>
+    </div>
+
     <div class="row g-3 mb-3">
         <div class="col-sm-6 col-xl-3"><div class="card h-100"><div class="card-body"><p class="text-muted mb-2">{{ translate('Total Invoice Amount') }}</p><h3 class="mb-1">{{ \App\CentralLogics\Helpers::format_currency($totals->total_amount) }}</h3><small class="text-muted">{{ $totals->invoice_count }} {{ translate('invoices') }}</small></div></div></div>
         <div class="col-sm-6 col-xl-3"><div class="card h-100"><div class="card-body"><p class="text-muted mb-2">{{ translate('Paid Amount') }}</p><h3 class="text-success mb-1">{{ \App\CentralLogics\Helpers::format_currency($totals->paid_amount) }}</h3><small class="text-muted">{{ translate('Received') }}</small></div></div></div>

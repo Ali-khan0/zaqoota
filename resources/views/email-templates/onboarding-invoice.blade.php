@@ -19,6 +19,9 @@
                         <strong>Status:</strong> {{ ucfirst($invoice->payment_status) }}
                     </td></tr>
                 </table>
+                @if($invoice->payment_status === 'unpaid' && !$invoice->voided_at)
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:18px;background:#f7fafb;border-left:3px solid #0d988d;"><tr><td style="padding:16px;line-height:1.7;"><strong>Payment Details</strong><br>Bank: {{ $bankDetails['bank_name'] }}<br>Account title: {{ $bankDetails['account_title'] }}<br>IBAN: {{ $bankDetails['iban'] }}<br>Account number: {{ $bankDetails['account_number'] }}<br><span style="color:#718096;">Please use {{ $invoice->invoice_number }} as your payment reference.</span></td></tr></table>
+                @endif
                 <p style="margin:22px 0 0;line-height:1.65;color:#718096;">Thanks &amp; Regards,<br>Zaqoota</p>
             </td></tr>
         </table>

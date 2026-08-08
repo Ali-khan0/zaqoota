@@ -752,6 +752,7 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
                 Route::get('/', 'OnboardingInvoiceController@index')->name('index');
                 Route::get('create', 'OnboardingInvoiceController@create')->name('create');
                 Route::get('stores', 'OnboardingInvoiceController@stores')->name('stores');
+                Route::patch('settings/bank-details', 'OnboardingInvoiceController@bankDetails')->name('bank-details');
                 Route::post('/', 'OnboardingInvoiceController@store')->name('store');
                 Route::get('{onboarding_invoice}', 'OnboardingInvoiceController@show')->name('show');
                 Route::get('{onboarding_invoice}/download', 'OnboardingInvoiceController@download')->name('download');
