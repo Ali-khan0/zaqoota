@@ -153,8 +153,7 @@
                                             <option  value="" readonly="true" hidden="true"  > {{ translate('messages.select_identity_type') }}</option>
                                             <option value="passport">{{ translate('messages.passport') }}</option>
                                             <option value="driving_license">{{ translate('messages.driving_license') }} </option>
-                                            <option value="nid">{{ translate('messages.nid') }}</option>
-                                            <option value="store_id">{{ translate('messages.store_id') }}</option>
+                                            <option value="nid">{{ translate('messages.CNIC') }}</option>
                                         </select>
                                     </div>
                                 </div>
@@ -323,7 +322,7 @@
         $(function() {
             $("#coba").spartanMultiImagePicker({
                 fieldName: 'identity_image[]',
-                maxCount: 5,
+                maxCount: 2,
                 rowHeight: '120px',
                 groupClassName: 'col-6 spartan_item_wrapper size--md',
                 maxFileSize: '',
@@ -361,7 +360,7 @@
             $('#viewer').attr('src', '{{ asset('public/assets/admin/img/400x400/img2.jpg') }}');
             $("#coba").empty().spartanMultiImagePicker({
                 fieldName: 'identity_image[]',
-                maxCount: 5,
+                maxCount: 2,
                 rowHeight: '120px',
                 groupClassName: 'col-6 spartan_item_wrapper size--md',
                 maxFileSize: '',

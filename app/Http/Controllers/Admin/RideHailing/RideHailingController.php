@@ -167,6 +167,8 @@ class RideHailingController extends Controller
             'model_year' => ['nullable', 'integer', 'min:1980', 'max:' . (now()->year + 1)],
             'color' => ['required', 'string', 'max:50'],
             'registration_number' => ['required', 'string', 'max:80', 'unique:ride_vehicles,registration_number'],
+            'vehicle_front_image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'vehicle_back_image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'status' => ['required', Rule::in(RideVehicle::STATUSES)],
             'admin_note' => ['nullable', 'string', 'max:1000'],
         ]);
@@ -185,10 +187,17 @@ class RideHailingController extends Controller
                 throw ValidationException::withMessages(['delivery_man_id' => translate('messages.A rider can register a maximum of two ride vehicles.')]);
             }
 
+            $frontImage = \App\CentralLogics\Helpers::upload('ride-vehicle/', 'png', $validated['vehicle_front_image']);
+            $backImage = \App\CentralLogics\Helpers::upload('ride-vehicle/', 'png', $validated['vehicle_back_image']);
+            unset($validated['vehicle_front_image'], $validated['vehicle_back_image']);
             $hasActive = RideVehicle::query()->where('delivery_man_id', $validated['delivery_man_id'])->where('is_active', true)->exists();
             RideVehicle::create([
                 ...$validated,
                 'registration_number' => strtoupper(trim($validated['registration_number'])),
+                'front_image' => $frontImage,
+                'front_image_storage' => \App\CentralLogics\Helpers::getDisk(),
+                'back_image' => $backImage,
+                'back_image_storage' => \App\CentralLogics\Helpers::getDisk(),
                 'is_active' => $validated['status'] === 'approved' && !$hasActive,
             ]);
         });

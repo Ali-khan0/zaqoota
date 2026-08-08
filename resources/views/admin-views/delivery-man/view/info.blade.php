@@ -269,10 +269,13 @@
                 </div>
 @endif
                 <div class="d-flex flex-column flex-md-row align-items-center gap-3 border rounded p-3">
-                    <div class="d-flex gap-3">
-                        <img class="rounded" data-onerror-image="{{ asset('public/assets/admin/img/160x160/img1.jpg') }}"
-                            src="{{ $deliveryMan['image_full_url']}}"
-                            width="115" height="115" alt="Delivery man image">
+                    <div class="d-flex flex-column gap-1">
+                        <span class="text-muted fs-12">{{ translate('messages.Face Photo') }}</span>
+                        <a href="{{ $deliveryMan['image_full_url'] }}" target="_blank" rel="noopener">
+                            <img class="rounded" data-onerror-image="{{ asset('public/assets/admin/img/160x160/img1.jpg') }}"
+                                src="{{ $deliveryMan['image_full_url']}}" width="115" height="115"
+                                style="object-fit:cover" alt="{{ translate('messages.Face Photo') }}">
+                        </a>
                     </div>
 
                     <div class="flex-grow-1">
@@ -525,6 +528,20 @@
                                             <div class="col-6"><span class="text-muted">{{ translate('Model Year') }}:</span> {{ $vehicle->model_year }}</div>
                                         @endif
                                     </div>
+                                    <div class="row g-2 mt-2">
+                                        @foreach ([translate('messages.Front') => $vehicle->front_image_full_url, translate('messages.Back') => $vehicle->back_image_full_url] as $photoLabel => $photoUrl)
+                                            <div class="col-6">
+                                                <div class="text-muted fs-12 mb-1">{{ translate('messages.Vehicle') }} {{ $photoLabel }}</div>
+                                                @if ($photoUrl)
+                                                    <a href="{{ $photoUrl }}" target="_blank" rel="noopener">
+                                                        <img src="{{ $photoUrl }}" class="rounded border w-100" style="height:120px;object-fit:cover" alt="{{ $photoLabel }}">
+                                                    </a>
+                                                @else
+                                                    <div class="border rounded text-muted d-flex align-items-center justify-content-center" style="height:120px">{{ translate('messages.Not provided') }}</div>
+                                                @endif
+                                            </div>
+                                        @endforeach
+                                    </div>
                                     @if ($vehicle->admin_note)
                                         <div class="mt-2 fs-12 text-muted">{{ $vehicle->admin_note }}</div>
                                     @endif
@@ -573,7 +590,7 @@
 
                         <div class="key-val-list-item d-flex gap-3">
                             <div>{{ translate('Identity_Type') }}</div>:
-                            <div>{{ translate($deliveryMan->identity_type) }}</div>
+                            <div>{{ $deliveryMan->identity_type === 'nid' ? translate('messages.CNIC') : translate($deliveryMan->identity_type) }}</div>
                         </div>
                         <div class="key-val-list-item d-flex gap-3">
                             <div>{{ translate('messages.identification_number') }}</div>:
@@ -594,10 +611,8 @@
                             </div>
                         </div>
                     @endif
-                    <div class=" {{ $deliveryMan->application_status == 'pending' ? 'col-12' : 'col-6' }} ">
-                        @if ($deliveryMan->application_status == 'pending')
-                            <h5 class="mb-3 mt-5">{{ translate('messages.Identity_Image') }}</h5>
-                        @endif
+                    <div class="col-12">
+                        <h5 class="mb-3 mt-5">{{ translate('messages.Identity Document Photos') }}</h5>
                         <div class="d-flex flex-wrap gap-3">
                             @foreach ($deliveryMan->identity_image_full_url as $key => $img)
                                 <button class="btn" data-toggle="modal" data-target="#image-{{ $key }}">

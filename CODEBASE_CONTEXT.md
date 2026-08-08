@@ -699,6 +699,12 @@ The consolidated mobile implementation handoff is
 Rider onboarding is shared across every workload. Both
 `POST api/v1/auth/delivery-man/store` and the landing-page `deliveryman/apply`
 form create the rider plus a first pending `ride_vehicle` in one transaction.
+New rider onboarding requires a face photo, one or two identity-document
+photos, and front/back photos of the first vehicle. Each subsequently submitted
+ride vehicle also requires its own front/back photos. Identity choices are
+CNIC (`nid` in the compatible API/database value), Passport, and Driving
+License; Store ID is not an identity type. Deliveryman Preview presents all
+three verification groups with click-to-view images.
 Approving the rider approves/activates that first vehicle. An authenticated
 rider may submit one additional vehicle with
 `POST api/v1/delivery-man/ride-vehicles`; the total limit is two. Vehicle

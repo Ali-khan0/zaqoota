@@ -61,7 +61,7 @@
                                             value="driving_license" {{$delivery_man['identity_type']=='driving_license'?'selected':''}}>
                                             {{translate('messages.driving_license')}}
                                         </option>
-                                        <option value="nid" {{$delivery_man['identity_type']=='nid'?'selected':''}}>{{translate('messages.nid')}}
+                                        <option value="nid" {{$delivery_man['identity_type']=='nid'?'selected':''}}>{{translate('messages.CNIC')}}
                                         </option>
                                     </select>
                                 </div>

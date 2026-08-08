@@ -325,6 +325,8 @@ class DeliverymanController extends Controller
             'status' => $vehicle->status,
             'is_active' => (bool) $vehicle->is_active,
             'admin_note' => $vehicle->admin_note,
+            'front_image_url' => $vehicle->front_image_full_url,
+            'back_image_url' => $vehicle->back_image_full_url,
         ];
     }
 

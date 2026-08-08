@@ -42,7 +42,11 @@ class DeliveryManAddRequest extends FormRequest
         return [
             'f_name' => 'required|max:100',
             'l_name' => 'nullable|max:100',
+            'identity_type' => 'required|in:passport,driving_license,nid',
             'identity_number' => 'required|max:30',
+            'image' => 'required|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'identity_image' => 'required|array|min:1|max:2',
+            'identity_image.*' => 'required|image|mimes:jpg,jpeg,png,webp|max:5120',
             'email' => 'required|unique:delivery_men',
             'phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:10|max:20|unique:delivery_men',
             'zone_id' => 'required',

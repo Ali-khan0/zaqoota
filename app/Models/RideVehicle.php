@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\CentralLogics\Helpers;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -13,10 +14,26 @@ class RideVehicle extends Model
 
     protected $fillable = [
         'delivery_man_id', 'ride_vehicle_type_id', 'ride_category_id', 'fuel_type', 'make', 'model',
-        'model_year', 'color', 'registration_number', 'status', 'is_active', 'admin_note',
+        'model_year', 'color', 'registration_number', 'front_image', 'front_image_storage',
+        'back_image', 'back_image_storage', 'status', 'is_active', 'admin_note',
     ];
 
     protected $casts = ['model_year' => 'integer', 'is_active' => 'boolean'];
+    protected $appends = ['front_image_full_url', 'back_image_full_url'];
+
+    public function getFrontImageFullUrlAttribute(): ?string
+    {
+        return $this->front_image
+            ? Helpers::get_full_url('ride-vehicle', $this->front_image, $this->front_image_storage ?: 'public')
+            : null;
+    }
+
+    public function getBackImageFullUrlAttribute(): ?string
+    {
+        return $this->back_image
+            ? Helpers::get_full_url('ride-vehicle', $this->back_image, $this->back_image_storage ?: 'public')
+            : null;
+    }
 
     public function deliveryMan(): BelongsTo
     {

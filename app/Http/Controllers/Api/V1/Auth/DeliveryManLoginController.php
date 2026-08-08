@@ -144,6 +144,9 @@ class DeliveryManLoginController extends Controller
             'f_name' => 'required',
             'identity_type' => 'required|in:passport,driving_license,nid',
             'identity_number' => 'required',
+            'image' => 'required|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'identity_image' => 'required|array|min:1|max:2',
+            'identity_image.*' => 'required|image|mimes:jpg,jpeg,png,webp|max:5120',
             'email' => 'required|unique:delivery_men',
             'phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:10|unique:delivery_men',
             'password' => ['required', Password::min(8)->mixedCase()->letters()->numbers()->symbols()->uncompromised()],
@@ -167,11 +170,7 @@ class DeliveryManLoginController extends Controller
             return response()->json(['errors' => Helpers::error_processor($validator)],403);
         }
 
-        if ($request->has('image')) {
-            $image_name = Helpers::upload('delivery-man/', 'png', $request->file('image'));
-        } else {
-            $image_name = 'def.png';
-        }
+        $image_name = Helpers::upload('delivery-man/', 'png', $request->file('image'));
 
         $id_img_names = [];
         if (!empty($request->file('identity_image'))) {

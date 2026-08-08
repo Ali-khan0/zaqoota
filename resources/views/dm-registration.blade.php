@@ -123,8 +123,7 @@ $countryCode= strtolower($country?$country->value:'auto');
                                         <select name="identity_type" class="form-control __form-control">
                                             <option value="passport">{{ translate('messages.passport') }}</option>
                                             <option value="driving_license">{{ translate('messages.driving_license') }}</option>
-                                            <option value="nid">{{ translate('messages.nid') }}</option>
-                                            <option value="restaurant_id">{{ translate('messages.store_id') }}</option>
+                                            <option value="nid">{{ translate('messages.CNIC') }}</option>
                                         </select>
                                     </div>
                                 </div>
@@ -138,12 +137,14 @@ $countryCode= strtolower($country?$country->value:'auto');
                                 </div>
                                 <div class="col-sm-12">
                                     <div class="form-group mb-0">
-                                        <label class="input-label">{{ translate('messages.identity_image') }}</label>
+                                        <label class="input-label">{{ translate('messages.Identity Document Photos') }} *</label>
                                         <div>
                                             <div class="row" id="coba"></div>
                                         </div>
                                     </div>
                                 </div>
+                                <div class="col-sm-6"><div class="form-group mb-3"><label class="input-label">{{ translate('messages.Vehicle Front Photo') }} *</label><input type="file" name="vehicle_front_image" class="form-control" accept="image/jpeg,image/png,image/webp" required></div></div>
+                                <div class="col-sm-6"><div class="form-group mb-3"><label class="input-label">{{ translate('messages.Vehicle Back Photo') }} *</label><input type="file" name="vehicle_back_image" class="form-control" accept="image/jpeg,image/png,image/webp" required></div></div>
                             </div>
                         </div>
                     </div>
@@ -290,7 +291,7 @@ $countryCode= strtolower($country?$country->value:'auto');
         $(function() {
             $("#coba").spartanMultiImagePicker({
                 fieldName: 'identity_image[]',
-                maxCount: 5,
+                maxCount: 2,
                 rowHeight: '120px',
                 groupClassName: 'col-lg-2 col-md-4 col-sm-4 col-6',
                 maxFileSize: '',

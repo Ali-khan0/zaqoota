@@ -93,6 +93,16 @@ approved. A rider may have at most two vehicles and only one approved vehicle
 can be active. Shared validation lives in
 `app/Services/RideVehicleRegistrationService.php`.
 
+Every newly submitted `RideVehicle` requires its own front and back image.
+These files are stored under `ride-vehicle/` and exposed to the authenticated
+rider response as `front_image_url` and `back_image_url`. Rider onboarding also
+requires a current face photo and one or two identity-document images. Allowed
+identity types are CNIC (persisted as legacy-compatible `nid`), Passport, and
+Driving License; Store ID is not a valid identity type. Deliveryman Preview
+separates Face Photo, Identity Document Photos, and each vehicle's clickable
+front/back evidence. Older vehicle rows remain valid with nullable photo
+columns and display `Not provided` until updated.
+
 Ride Hailing does not create, enroll, or attach a second rider identity. The
 Ride Riders page is an operational view of shared `delivery_men` accounts, not
 a registration page. Mobile details are in

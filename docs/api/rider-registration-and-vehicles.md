@@ -45,6 +45,18 @@ Existing rider fields remain required: `f_name`, `identity_type`,
 `identity_number`, `email`, `phone`, `password`, and `zone_id`.
 Riders are always created as freelancers; mobile must not display or send an
 `earning`, salary, or rider-type choice.
+Registration is `multipart/form-data` and has three clearly separated
+verification groups:
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `image` | image file | yes | Current face photo; JPEG, PNG, or WebP, maximum 5 MB |
+| `identity_type` | string | yes | `nid` (display as CNIC), `passport`, or `driving_license` |
+| `identity_number` | string | yes | Number printed on the selected document |
+| `identity_image[]` | image files | yes | One or two document photos; JPEG, PNG, or WebP, maximum 5 MB each |
+
+`store_id` and `restaurant_id` are not identity types and must never be shown
+or submitted by the Captain app.
 The old client field `vehicle_id` is replaced by the first vehicle fields:
 
 | Field | Type | Required | Notes |
@@ -57,6 +69,8 @@ The old client field `vehicle_id` is replaced by the first vehicle fields:
 | `model_year` | integer | no | 1980 through next calendar year |
 | `color` | string | yes | Maximum 50 characters |
 | `registration_number` | string | yes | Unique; normalized to uppercase |
+| `vehicle_front_image` | image file | yes | Clear front photo; JPEG, PNG, or WebP, maximum 5 MB |
+| `vehicle_back_image` | image file | yes | Clear back photo; JPEG, PNG, or WebP, maximum 5 MB |
 
 Bike category drives Petrol/EV selection. Car category drives Economy,
 Business, or Luxury. Render only categories nested under the selected type. If
@@ -71,24 +85,15 @@ vehicle.
 ```http
 POST /api/v1/delivery-man/ride-vehicles
 Authorization: Bearer RIDER_TOKEN
-Content-Type: application/json
+Content-Type: multipart/form-data
 ```
 
-Use the same vehicle fields as registration. The server derives the rider from
+Use the same vehicle fields, including `vehicle_front_image` and
+`vehicle_back_image`, as registration. The server derives the rider from
 the token and never accepts `delivery_man_id` from mobile.
 
-```json
-{
-  "ride_vehicle_type_id": 1,
-  "ride_category_id": 2,
-  "fuel_type": "electric",
-  "make": "Evee",
-  "model": "C1",
-  "model_year": 2026,
-  "color": "Black",
-  "registration_number": "LEB-1234"
-}
-```
+The successful `vehicle` object includes `front_image_url` and
+`back_image_url`, which the vehicle-management screen may use for review.
 
 Success is HTTP `201`. The returned vehicle has `status: "pending"` and
 `is_active: false`. It cannot be selected until admin approval. Validation is
@@ -97,12 +102,21 @@ number, or the two-vehicle limit.
 
 ## Mobile screens and security
 
-- Registration must select one vehicle before submission.
+- Registration must capture the face, identity evidence, and one vehicle with
+  clear front/back photos before submission.
 - Vehicle management shows zero to two vehicles and approval status.
 - Show Add vehicle only when `can_register_more` is true.
 - Do not allow local activation of pending or rejected vehicles.
 - Never trust cached options for validation; display backend errors.
-- Registration numbers are personal operational data and must not be logged.
+- Registration numbers and all verification photos are personal operational
+  data. Do not log file contents or URLs, and do not cache them in a public
+  gallery.
+
+Validation failures use the existing `errors` array. Invalid/missing images,
+unsupported identity types, incompatible vehicle selections, duplicate plate
+numbers, and the vehicle limit return HTTP `422` for authenticated vehicle
+submission. The legacy public registration endpoint returns its existing
+validation status for compatibility.
 
 ## Backend files
 

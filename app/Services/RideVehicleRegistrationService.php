@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\CentralLogics\Helpers;
 use App\Models\DeliveryMan;
 use App\Models\DMVehicle;
 use App\Models\RideCategory;
@@ -23,6 +24,8 @@ class RideVehicleRegistrationService
             'model_year' => ['nullable', 'integer', 'min:1980', 'max:'.(now()->year + 1)],
             'color' => ['required', 'string', 'max:50'],
             'registration_number' => ['required', 'string', 'max:80', 'unique:ride_vehicles,registration_number'],
+            'vehicle_front_image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'vehicle_back_image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ];
     }
 
@@ -47,9 +50,17 @@ class RideVehicleRegistrationService
             ]);
         }
 
+        $frontImage = Helpers::upload('ride-vehicle/', 'png', $data['vehicle_front_image']);
+        $backImage = Helpers::upload('ride-vehicle/', 'png', $data['vehicle_back_image']);
+        unset($data['vehicle_front_image'], $data['vehicle_back_image']);
+
         return $rider->rideVehicles()->create([
             ...$data,
             'registration_number' => strtoupper(trim($data['registration_number'])),
+            'front_image' => $frontImage,
+            'front_image_storage' => Helpers::getDisk(),
+            'back_image' => $backImage,
+            'back_image_storage' => Helpers::getDisk(),
             'status' => 'pending',
             'is_active' => false,
         ]);

@@ -6,7 +6,7 @@
 <div class="content container-fluid">
     <div class="page-header"><h1 class="page-header-title"><span class="page-header-icon"><i class="tio-car"></i></span>{{ translate('messages.Add Ride Vehicle') }}</h1></div>
     @include('admin-views.ride-hailing.partials.alerts')
-    <form action="{{ route('admin.ride-hailing.vehicles.store') }}" method="post">@csrf
+    <form action="{{ route('admin.ride-hailing.vehicles.store') }}" method="post" enctype="multipart/form-data">@csrf
         <div class="card"><div class="card-header"><h5 class="card-title">{{ translate('messages.Rider and Vehicle Details') }}</h5></div><div class="card-body"><div class="row g-3">
             <div class="col-12"><label class="input-label">{{ translate('messages.Existing Rider Account') }}</label><select id="delivery_man_id" name="delivery_man_id" class="form-control" required></select><small class="text-muted">{{ translate('messages.Select an existing approved rider. This does not create a new rider account.') }} {{ translate('messages.Only riders with fewer than two ride vehicles appear.') }}</small></div>
             <div class="col-md-6"><label class="input-label">{{ translate('messages.Vehicle Type') }}</label><select id="ride_vehicle_type_id" name="ride_vehicle_type_id" class="form-control" required><option value="">{{ translate('messages.Select') }}</option>@foreach($types as $type)<option value="{{ $type->id }}">{{ $type->name }}</option>@endforeach</select></div>
@@ -18,6 +18,8 @@
             <div class="col-md-3"><label class="input-label">{{ translate('messages.Color') }}</label><input name="color" value="{{ old('color') }}" class="form-control" required></div>
             <div class="col-md-3"><label class="input-label">{{ translate('messages.Registration Number') }}</label><input name="registration_number" value="{{ old('registration_number') }}" class="form-control text-uppercase" required></div>
             <div class="col-md-3"><label class="input-label">{{ translate('messages.Approval Status') }}</label><select name="status" class="form-control">@foreach(\App\Models\RideVehicle::STATUSES as $status)<option value="{{ $status }}">{{ ucfirst($status) }}</option>@endforeach</select></div>
+            <div class="col-md-6"><label class="input-label">{{ translate('messages.Vehicle Front Photo') }}</label><input type="file" name="vehicle_front_image" class="form-control" accept="image/jpeg,image/png,image/webp" required></div>
+            <div class="col-md-6"><label class="input-label">{{ translate('messages.Vehicle Back Photo') }}</label><input type="file" name="vehicle_back_image" class="form-control" accept="image/jpeg,image/png,image/webp" required></div>
             <div class="col-12"><label class="input-label">{{ translate('messages.Admin Note') }}</label><textarea name="admin_note" class="form-control" rows="3" maxlength="1000">{{ old('admin_note') }}</textarea></div>
         </div></div></div>
         <div class="btn--container justify-content-end mt-4"><a href="{{ route('admin.ride-hailing.vehicles.index') }}" class="btn btn--reset">{{ translate('messages.Cancel') }}</a><button class="btn btn--primary">{{ translate('messages.Add Ride Vehicle') }}</button></div>
