@@ -56,18 +56,16 @@
                     value="{{ old("ride_fares.{$category->id}.negotiation_max_percent", $fare?->negotiation_max_percent ?? 100) }}">
             </div>
             <div class="col-sm-6 col-xl-3">
-                <label class="input-label">{{ translate('Surge Multiplier') }}</label>
-                <input type="number" step="0.01" min="1" max="10" class="form-control"
-                    name="ride_fares[{{ $category->id }}][surge_multiplier]"
-                    value="{{ old("ride_fares.{$category->id}.surge_multiplier", $fare?->surge_multiplier ?? 1) }}">
+                <label class="input-label">{{ translate('Free Waiting') }} ({{ translate('Minutes') }})</label>
+                <input type="number" step="1" min="0" max="60" class="form-control"
+                    name="ride_fares[{{ $category->id }}][free_waiting_minutes]"
+                    value="{{ old("ride_fares.{$category->id}.free_waiting_minutes", $fare?->free_waiting_minutes ?? 3) }}">
             </div>
-            <div class="col-sm-6 col-xl-3 d-flex align-items-end pb-2">
-                <label class="toggle-switch toggle-switch-sm mb-0">
-                    <input type="checkbox" name="ride_fares[{{ $category->id }}][surge_enabled]" value="1"
-                        class="toggle-switch-input" @checked(old("ride_fares.{$category->id}.surge_enabled", $fare?->surge_enabled ?? false))>
-                    <span class="toggle-switch-label"><span class="toggle-switch-indicator"></span></span>
-                </label>
-                <span class="ml-2">{{ translate('Enable Surge') }}</span>
+            <div class="col-sm-6 col-xl-3">
+                <label class="input-label">{{ translate('Offer Expiry') }} ({{ translate('Seconds') }})</label>
+                <input type="number" step="1" min="10" max="300" class="form-control"
+                    name="ride_fares[{{ $category->id }}][offer_expiry_seconds]"
+                    value="{{ old("ride_fares.{$category->id}.offer_expiry_seconds", $fare?->offer_expiry_seconds ?? 30) }}">
             </div>
         </div>
     </div>

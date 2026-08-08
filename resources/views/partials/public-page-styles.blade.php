@@ -29,7 +29,7 @@
             .public-page__content img { border-radius:4px; height:auto; max-width:100%; }
             .public-page__content table { border-collapse:collapse; display:block; max-width:100%; overflow-x:auto; width:100%; }
             .public-page__content th, .public-page__content td { border:1px solid var(--zq-line); padding:10px 12px; }
-            .public-page__toc { color:var(--zq-text); padding:8px 0; position:sticky; top:92px; }
+            .public-page__toc { background:var(--zq-panel); border:1px solid var(--zq-line); border-radius:6px; box-shadow:0 10px 28px rgba(20,64,61,.06); color:var(--zq-text); padding:18px 16px; position:sticky; top:92px; }
             .public-page__toc-title { border-bottom:1px solid var(--zq-line); color:#172b2d; font-size:12px; font-weight:800; margin-bottom:12px; padding-bottom:11px; text-transform:uppercase; }
             .public-page__toc-list { counter-reset:toc; list-style:none; margin:0; padding:0; }
             .public-page__toc-list li { counter-increment:toc; margin:0; }

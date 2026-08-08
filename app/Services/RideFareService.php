@@ -19,11 +19,12 @@ class RideFareService
             'ride_fares.*.per_minute_charge' => ['required', 'numeric', 'min:0'],
             'ride_fares.*.pickup_distance_charge' => ['required', 'numeric', 'min:0'],
             'ride_fares.*.waiting_charge_per_minute' => ['required', 'numeric', 'min:0'],
+            'ride_fares.*.free_waiting_minutes' => ['required', 'integer', 'between:0,60'],
             'ride_fares.*.cancellation_charge' => ['required', 'numeric', 'min:0'],
             'ride_fares.*.platform_commission_percent' => ['required', 'numeric', 'between:0,100'],
             'ride_fares.*.negotiation_min_percent' => ['required', 'numeric', 'between:0,500'],
             'ride_fares.*.negotiation_max_percent' => ['required', 'numeric', 'between:0,500'],
-            'ride_fares.*.surge_multiplier' => ['required', 'numeric', 'between:1,10'],
+            'ride_fares.*.offer_expiry_seconds' => ['required', 'integer', 'between:10,300'],
         ];
     }
 
@@ -37,7 +38,7 @@ class RideFareService
         }
 
         foreach ($fares as $categoryId => $fare) {
-            if (!$categoryIds->contains((int) $categoryId)) {
+            if (! $categoryIds->contains((int) $categoryId)) {
                 throw ValidationException::withMessages([
                     'ride_fares' => translate('messages.One of the selected ride categories is invalid.'),
                 ]);
@@ -52,7 +53,6 @@ class RideFareService
                 ['zone_id' => $zoneId, 'ride_category_id' => $categoryId],
                 [
                     ...$fare,
-                    'surge_enabled' => $request->boolean("ride_fares.{$categoryId}.surge_enabled"),
                     'status' => true,
                 ]
             );

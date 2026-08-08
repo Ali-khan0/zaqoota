@@ -23,6 +23,10 @@ applications.
 | Ride Hailing rider work mode and vehicle eligibility | [ride-hailing-rider-mode.md](ride-hailing-rider-mode.md) | Backend foundation implemented |
 | Complete Ride Hailing rider-app handoff | [ride-hailing-rider-app-integration.md](ride-hailing-rider-app-integration.md) | Current integration contract and future boundary |
 | Shared rider registration and first/second vehicle workflow | [rider-registration-and-vehicles.md](rider-registration-and-vehicles.md) | Backend implemented |
+| Ride fare estimation, customer booking and Captain bidding | [ride-booking-and-bidding.md](ride-booking-and-bidding.md) | First booking milestone implemented |
+| Ride arrival, Trip PIN, waiting, location and completion | [ride-trip-lifecycle.md](ride-trip-lifecycle.md) | Trip lifecycle milestone implemented |
+| Ride cash/online payment, wallet settlement and receipts | [ride-payments-and-settlement.md](ride-payments-and-settlement.md) | Payment milestone implemented |
+| Private Ride channels, events, reconnect and polling fallback | [ride-realtime.md](ride-realtime.md) | Realtime milestone implemented |
 
 ## Common conventions
 

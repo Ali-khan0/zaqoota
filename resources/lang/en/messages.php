@@ -9345,4 +9345,8 @@ Smartly or Earn. ',
   'Table of contents' => 'Table of contents',
   'Section headings will appear here.' => 'Section headings will appear here.',
   'Official Zaqoota information' => 'Official Zaqoota information',
+  'Free Waiting' => 'Free Waiting',
+  'Minutes' => 'Minutes',
+  'Offer Expiry' => 'Offer Expiry',
+  'Seconds' => 'Seconds',
 );

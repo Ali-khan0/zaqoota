@@ -8,9 +8,20 @@ commerce `orders`, store items, or delivery vehicle-category pricing for trips.
 
 The implemented foundation covers module navigation, rider work mode, actual
 ride vehicle registration, ride categories, zone/category fare configuration,
-and reserved rider-wallet ledger types. Booking, matching, trips, passenger
-APIs, driver ride offers, payments, commission posting, and reports do not yet
-exist.
+reserved rider-wallet ledger types, authenticated customer fare estimates and
+ride requests, eligible-Captain polling, expiring Captain offers, and atomic
+customer offer selection. The trip lifecycle now covers Captain travel and
+arrival, customer-only Trip PIN verification, server-timed waiting, active
+ride-scoped location, completion, pre-start cancellation audit, and lifecycle
+push notifications. Cash and online gateway payments, idempotent Captain/admin
+wallet settlement, payment attempt history, JSON receipts, and authenticated
+private Ride realtime channels are implemented. Refunds, safety and reports do
+not yet exist.
+
+Customers may cancel `searching` or `negotiating` requests without a fee. A
+customer cancellation after Captain selection but before trip start records
+the snapshotted fixed cancellation charge; Captain cancellation is free to the
+customer. The payment milestone collects and posts that recorded charge.
 
 ## Admin surface
 
@@ -143,14 +154,19 @@ future reconnect. It stores:
 - base and minimum fare;
 - per-kilometre and per-minute charge;
 - pickup-distance and waiting-per-minute charge;
+- free waiting minutes before the waiting charge starts;
 - cancellation charge;
 - platform commission percentage;
 - negotiated minimum and maximum as percentages of the calculated fare;
-- optional surge multiplier.
+- rider-offer expiry time in seconds.
 
 Future fare calculation must read one persisted row, produce a transparent
 breakdown, use decimal-safe arithmetic, and snapshot every applied value on the
-trip. Never recalculate historical trip finances from current settings.
+trip. Ride Hailing does not use surge pricing; demand pricing is handled through
+customer/rider negotiation. Platform commission must be calculated from the
+final price accepted by the customer and rider, never from the system estimate,
+customer's opening bid, or an expired/rejected rider offer. Never recalculate
+historical trip finances from current settings.
 
 ## Wallet convention
 
@@ -162,16 +178,94 @@ Ride earnings share the existing rider wallet but use separate
 - `ride_cash_collection`
 - `ride_refund`
 
-These constants reserve the accounting vocabulary only. No balances are posted
-until the trip/payment workflow is implemented transactionally.
+The payment workflow now posts the earning, commission and cash-collection
+types transactionally. `ride_refund` remains reserved for a future refund flow.
+
+## Booking and bidding milestone
+
+Passenger rides use core `ride_requests` and `ride_offers`; they never use
+commerce `orders` or Rental `Trips`. `RideRouteService` obtains authoritative
+driving distance/duration from Google Routes. `RideFareCalculator` uses
+integer-cents arithmetic for estimates, negotiation bounds, and final accepted
+fare commission snapshots. Customer fare quotes are encrypted, customer-bound,
+and valid for five minutes.
+
+Customer APIs live under `/api/v1/ride-hailing/customer` with Passport auth.
+Captain discovery/offers live under `/api/v1/delivery-man` with `dm.api`.
+Captain discovery is polling-based in this milestone. Eligibility is rechecked
+at discovery, offer submission, and customer selection. Final selection locks
+the ride and offer, accepts one Captain, rejects competing offers, and snapshots
+commission from the final accepted amount without posting wallet balances.
+Pickup-distance charge is not applied to the pre-Captain system estimate;
+Captains can account for pickup travel in their bounded offer until formal
+pickup-distance settlement is introduced with the trip lifecycle.
+The complete contract is `docs/api/ride-booking-and-bidding.md`.
+
+## Trip lifecycle milestone
+
+Assigned rides advance only through `rider_selected`, `captain_arriving`,
+`arrived`, `in_progress`, and `completed`. `RideTripStateMachine` defines the
+single legal Captain action at each step, while `RideTripService` locks every
+transition and appends `ride_status_histories`. The four-digit Trip PIN is
+encrypted at rest, returned only to the owning customer before trip start, and
+must be verified to enter `in_progress`.
+
+The server starts waiting at `arrived_at`. When the Captain starts the trip,
+every started minute beyond the snapshotted free allowance is stored in
+`charged_waiting_minutes` and `waiting_charge_amount`. Waiting remains separate
+from the accepted-fare commission snapshot until payment policy is implemented.
+Captains can update ride-scoped coordinates only during an assigned active
+ride; this also maintains the existing shared delivery location record.
+Customer lifecycle events are stored and sent through Firebase when configured,
+and Captain offer acceptance is pushed to the Captain. Private realtime events
+now reduce latency, while API polling remains authoritative during reconnects.
+See `docs/api/ride-trip-lifecycle.md` and `docs/api/ride-realtime.md`.
+
+## Payment and settlement milestone
+
+Completed rides are payable at accepted fare plus waiting. Zaqoota commission
+remains the accepted-fare commission snapshot; waiting goes entirely to the
+Captain. A customer cancellation charge goes entirely to the Captain with zero
+platform commission. Free and Captain cancellations require no payment.
+
+Customer APIs expose payment summary, cash/digital attempt creation, paginated
+attempt history, and a paid JSON receipt. Online payments reuse the generic
+`PaymentRequest` gateway layer with `ride_payment_success` and
+`ride_payment_fail` hooks. Cash is settled only when the assigned Captain
+confirms collection. `RidePaymentService` locks the attempt, ride, Captain
+wallet, and admin wallet; `ride_requests.settled_at` prevents duplicate wallet
+posting on repeated callbacks.
+
+Captain wallet `total_earning` receives net fare plus waiting/cancellation. A
+cash ride also increases `collected_cash` by the full customer payment. Online
+payments increase admin `digital_received`; accepted-fare commission increases
+admin `total_commission_earning`. Dedicated Ride ledger types record gross Ride
+earning, platform commission debit, and cash collection debit. Fleet-manager
+Ride commission is not posted because no Ride-specific fleet policy exists.
+See `docs/api/ride-payments-and-settlement.md`.
+
+## Realtime milestone
+
+Mobile customers and Captains authenticate private Pusher/Reverb-compatible
+channels through separate Passport and `dm.api` endpoints. Customer and Captain
+account channels deliver pre-trip offers/discovery; `ride.trip.{ride_id}` is
+authorized only for the owning customer or assigned Captain and carries status,
+location, and payment updates. New requests fan out to at most 100 recalculated
+eligible private Captain channels instead of a persistent shared zone channel.
+
+`RideRealtimeEvent` broadcasts immediately after committed mutations. The
+mobile apps must fetch REST state after events and use 10-second polling when
+disconnected. A non-sync queue worker enables punctual `ExpireRideOffer` events;
+REST expiry normalization remains correct without it. Production requires the
+configured websocket server under process supervision. See
+`docs/api/ride-realtime.md`.
 
 ## Next bounded contexts
 
-Before implementing a booking flow, define trips and state transitions,
-passenger pickup/destination data, fixed versus negotiated fare snapshots,
-driver offer/ETA confirmation, automatic reassignment, scheduled rides, Trip
-PIN, cancellation policy, live location, payments, platform/fleet commission,
-safety escalation, complaints, notifications, and reports.
+The next milestone should add customer/Captain ratings and Ride admin
+operations/reporting. Refunds, disputes, safety, complaints, downloadable PDF
+receipts, tips, and a separately approved fleet-manager Ride commission policy
+follow.
 
 Each mobile-facing addition requires a specification under `docs/api/` in the
 same change. Rider mode is not enough to authorize future trip operations;

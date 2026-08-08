@@ -11,8 +11,7 @@ The same authenticated rider account is used for food/grocery delivery and
 Ride Hailing. The rider selects exactly one work mode:
 
 - `delivery`: receives restaurant/grocery and parcel delivery orders.
-- `ride`: receives parcel orders and will receive passenger ride requests when
-  matching APIs are implemented.
+- `ride`: receives parcel orders and eligible passenger ride requests.
 
 This backend release currently supports:
 
@@ -24,12 +23,13 @@ This backend release currently supports:
 - selecting one approved ride vehicle as active;
 - preventing Ride-mode riders from discovering or accepting restaurant and
   grocery orders while preserving parcel work;
-- returning vehicle type, ride category, fuel, approval, and identity details.
+- returning vehicle type, ride category, fuel, approval, and identity details;
+- discovering eligible passenger ride requests and submitting or replacing a
+  fare offer. See `docs/api/ride-booking-and-bidding.md` for those endpoints.
 
-It does **not** currently provide passenger ride discovery, driver matching,
-ride offers, negotiation, trip lifecycle, live trip tracking, PIN verification,
-ride payments, or ride earnings APIs. Do not create fake local versions of
-those workflows in the rider app.
+It does **not** currently provide the post-acceptance trip lifecycle, live trip
+tracking, PIN verification, ride payments, or ride earnings APIs. Do not create
+fake local versions of those workflows in the rider app.
 
 ## 2. Base URL and authentication
 
@@ -438,23 +438,18 @@ checks remain required to protect against old clients and race conditions.
 - `database/migrations/2026_08_08_000008_create_ride_hailing_foundation_tables.php`
 - `RIDE_HAILING_CONTEXT.md`
 
-## 15. Do not implement yet
+## 15. Passenger Ride integration
 
-The mobile coding agent must stop at the integration described above. These
-need separate backend and API specifications first:
+The passenger Ride backend now has dedicated mobile contracts:
 
-- incoming ride request stream;
-- accept/reject/counteroffer;
-- driver pickup ETA confirmation;
-- navigation to passenger;
-- arrived/waiting state;
-- Trip PIN and trip start;
-- live trip lifecycle and route deviation;
-- complete/cancel ride;
-- cash/card/QR settlement;
-- ride earnings and wallet history;
-- scheduled rides, safety, chat, complaints, and ratings.
+- `ride-booking-and-bidding.md`: discovery and Captain offers;
+- `ride-trip-lifecycle.md`: arrival, waiting, PIN, location and completion;
+- `ride-payments-and-settlement.md`: cash/digital payment and wallet posting;
+- `ride-realtime.md`: private channels, events and polling fallback.
 
-When those APIs are introduced, update this file and add dedicated documents
-for booking/matching, trip lifecycle, pricing/negotiation, payments/earnings,
-and safety rather than growing one ambiguous endpoint contract.
+The Captain app should implement those contracts together and continue using
+this file for shared account, work-mode, and vehicle behavior.
+
+Scheduled rides, route-deviation handling, ratings, safety, chat, complaints,
+refunds/disputes, and detailed Ride earnings history still require separate
+backend/API specifications. Do not invent those workflows locally.

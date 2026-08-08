@@ -3,11 +3,7 @@
 namespace App\Models;
 
 use App\CentralLogics\Helpers;
-use App\Scopes\StoreScope;
-use App\Scopes\ZoneScope;
-use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\DB;
@@ -16,7 +12,7 @@ use Modules\Rental\Entities\Trips;
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable, HasApiTokens;
+    use HasApiTokens, HasFactory, Notifiable;
 
     /**
      * The attributes that are mass assignable.
@@ -51,23 +47,26 @@ class User extends Authenticatable
         'loyalty_point' => 'integer',
         'ref_by' => 'integer',
     ];
+
     protected $appends = ['image_full_url'];
-    public function getImageFullUrlAttribute(){
+
+    public function getImageFullUrlAttribute()
+    {
         $value = $this->image;
         if (count($this->storage) > 0) {
             foreach ($this->storage as $storage) {
                 if ($storage['key'] == 'image') {
-                    return Helpers::get_full_url('profile',$value,$storage['value']);
+                    return Helpers::get_full_url('profile', $value, $storage['value']);
                 }
             }
         }
 
-        return Helpers::get_full_url('profile',$value,'public');
+        return Helpers::get_full_url('profile', $value, 'public');
     }
 
     public function getFullNameAttribute(): string
     {
-        return $this->f_name . ' ' . $this->l_name;
+        return $this->f_name.' '.$this->l_name;
     }
 
     public function scopeOfStatus($query, $status): void
@@ -79,21 +78,29 @@ class User extends Authenticatable
     {
         return $this->hasMany(Order::class)->where('is_guest', 0);
     }
+
+    public function rideRequests()
+    {
+        return $this->hasMany(RideRequest::class);
+    }
+
     public function trips()
     {
         return $this->hasMany(Trips::class)->where('is_guest', 0);
     }
 
-    public function addresses(){
+    public function addresses()
+    {
         return $this->hasMany(CustomerAddress::class);
     }
 
     public function userinfo()
     {
-        return $this->hasOne(UserInfo::class,'user_id', 'id');
+        return $this->hasOne(UserInfo::class, 'user_id', 'id');
     }
 
-    public function scopeZone($query, $zone_id=null){
+    public function scopeZone($query, $zone_id = null)
+    {
         $query->when(is_numeric($zone_id), function ($q) use ($zone_id) {
             return $q->where('zone_id', $zone_id);
         });
@@ -110,11 +117,12 @@ class User extends Authenticatable
             $builder->with('storage');
         });
     }
+
     protected static function boot()
     {
         parent::boot();
         static::saved(function ($model) {
-            if($model->isDirty('image')){
+            if ($model->isDirty('image')) {
                 $value = Helpers::getDisk();
 
                 DB::table('storages')->updateOrInsert([

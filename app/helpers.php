@@ -193,6 +193,24 @@ if (! function_exists('trip_payment_fail')) {
     }
 }
 
+if (! function_exists('ride_payment_success')) {
+    function ride_payment_success($data) {
+        return app(\App\Services\RidePaymentService::class)->settle(
+            (int) $data->attribute_id,
+            $data->payment_method ?? null,
+            $data->transaction_ref ?? $data->transaction_id ?? null,
+        ) !== null;
+    }
+}
+
+if (! function_exists('ride_payment_fail')) {
+    function ride_payment_fail($data) {
+        app(\App\Services\RidePaymentService::class)->fail((int) $data->attribute_id);
+
+        return true;
+    }
+}
+
 
 
 if (! function_exists('order_failed')) {

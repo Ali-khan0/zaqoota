@@ -683,7 +683,7 @@ registration migration is
 creates the active module row only when that module type does not already exist
 and seeds its initial business-setting keys.
 
-The initial admin surface is intentionally limited to platform setup:
+The initial admin surface is focused on platform and fleet setup:
 
 - Routes: `GET|PUT admin/ride-hailing/setup`, named
   `admin.ride-hailing.setup` and `.setup.update`.
@@ -702,9 +702,10 @@ store-based workflows such as onboarding invoice store selection.
 `Module::discoverable()` excludes Ride Hailing from existing customer module
 and config APIs until its mobile booking contract exists.
 
-No customer booking, trip, dispatch, payment, safety, notification, or ride
-reporting behavior exists at this stage. Those contracts must be designed and
-documented under `docs/api/` when mobile-facing development begins.
+Customer fare estimation, booking, Captain offers, trip execution, payment, and
+private realtime events now exist as the milestones described later in this
+section. Safety and ride administration/reporting remain deferred and require
+dedicated `docs/api/` contracts.
 
 The foundation has since been extended with rider work modes, a maximum-two
 ride-vehicle registry, Bike/Car/Rickshaw types, Petrol/EV and car service
@@ -766,6 +767,55 @@ categories and saves `ride_fares` together with the `module_zone` connection in
 one transaction through `RideFareService`. There is no standalone Ride fare
 setup route. A fare row never activates service in a zone; the module-zone
 connection is authoritative.
+
+Ride fare rows provide base/minimum, distance, duration, pickup, waiting,
+cancellation, negotiation-bound and platform-commission values plus free
+waiting minutes and rider-offer expiry seconds. Ride Hailing deliberately does
+not use surge pricing because demand pricing is negotiated. Future trip
+settlement must calculate Zaqoota commission from the final mutually accepted
+fare, not the system estimate or either party's unaccepted offer.
+
+The first Ride Hailing booking milestone owns `ride_requests` and `ride_offers`
+and exposes authenticated customer APIs under
+`/api/v1/ride-hailing/customer` plus Captain polling/offer APIs under
+`/api/v1/delivery-man`. Google Routes creates a five-minute encrypted fare
+quote; Captain offers expire using the snapshotted fare setting. Offer selection
+uses row locks, rechecks mode/zone/vehicle/work conflicts, assigns exactly one
+Captain, and snapshots platform commission/rider earning from the final accepted
+offer. It deliberately does not post wallets or imitate commerce `orders`.
+See `docs/api/ride-booking-and-bidding.md` and `RIDE_HAILING_CONTEXT.md`.
+
+The trip-execution milestone extends `ride_requests` with encrypted Trip PIN,
+arrival/start/completion/cancellation timestamps, waiting and cancellation
+snapshots, and current ride coordinates. `ride_status_histories` is the
+immutable transition audit. Captain lifecycle/location APIs remain under
+`/api/v1/delivery-man`; customer ownership and cancellation remain under
+`/api/v1/ride-hailing/customer`. `RideTripStateMachine` and `RideTripService`
+enforce the ordered state machine and row locking. Lifecycle changes use stored
+customer notifications plus best-effort Firebase push, while API polling is
+authoritative during websocket disconnects and reconnect reconciliation.
+No wallet or payment balances are posted by the lifecycle transitions alone.
+See `docs/api/ride-trip-lifecycle.md`.
+
+The Ride payment milestone adds `ride_payments` attempts and final payment,
+receipt, and settlement snapshots on `ride_requests`. Customer APIs create cash
+or online attempts and expose summaries/history/JSON receipts; the assigned
+Captain confirms cash. Online payments reuse the generic payment gateway layer
+through `ride_payment_success`/`ride_payment_fail`. `RidePaymentService` posts
+Captain/admin wallets and dedicated Ride ledger rows exactly once under locked
+`settled_at` idempotency. Zaqoota commission remains based only on the accepted
+fare; waiting and customer cancellation charges go entirely to the Captain.
+Fleet-manager Ride commission, refunds and PDF receipts are not implemented.
+See `docs/api/ride-payments-and-settlement.md`.
+
+Ride realtime uses explicit customer Passport and Captain `dm.api` broadcast
+auth endpoints plus private customer, Captain, and assigned-trip channels.
+`RideRealtimeService` emits request, offer, state, location, and payment events
+only after committed mutations. Request discovery fans out to recalculated
+eligible Captain account channels, capped at 100 per immediate event; polling
+remains the overflow/failure path. `ExpireRideOffer` emits punctual expiry only
+with a durable non-sync queue worker. Config API `ride_realtime` documents auth
+URLs, channel templates and fallback interval. See `docs/api/ride-realtime.md`.
 
 Riders are freelancer-only. Registration APIs and landing/admin/vendor create
 or update paths set `delivery_men.earning = 1` server-side and do not accept a

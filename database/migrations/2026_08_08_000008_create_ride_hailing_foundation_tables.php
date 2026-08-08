@@ -72,12 +72,12 @@ return new class extends Migration
                 $table->decimal('per_minute_charge', 12, 2)->default(0);
                 $table->decimal('pickup_distance_charge', 12, 2)->default(0);
                 $table->decimal('waiting_charge_per_minute', 12, 2)->default(0);
+                $table->unsignedSmallInteger('free_waiting_minutes')->default(3);
                 $table->decimal('cancellation_charge', 12, 2)->default(0);
                 $table->decimal('platform_commission_percent', 5, 2)->default(0);
                 $table->decimal('negotiation_min_percent', 6, 2)->default(100);
                 $table->decimal('negotiation_max_percent', 6, 2)->default(100);
-                $table->boolean('surge_enabled')->default(false);
-                $table->decimal('surge_multiplier', 5, 2)->default(1);
+                $table->unsignedSmallInteger('offer_expiry_seconds')->default(30);
                 $table->boolean('status')->default(true);
                 $table->timestamps();
 
