@@ -4,13 +4,13 @@
 
 @section('content')
     @include('partials.public-page-styles')
-    @php($contactTitle = AppModelsDataSetting::where(['key' => 'contact_us_title'])->value('value'))
-    @php($contactSubtitle = AppModelsDataSetting::where(['key' => 'contact_us_sub_title'])->value('value'))
-    @php($phone = AppCentralLogicsHelpers::get_settings('phone'))
-    @php($email = AppCentralLogicsHelpers::get_settings('email_address'))
-    @php($address = AppCentralLogicsHelpers::get_settings('address'))
-    @php($defaultLocation = AppCentralLogicsHelpers::get_settings('default_location'))
-    @php($recaptcha = AppCentralLogicsHelpers::get_business_settings('recaptcha'))
+    @php($contactTitle = \App\Models\DataSetting::where(['key' => 'contact_us_title'])->value('value'))
+    @php($contactSubtitle = \App\Models\DataSetting::where(['key' => 'contact_us_sub_title'])->value('value'))
+    @php($phone = \App\CentralLogics\Helpers::get_settings('phone'))
+    @php($email = \App\CentralLogics\Helpers::get_settings('email_address'))
+    @php($address = \App\CentralLogics\Helpers::get_settings('address'))
+    @php($defaultLocation = \App\CentralLogics\Helpers::get_settings('default_location'))
+    @php($recaptcha = \App\CentralLogics\Helpers::get_business_settings('recaptcha'))
 
     <main class="public-page">
         <header class="public-page__hero">
@@ -40,7 +40,7 @@
                     </div>
                     <div class="contact-detail">
                         <span class="contact-detail__label">{{ translate('messages.Business hours') }}</span>
-                        <span>{{ translate(AppCentralLogicsHelpers::get_settings('opening_day')) }} - {{ translate(AppCentralLogicsHelpers::get_settings('closing_day')) }}<br>{{ AppCentralLogicsHelpers::time_format(AppCentralLogicsHelpers::get_settings('opening_time')) }} - {{ AppCentralLogicsHelpers::time_format(AppCentralLogicsHelpers::get_settings('closing_time')) }}</span>
+                        <span>{{ translate(\App\CentralLogics\Helpers::get_settings('opening_day')) }} - {{ translate(\App\CentralLogics\Helpers::get_settings('closing_day')) }}<br>{{ \App\CentralLogics\Helpers::time_format(\App\CentralLogics\Helpers::get_settings('opening_time')) }} - {{ \App\CentralLogics\Helpers::time_format(\App\CentralLogics\Helpers::get_settings('closing_time')) }}</span>
                     </div>
                 </aside>
 

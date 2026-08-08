@@ -487,6 +487,10 @@ For a gateway change, check:
   business logo/article, active social records, app download links, optional
   policy statuses, contact settings, and footer copyright text; styling is
   scoped under `.zaqoota-footer` so it does not affect panel footers.
+  Its visual background is the Zaqoota primary teal (`#0d988d`) and the
+  configured footer logo is rendered as white for reliable contrast. The
+  landing header uses a stable opaque surface instead of the former translucent
+  scroll overlay so it cannot obscure public-page content.
 - Installation/update: `InstallController`, `UpdateController`,
   `routes/install.php`, `routes/update.php`, and `installation/`.
 - Core views: `resources/views`.

@@ -10,18 +10,15 @@
     </header>
 
     <div class="container public-page__body">
-        <div class="public-page__layout">
-            <article class="public-page__content">
-                {!! $pageContent !!}
-            </article>
-            <nav class="public-page__nav" aria-label="{{ translate('messages.Information pages') }}">
-                <div class="public-page__nav-title">{{ translate('messages.Information') }}</div>
+        <nav class="public-page__nav" aria-label="{{ translate('messages.Information pages') }}">
                 <a href="{{ route('about-us') }}" class="{{ request()->routeIs('about-us') ? 'active' : '' }}">{{ translate('messages.about_us') }}</a>
                 <a href="{{ route('privacy-policy') }}" class="{{ request()->routeIs('privacy-policy') ? 'active' : '' }}">{{ translate('messages.privacy_policy') }}</a>
                 <a href="{{ route('services-policy') }}" class="{{ request()->routeIs('services-policy') ? 'active' : '' }}">{{ translate('messages.services_policy') }}</a>
                 <a href="{{ route('terms-and-conditions') }}" class="{{ request()->routeIs('terms-and-conditions') ? 'active' : '' }}">{{ translate('messages.terms_and_condition') }}</a>
                 <a href="{{ route('contact-us') }}" class="{{ request()->routeIs('contact-us') ? 'active' : '' }}">{{ translate('messages.Contact_Us') }}</a>
-            </nav>
-        </div>
+        </nav>
+        <article class="public-page__content">
+            {!! $pageContent !!}
+        </article>
     </div>
 </main>

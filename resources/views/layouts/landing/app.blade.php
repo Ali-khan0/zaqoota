@@ -39,10 +39,17 @@
         </style>
     @endif
     <style>
+        body > header,
+        body > header.active {
+            background: #fff;
+            box-shadow: 0 1px 0 rgba(18, 58, 60, .1);
+            top: 0;
+        }
+        body > header.active::after { display: none; }
         .zaqoota-footer .footer-bottom {
-            background: #102f32;
+            background: #0d988d;
             border-radius: 0;
-            border-top: 4px solid #0d988d;
+            border-top: 0;
             padding: 54px 0 0;
         }
         .zaqoota-footer .footer-wrapper {
@@ -61,11 +68,11 @@
             max-width: 158px;
         }
         .zaqoota-footer .footer-logo img {
-            filter: brightness(0) invert(1);
+            filter: brightness(0) invert(1) !important;
             max-height: 56px;
         }
         .zaqoota-footer .txt {
-            color: #bdd0d1;
+            color: #e3f2f1;
             font-size: 14px;
             line-height: 1.75;
             max-width: 390px;
@@ -78,7 +85,7 @@
             position: relative;
         }
         .zaqoota-footer .footer-widget .subtitle::after {
-            background: #0d988d;
+            background: rgba(255,255,255,.18);
             bottom: 0;
             content: '';
             height: 2px;
@@ -93,7 +100,7 @@
         .zaqoota-footer .widget-links ul li a,
         .zaqoota-footer .widget-links ul li > a:not([href]) {
             align-items: flex-start;
-            color: #bdd0d1;
+            color: #e3f2f1;
             display: flex;
             font-size: 14px;
             gap: 9px;
@@ -124,15 +131,15 @@
             width: 36px;
         }
         .zaqoota-footer .social-icon a:hover {
-            background: #0d988d;
-            border-color: #0d988d;
+            background: rgba(255,255,255,.2);
+            border-color: rgba(255,255,255,.45);
         }
         .zaqoota-footer .social-icon img { height: 16px; width: 16px; }
         .zaqoota-footer .app-btn-grp { gap: 10px; }
         .zaqoota-footer .app-btn-grp a { max-width: 142px; }
         .zaqoota-footer .copyright {
             border-top: 1px solid rgba(255,255,255,.12);
-            color: #9eb5b7;
+            color: #d5eae8;
             font-size: 12px;
             line-height: 1.6;
             margin-top: 44px !important;
