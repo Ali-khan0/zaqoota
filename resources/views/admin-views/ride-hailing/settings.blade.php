@@ -31,6 +31,20 @@
                         </div>
                         <div class="col-lg-6">
                             <div class="form-group">
+                                <label class="input-label" for="maximum_pickup_radius_km">{{ translate('messages.Maximum Pickup Radius') }}</label>
+                                <div class="input-group"><input id="maximum_pickup_radius_km" name="maximum_pickup_radius_km" type="number" min="1" max="200" step="0.1" class="form-control" value="{{ old('maximum_pickup_radius_km', $settings['maximum_pickup_radius_km']) }}" required><div class="input-group-append"><span class="input-group-text">km</span></div></div>
+                                <small class="text-muted">{{ translate('messages.Only Captains inside this pickup radius can see and offer on a Ride.') }}</small>
+                            </div>
+                        </div>
+                        <div class="col-lg-6">
+                            <div class="form-group">
+                                <label class="input-label" for="pickup_eta_speed_kmh">{{ translate('messages.Pickup ETA Average Speed') }}</label>
+                                <div class="input-group"><input id="pickup_eta_speed_kmh" name="pickup_eta_speed_kmh" type="number" min="5" max="120" step="0.1" class="form-control" value="{{ old('pickup_eta_speed_kmh', $settings['pickup_eta_speed_kmh']) }}" required><div class="input-group-append"><span class="input-group-text">km/h</span></div></div>
+                                <small class="text-muted">{{ translate('messages.Used to estimate pickup time; it does not change the passenger fare.') }}</small>
+                            </div>
+                        </div>
+                        <div class="col-lg-6">
+                            <div class="form-group">
                                 <label class="input-label" for="distance_unit">{{ translate('messages.Distance Unit') }}</label>
                                 <select id="distance_unit" name="distance_unit" class="form-control" required>
                                     <option value="km" @selected(old('distance_unit', $settings['distance_unit']) === 'km')>{{ translate('messages.Kilometres (km)') }}</option>

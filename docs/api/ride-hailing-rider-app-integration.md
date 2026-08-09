@@ -1,5 +1,24 @@
 # Zaqoota Ride: Rider App Integration Handoff
 
+## Nearest-first Ride discovery
+
+`GET /api/v1/delivery-man/ride-requests` is ordered by the Captain's straight-line distance to each pickup. Only requests inside the admin-configured maximum pickup radius are returned. The Captain must continue sending location through the existing location-update flow before requesting this list.
+
+Each Ride object includes:
+
+```json
+{
+  "pickup_distance_meters": 1850,
+  "pickup_eta_seconds": 267
+}
+```
+
+Show the nearest request first, display the formatted pickup distance and approximate arrival time, and preserve server order during pagination. `pickup_eta_seconds` uses the admin-configured average pickup speed and is an estimate, not routed navigation time or a fare input. A `403` error with code `location` means the app must send its current location and retry. A realtime `ride.request.created` event is a refresh signal: fetch this endpoint again to obtain Captain-specific distance, radius filtering and correct ordering.
+
+The offer endpoint checks the pickup radius again. A hidden or stale Ride ID cannot be used to offer from outside the configured radius.
+
+Successful offer responses also contain `pickup_distance_meters` and `pickup_eta_seconds`. These are snapshotted when the offer is submitted so the passenger app can rank offers consistently.
+
 Give this document to the coding agent working on the Zaqoota rider mobile
 application. It describes the Ride Hailing backend that exists now, the exact
 mobile work required now, and the ride/trip functions that must not be invented
@@ -446,7 +465,7 @@ The passenger Ride backend now has dedicated mobile contracts:
 - `ride-booking-and-bidding.md`: discovery and Captain offers;
 - `ride-trip-lifecycle.md`: arrival, waiting, PIN, location and completion;
 - `ride-payments-and-settlement.md`: cash/online/customer-wallet payment,
-  partial payment, cancellation dues and wallet posting;
+  partial payment, carried cancellation recovery and wallet posting;
 - `ride-realtime.md`: private channels, events and polling fallback.
 
 The Captain app should implement those contracts together and continue using

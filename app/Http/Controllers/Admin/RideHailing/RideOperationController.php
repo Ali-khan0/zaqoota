@@ -49,7 +49,7 @@ class RideOperationController extends Controller
             ->when($status === 'unassigned', fn ($query) => $query->whereIn('status', $unassignedStatuses))
             ->when($status === 'active', fn ($query) => $query->whereIn('status', $activeStatuses))
             ->when(! in_array($status, ['all', 'unassigned', 'active'], true), fn ($query) => $query->where('status', $status))
-            ->when($paymentStatus === 'due', fn ($query) => $query->whereIn('payment_status', ['unpaid', 'pending', 'partially_paid']))
+            ->when($paymentStatus === 'due', fn ($query) => $query->whereIn('payment_status', ['due_next_ride', 'unpaid', 'pending', 'partially_paid']))
             ->when(! in_array($paymentStatus, ['all', 'due'], true), fn ($query) => $query->where('payment_status', $paymentStatus))
             ->when($zoneId, fn ($query) => $query->where('zone_id', $zoneId))
             ->when($categoryId, fn ($query) => $query->where('ride_category_id', $categoryId))
@@ -156,11 +156,32 @@ class RideOperationController extends Controller
             return $ride->fresh(['user', 'deliveryMan', 'rideVehicle', 'category']);
         });
 
-        $this->notificationService->customer($ride, 'Captain assigned', 'A Captain has been assigned to your ride.');
-        $this->notificationService->captain($ride, 'New ride assigned', 'Zaqoota assigned a passenger ride to you. Start travelling to pickup.');
+        $this->notificationService->event($ride, 'admin_assigned_customer');
+        $this->notificationService->event($ride, 'admin_assigned_captain');
         $this->realtimeService->status($ride);
 
         return redirect()->route('admin.ride-hailing.rides.show', $ride)->with('success', translate('messages.Captain assigned successfully.'));
+    }
+
+    public function cancel(Request $request, RideRequest $ride): RedirectResponse
+    {
+        $validated = $request->validate(['reason' => ['required', 'string', 'max:500']]);
+        $ride = DB::transaction(function () use ($ride, $validated) {
+            $ride = $this->scopedQuery()->lockForUpdate()->findOrFail($ride->id);
+            if (! $this->tripService->canCancel($ride->status)) {
+                throw ValidationException::withMessages(['reason' => translate('messages.An in-progress or completed Ride cannot be cancelled.')]);
+            }
+
+            return $this->tripService->cancel($ride, 'admin', (int) auth('admin')->id(), $validated['reason']);
+        });
+
+        $this->notificationService->event($ride, 'admin_cancelled_customer');
+        if ($ride->delivery_man_id) {
+            $this->notificationService->event($ride, 'admin_cancelled_captain');
+        }
+        $this->realtimeService->status($ride);
+
+        return redirect()->route('admin.ride-hailing.rides.show', $ride)->with('success', translate('messages.Ride cancelled and both parties were notified.'));
     }
 
     private function scopedQuery(): Builder

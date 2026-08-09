@@ -15,6 +15,8 @@ class RideHailingSettingController extends Controller
         'distance_unit' => 'ride_hailing_distance_unit',
         'support_email' => 'ride_hailing_support_email',
         'support_phone' => 'ride_hailing_support_phone',
+        'maximum_pickup_radius_km' => 'ride_hailing_maximum_pickup_radius_km',
+        'pickup_eta_speed_kmh' => 'ride_hailing_pickup_eta_speed_kmh',
     ];
 
     public function index(): View
@@ -28,6 +30,8 @@ class RideHailingSettingController extends Controller
             'distance_unit' => $stored->get(self::KEYS['distance_unit'], 'km'),
             'support_email' => $stored->get(self::KEYS['support_email']),
             'support_phone' => $stored->get(self::KEYS['support_phone']),
+            'maximum_pickup_radius_km' => $stored->get(self::KEYS['maximum_pickup_radius_km'], 25),
+            'pickup_eta_speed_kmh' => $stored->get(self::KEYS['pickup_eta_speed_kmh'], 25),
         ];
 
         return view('admin-views.ride-hailing.settings', compact('settings'));
@@ -40,6 +44,8 @@ class RideHailingSettingController extends Controller
             'distance_unit' => ['required', 'in:km,mile'],
             'support_email' => ['nullable', 'email', 'max:191'],
             'support_phone' => ['nullable', 'string', 'max:30'],
+            'maximum_pickup_radius_km' => ['required', 'numeric', 'min:1', 'max:200'],
+            'pickup_eta_speed_kmh' => ['required', 'numeric', 'min:5', 'max:120'],
         ]);
 
         foreach (self::KEYS as $field => $key) {

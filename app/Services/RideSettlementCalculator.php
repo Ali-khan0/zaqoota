@@ -22,9 +22,10 @@ class RideSettlementCalculator
         $waiting = $this->money($ride->waiting_charge_amount);
         $couponDiscount = $this->money($ride->coupon_discount_amount);
         $commission = $this->money($ride->platform_commission_amount);
+        $previousCancellationDue = $this->money($ride->carried_cancellation_due_amount);
 
         return [
-            'final_payable_amount' => $this->money(max(0, $acceptedFare + $waiting - $couponDiscount)),
+            'final_payable_amount' => $this->money(max(0, $acceptedFare + $waiting - $couponDiscount) + $previousCancellationDue),
             'platform_commission_amount' => $commission,
             'captain_total_earning_amount' => $this->money(($acceptedFare - $commission) + $waiting),
         ];

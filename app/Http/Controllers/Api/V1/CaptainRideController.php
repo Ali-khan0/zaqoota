@@ -34,7 +34,18 @@ class CaptainRideController extends Controller
             return $this->error('captain', 'Captain is not currently eligible to receive passenger rides.');
         }
 
+        $location = $captain->last_location()->first();
+        if (! $location || ! is_numeric($location->latitude) || ! is_numeric($location->longitude)) {
+            return $this->error('location', 'Update your current location before searching for passenger rides.');
+        }
+        $latitude = (float) $location->latitude;
+        $longitude = (float) $location->longitude;
+        $earthRadius = 6371000;
+        $distanceSql = "$earthRadius * 2 * ASIN(SQRT(POWER(SIN(RADIANS(pickup_latitude - ?) / 2), 2) + COS(RADIANS(?)) * COS(RADIANS(pickup_latitude)) * POWER(SIN(RADIANS(pickup_longitude - ?) / 2), 2)))";
+        $distanceBindings = [$latitude, $latitude, $longitude];
+
         $rides = RideRequest::query()
+            ->select('ride_requests.*')->selectRaw("$distanceSql AS pickup_distance_meters", $distanceBindings)
             ->with('category')
             ->where('zone_id', $captain->zone_id)
             ->where('ride_category_id', $vehicle->ride_category_id)
@@ -43,7 +54,8 @@ class CaptainRideController extends Controller
                 ->where('delivery_man_id', $captain->id)
                 ->whereIn('status', [RideOffer::STATUS_PENDING, RideOffer::STATUS_ACCEPTED])
                 ->where('expires_at', '>', now()))
-            ->oldest()->paginate(max(1, min($request->integer('limit', 20), 50)));
+            ->whereRaw("$distanceSql <= ?", [...$distanceBindings, $this->eligibilityService->maximumPickupRadiusMeters()])
+            ->orderBy('pickup_distance_meters')->oldest('created_at')->paginate(max(1, min($request->integer('limit', 20), 50)));
         $rides->getCollection()->transform(fn ($ride) => $this->requestData($ride));
 
         return response()->json($rides);
@@ -67,7 +79,8 @@ class CaptainRideController extends Controller
                 return ['error' => 'This ride request is no longer accepting offers.'];
             }
             $vehicle = $this->eligibilityService->vehicleFor($captain, $ride->ride_category_id, $ride->zone_id);
-            if (! $vehicle) {
+            $pickupMetrics = $this->eligibilityService->pickupMetrics($captain, $ride);
+            if (! $vehicle || ! $pickupMetrics || $pickupMetrics['distance_meters'] > $this->eligibilityService->maximumPickupRadiusMeters()) {
                 return ['error' => 'Captain is not eligible for this ride request.'];
             }
             $amount = round((float) $request->amount, 2);
@@ -80,7 +93,9 @@ class CaptainRideController extends Controller
             }
             $offer = RideOffer::query()->updateOrCreate(
                 ['ride_request_id' => $ride->id, 'delivery_man_id' => $captain->id],
-                ['ride_vehicle_id' => $vehicle->id, 'amount' => $amount, 'status' => RideOffer::STATUS_PENDING, 'expires_at' => now()->addSeconds($ride->offer_expiry_seconds)]
+                ['ride_vehicle_id' => $vehicle->id, 'amount' => $amount,
+                    'pickup_distance_meters' => $pickupMetrics['distance_meters'], 'pickup_eta_seconds' => $pickupMetrics['eta_seconds'],
+                    'status' => RideOffer::STATUS_PENDING, 'expires_at' => now()->addSeconds($ride->offer_expiry_seconds)]
             );
             if ($ride->status === RideRequest::STATUS_SEARCHING) {
                 $ride->update(['status' => RideRequest::STATUS_NEGOTIATING]);
@@ -153,13 +168,13 @@ class CaptainRideController extends Controller
         }
 
         $messages = [
-            RideRequest::STATUS_CAPTAIN_ARRIVING => ['Captain is on the way', 'Your Captain is travelling to the pickup point.'],
-            RideRequest::STATUS_ARRIVED => ['Captain has arrived', 'Your Captain has arrived. Please meet at the pickup point.'],
-            RideRequest::STATUS_IN_PROGRESS => ['Ride started', 'Your Trip PIN was verified and the ride has started.'],
-            RideRequest::STATUS_COMPLETED => ['Ride completed', 'Your ride has been completed.'],
+            RideRequest::STATUS_CAPTAIN_ARRIVING => ['Captain is on the way', 'captain_arriving'],
+            RideRequest::STATUS_ARRIVED => ['Captain has arrived', 'captain_arrived'],
+            RideRequest::STATUS_IN_PROGRESS => ['Ride started', 'ride_started'],
+            RideRequest::STATUS_COMPLETED => ['Ride completed', 'ride_completed'],
         ];
-        [$title, $description] = $messages[$result['ride']->status];
-        $this->notificationService->customer($result['ride'], $title, $description);
+        [$title, $event] = $messages[$result['ride']->status];
+        $this->notificationService->event($result['ride'], $event);
         $this->realtimeService->status($result['ride']);
 
         return response()->json(['message' => $title.'.', 'ride' => $this->tripData($result['ride'])]);
@@ -205,7 +220,7 @@ class CaptainRideController extends Controller
             return $this->error('ride', 'An in-progress or completed ride cannot be cancelled.');
         }
 
-        $this->notificationService->customer($ride, 'Ride cancelled', 'The Captain cancelled this ride. You can request another ride.');
+        $this->notificationService->event($ride, 'captain_cancelled');
         $this->realtimeService->status($ride);
 
         return response()->json(['message' => 'Ride cancelled.', 'ride' => $this->tripData($ride)]);
@@ -231,6 +246,9 @@ class CaptainRideController extends Controller
 
     private function requestData(RideRequest $ride): array
     {
+        $pickupDistance = is_numeric($ride->getAttribute('pickup_distance_meters')) ? (int) round($ride->getAttribute('pickup_distance_meters')) : null;
+        $pickupEta = $pickupDistance === null ? null : (int) ceil($pickupDistance / ($this->eligibilityService->pickupEtaSpeedKmh() * 1000 / 3600));
+
         return [
             'id' => (int) $ride->id, 'request_number' => $ride->request_number, 'status' => $ride->status,
             'category' => $ride->category ? ['id' => (int) $ride->category->id, 'name' => $ride->category->name] : null,
@@ -240,6 +258,8 @@ class CaptainRideController extends Controller
             'suggested_fare' => (float) $ride->suggested_fare, 'customer_offer' => (float) $ride->customer_offer,
             'minimum_negotiated_fare' => (float) $ride->minimum_negotiated_fare, 'maximum_negotiated_fare' => (float) $ride->maximum_negotiated_fare,
             'offer_expiry_seconds' => (int) $ride->offer_expiry_seconds,
+            'pickup_distance_meters' => $pickupDistance,
+            'pickup_eta_seconds' => $pickupEta,
         ];
     }
 
@@ -253,6 +273,7 @@ class CaptainRideController extends Controller
             'charged_waiting_minutes' => (int) $ride->charged_waiting_minutes,
             'waiting_charge_amount' => (float) $ride->waiting_charge_amount,
             'cancellation_charge_amount' => (float) $ride->cancellation_charge_amount,
+            'previous_cancellation_due_amount' => (float) $ride->carried_cancellation_due_amount,
             'cancelled_by' => $ride->cancelled_by,
             'cancellation_reason' => $ride->cancellation_reason,
             'payment_status' => $ride->payment_status,
@@ -275,7 +296,9 @@ class CaptainRideController extends Controller
 
     private function offerData(RideOffer $offer): array
     {
-        return ['id' => (int) $offer->id, 'ride_request_id' => (int) $offer->ride_request_id, 'amount' => (float) $offer->amount, 'status' => $offer->status, 'expires_at' => $offer->expires_at->toIso8601String()];
+        return ['id' => (int) $offer->id, 'ride_request_id' => (int) $offer->ride_request_id, 'amount' => (float) $offer->amount,
+            'pickup_distance_meters' => $offer->pickup_distance_meters, 'pickup_eta_seconds' => $offer->pickup_eta_seconds,
+            'status' => $offer->status, 'expires_at' => $offer->expires_at->toIso8601String()];
     }
 
     private function error(string $code, string $message)

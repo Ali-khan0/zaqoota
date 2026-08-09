@@ -268,3 +268,10 @@ Captain app:
 - `database/migrations/2026_08_09_000003_add_trip_lifecycle_to_ride_requests.php`
 - `tests/Unit/RideTripStateMachineTest.php`
 - `tests/Unit/RideFareCalculatorTest.php`
+# Cancellation notifications
+
+Cancellation messages are actor-specific. A passenger cancellation notifies the assigned Captain with the passenger's reason and whether cancellation compensation is due. A Captain cancellation notifies the passenger with the reason and confirms that no cancellation charge applies. An admin cancellation records `cancelled_by=admin`, requires a reason, charges neither party, and notifies both passenger and assigned Captain. All three flows publish `ride.status.updated`; REST `cancelled_by`, `cancellation_reason`, `cancellation_charge_amount`, and `payment_status` remain authoritative.
+
+Ride messages for both passengers and Captains are stored in the existing `user_notifications` feed as well as sent through Firebase when a token is available. Captain Ride notifications therefore appear through the existing delivery-man notifications endpoint after reconnecting or missing a push.
+
+All Ride lifecycle titles, bodies, Push toggles and In-App toggles are managed under `/admin/ride-hailing/notification-settings`. Templates are condition-specific and support only these server-rendered placeholders: `{rideNumber}`, `{passengerName}`, `{captainName}`, `{reason}`, `{cancellationCharge}`, `{pickupAddress}`, `{finalFare}`, and `{captainEarning}`. Mobile apps must display the rendered payload and must not attempt template substitution.

@@ -4,6 +4,9 @@ namespace App\Services;
 
 use App\Models\DeliveryHistory;
 use App\Models\DeliveryMan;
+use App\Models\DeliveryManWallet;
+use App\Models\DeliveryManWalletLedger;
+use App\Models\Expense;
 use App\Models\RideOffer;
 use App\Models\RideRequest;
 use App\Models\RideStatusHistory;
@@ -57,6 +60,10 @@ class RideTripService
             }
 
             $ride->update($updates);
+            if ($toStatus === RideRequest::STATUS_COMPLETED) {
+                $carriedDue = RideRequest::query()->where('recovery_ride_id', $ride->id)->whereNull('cancellation_recovered_at')->sum('cancellation_charge_amount');
+                $ride->update(['carried_cancellation_due_amount' => round((float) $carriedDue, 2), ...$this->settlementCalculator->calculate($ride)]);
+            }
             $this->history($ride, $fromStatus, $toStatus, 'captain', $captain->id, null, [
                 'charged_waiting_minutes' => $ride->charged_waiting_minutes,
                 'waiting_charge_amount' => $ride->waiting_charge_amount,
@@ -98,8 +105,33 @@ class RideTripService
             ...$financials,
         ]);
         $this->couponService->release($ride);
+        RideRequest::query()->where('recovery_ride_id', $ride->id)->whereNull('cancellation_recovered_at')->update(['recovery_ride_id' => null]);
+        if ($ride->carried_cancellation_due_amount > 0) {
+            $ride->update(['carried_cancellation_due_amount' => 0]);
+        }
         RideOffer::query()->where('ride_request_id', $ride->id)->where('status', RideOffer::STATUS_PENDING)->update(['status' => RideOffer::STATUS_REJECTED]);
         $this->history($ride, $fromStatus, RideRequest::STATUS_CANCELLED, $actorType, $actorId, $reason, ['cancellation_charge_amount' => $charge]);
+
+        if ($charge > 0 && $ride->delivery_man_id && ! $ride->cancellation_compensation_paid_at) {
+            $wallet = DeliveryManWallet::query()->firstOrCreate(['delivery_man_id' => $ride->delivery_man_id]);
+            $wallet = DeliveryManWallet::query()->whereKey($wallet->id)->lockForUpdate()->firstOrFail();
+            $wallet->total_earning += $charge;
+            $wallet->save();
+            DeliveryManWalletLedger::query()->create([
+                'delivery_man_id' => $ride->delivery_man_id, 'transaction_type' => DeliveryManWalletLedger::TYPE_RIDE_CANCELLATION_ADVANCE,
+                'reference' => 'ride:'.$ride->id, 'amount' => $charge, 'direction' => DeliveryManWalletLedger::DIR_CREDIT,
+                'meta' => ['ride_request_id' => $ride->id, 'request_number' => $ride->request_number, 'funded_by' => 'admin', 'recovery_status' => 'pending'],
+            ]);
+            $expense = new Expense;
+            $expense->amount = $charge;
+            $expense->type = 'ride_cancellation_advance';
+            $expense->ride_request_id = $ride->id;
+            $expense->created_by = 'admin';
+            $expense->user_id = $ride->user_id;
+            $expense->description = 'Captain cancellation compensation advanced for '.$ride->request_number;
+            $expense->save();
+            $ride->update(['cancellation_compensation_paid_at' => now(), 'payment_status' => 'due_next_ride']);
+        }
 
         return $ride->fresh(['category', 'user', 'deliveryMan', 'rideVehicle']);
     }

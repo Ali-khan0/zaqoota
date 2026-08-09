@@ -22,6 +22,8 @@ class RideOffer extends Model
         'delivery_man_id' => 'integer',
         'ride_vehicle_id' => 'integer',
         'amount' => 'float',
+        'pickup_distance_meters' => 'integer',
+        'pickup_eta_seconds' => 'integer',
         'expires_at' => 'datetime',
     ];
 

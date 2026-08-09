@@ -12,7 +12,7 @@ class RideRealtimeService
 
     public function discovery(RideRequest $ride): void
     {
-        $channels = $this->eligibilityService->eligibleCaptains($ride->zone_id, $ride->ride_category_id)
+        $channels = $this->eligibilityService->eligibleCaptainsForRide($ride)
             ->map(fn ($captain) => "ride.captain.{$captain->id}")
             ->all();
         if ($channels === []) {
@@ -38,6 +38,8 @@ class RideRealtimeService
                 'offer' => [
                     'id' => (int) $offer->id,
                     'amount' => (float) $offer->amount,
+                    'pickup_distance_meters' => $offer->pickup_distance_meters,
+                    'pickup_eta_seconds' => $offer->pickup_eta_seconds,
                     'status' => $offer->status,
                     'expires_at' => $offer->expires_at?->toIso8601String(),
                     'captain_id' => (int) $offer->delivery_man_id,

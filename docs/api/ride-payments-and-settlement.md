@@ -75,8 +75,9 @@ GET /ride-hailing/customer/rides/{ride_id}/payment-summary
 }
 ```
 
-Payment can begin only for a completed Ride or a cancelled Ride with a positive
-customer cancellation charge.
+Payment begins only after the current Ride is completed. A previous cancellation
+charge is carried into that Ride automatically and cannot be paid against the
+cancelled Ride directly.
 
 ### Outstanding Cancellation Dues
 
@@ -92,19 +93,46 @@ GET /ride-hailing/customer/payment-due
       "id": 42,
       "request_number": "ZQR-0000042",
       "cancellation_charge": 100,
-      "wallet_paid_amount": 20,
-      "amount_due": 80,
-      "payment_status": "partially_paid",
+      "wallet_paid_amount": 0,
+      "amount_due": 100,
+      "payment_status": "unpaid",
+      "recovery_ride_id": 51,
+      "recovery_method": "next_ride",
       "cancelled_at": "2026-08-09T10:30:00+05:00"
     }
   ]
 }
 ```
 
-Call this during Ride entry/startup. `POST /ride-hailing/customer/rides`
-returns HTTP 403 with error code `ride_payment_due` and the oldest
-`outstanding_ride` when a cancellation due remains. Open that Ride's payment
-screen instead of creating a new request.
+Call this during Ride entry/startup to explain any amount that will be added to
+the passenger's next Ride. It does not block booking. Fare estimates expose
+`previous_cancellation_due_amount` and `estimated_total_with_previous_due`.
+The created Ride and its payment summary expose
+`previous_cancellation_due_amount`/`previous_cancellation_due`. Coupons never
+discount this carried amount.
+
+When the passenger cancellation is chargeable, Zaqoota immediately credits the
+cancelled Ride's Captain and records an admin-funded advance. The next Ride
+reserves all unrecovered cancellation advances. If that Ride is cancelled, the
+reservation is released to a later Ride. Once the recovery Ride is completed
+and paid, the advances are marked recovered. The new Captain's earnings and
+platform commission exclude the carried amount.
+
+The cancelled source Ride uses `payment_status=due_next_ride` after Zaqoota
+advances the Captain compensation. After the recovery Ride is paid, it changes
+to `payment_status=recovered` with `payment_method=next_ride`.
+
+## Repeat-cancellation restriction
+
+The first chargeable cancellation may roll into the next Ride. Once the
+passenger has made two chargeable cancellations, any unrecovered cancellation
+balance blocks new Ride creation. `payment-due` then returns
+`booking_blocked=true`, `online_payment_required=true`, and
+`recovery_method=online_payment` for each due Ride. The app must pay every item
+through the existing payment endpoint with `payment_method=digital`; cash,
+wallet and wallet-partial payment are rejected for these dues. After all listed
+payments succeed, booking is unlocked. Direct recovery never credits the old
+Captain again because Zaqoota already advanced that earning.
 
 ### Pay Fully From Customer Wallet
 
@@ -239,8 +267,8 @@ No fleet-manager Ride commission is posted because its policy is not defined.
 
 Customer app:
 
-1. Check `payment-due` when entering Ride Hailing.
-2. Show accepted fare, waiting/cancellation, wallet paid, and remaining due.
+1. Check `payment-due` when entering Ride Hailing and explain that it will be collected with the next Ride.
+2. Show accepted fare, waiting, previous cancellation due, coupon, wallet paid, and remaining due as separate lines.
 3. Offer wallet only when `wallet_enabled`.
 4. Offer split payment only when the partial flags permit the remainder method.
 5. For cash, show `Waiting for Captain confirmation` while pending.
@@ -249,7 +277,7 @@ Customer app:
 
 Captain app:
 
-1. Collect `remaining_payment_amount` for cash.
+1. Collect `remaining_payment_amount` for cash and show `previous_cancellation_due_amount` as an admin recovery, not Captain earning.
 2. Require an explicit `Cash received` confirmation.
 3. Disable repeat confirmation while in flight and refresh wallet after success.
 
@@ -266,7 +294,7 @@ Errors use the existing HTTP 403 envelope:
 - Wallet balance is locked and debited by the backend.
 - Payment and settlement use row locks.
 - Repeated callbacks cannot repost wallet balances.
-- A positive cancellation due blocks new Ride creation until settled.
+- A positive cancellation due is server-reserved against the next Ride and cannot be removed or discounted by the client.
 
 ## Backend Files
 

@@ -129,6 +129,7 @@ class RidePaymentService
             }
             $this->assertPayable($ride);
             $financials = $this->calculator->calculate($ride);
+            $isCancellationRecovery = $ride->status === RideRequest::STATUS_CANCELLED && $ride->cancellation_compensation_paid_at;
 
             if ($payment->status !== RidePayment::STATUS_PAID) {
                 $payment->update([
@@ -163,19 +164,21 @@ class RidePaymentService
             $digitalPayment = $paidPayments->where('payment_method', 'digital')->last();
             $reference = 'ride:'.$ride->id;
 
-            $wallet = DeliveryManWallet::query()->firstOrCreate(['delivery_man_id' => $ride->delivery_man_id]);
-            $wallet = DeliveryManWallet::query()->whereKey($wallet->id)->lockForUpdate()->firstOrFail();
-            $wallet->total_earning += $financials['captain_total_earning_amount'];
-            $wallet->collected_cash += $cashPaid;
-            $wallet->save();
+            if (! $isCancellationRecovery) {
+                $wallet = DeliveryManWallet::query()->firstOrCreate(['delivery_man_id' => $ride->delivery_man_id]);
+                $wallet = DeliveryManWallet::query()->whereKey($wallet->id)->lockForUpdate()->firstOrFail();
+                $wallet->total_earning += $financials['captain_total_earning_amount'];
+                $wallet->collected_cash += $cashPaid;
+                $wallet->save();
 
-            $grossCaptainBase = round($financials['captain_total_earning_amount'] + $financials['platform_commission_amount'], 2);
-            $this->ledger($ride, DeliveryManWalletLedger::TYPE_RIDE_EARNING, $reference, $grossCaptainBase, DeliveryManWalletLedger::DIR_CREDIT, $financials);
-            if ($financials['platform_commission_amount'] > 0) {
-                $this->ledger($ride, DeliveryManWalletLedger::TYPE_RIDE_PLATFORM_COMMISSION, $reference, $financials['platform_commission_amount'], DeliveryManWalletLedger::DIR_DEBIT, $financials);
-            }
-            if ($cashPaid > 0) {
-                $this->ledger($ride, DeliveryManWalletLedger::TYPE_RIDE_CASH_COLLECTION, $reference, $cashPaid, DeliveryManWalletLedger::DIR_DEBIT, $financials);
+                $grossCaptainBase = round($financials['captain_total_earning_amount'] + $financials['platform_commission_amount'], 2);
+                $this->ledger($ride, DeliveryManWalletLedger::TYPE_RIDE_EARNING, $reference, $grossCaptainBase, DeliveryManWalletLedger::DIR_CREDIT, $financials);
+                if ($financials['platform_commission_amount'] > 0) {
+                    $this->ledger($ride, DeliveryManWalletLedger::TYPE_RIDE_PLATFORM_COMMISSION, $reference, $financials['platform_commission_amount'], DeliveryManWalletLedger::DIR_DEBIT, $financials);
+                }
+                if ($cashPaid > 0) {
+                    $this->ledger($ride, DeliveryManWalletLedger::TYPE_RIDE_CASH_COLLECTION, $reference, $cashPaid, DeliveryManWalletLedger::DIR_DEBIT, $financials);
+                }
             }
 
             $admin = Admin::query()->where('role_id', 1)->first();
@@ -187,7 +190,7 @@ class RidePaymentService
                 $adminWallet->save();
             }
 
-            if ($ride->admin_coupon_expense_amount > 0) {
+            if (! $isCancellationRecovery && $ride->admin_coupon_expense_amount > 0) {
                 $expense = new Expense;
                 $expense->amount = $ride->admin_coupon_expense_amount;
                 $expense->type = 'ride_coupon_discount';
@@ -202,7 +205,7 @@ class RidePaymentService
 
             $ride->update([
                 ...$financials,
-                'payment_status' => 'paid',
+                'payment_status' => $isCancellationRecovery ? 'recovered' : 'paid',
                 'payment_method' => $method,
                 'payment_gateway' => $digitalPayment?->payment_gateway,
                 'payment_transaction_reference' => $digitalPayment?->transaction_reference ?: $payment->transaction_reference,
@@ -210,17 +213,45 @@ class RidePaymentService
                 'receipt_number' => 'ZQR-R-'.str_pad((string) $ride->id, 7, '0', STR_PAD_LEFT),
                 'paid_at' => now(),
                 'settled_at' => now(),
+                'cancellation_recovered_at' => $isCancellationRecovery ? now() : $ride->cancellation_recovered_at,
             ]);
+            if ($isCancellationRecovery) {
+                $recovery = new Expense;
+                $recovery->amount = -$ride->cancellation_charge_amount;
+                $recovery->type = 'ride_cancellation_recovery';
+                $recovery->ride_request_id = $ride->id;
+                $recovery->created_by = 'admin';
+                $recovery->user_id = $ride->user_id;
+                $recovery->description = 'Cancellation advance recovered directly for '.$ride->request_number;
+                $recovery->save();
+            }
+            $recoveredCancellations = RideRequest::query()->where('recovery_ride_id', $ride->id)->whereNull('cancellation_recovered_at')->lockForUpdate()->get();
+            if ($recoveredCancellations->isNotEmpty()) {
+                $recovery = new Expense;
+                $recovery->amount = -round((float) $recoveredCancellations->sum('cancellation_charge_amount'), 2);
+                $recovery->type = 'ride_cancellation_recovery';
+                $recovery->ride_request_id = $ride->id;
+                $recovery->created_by = 'admin';
+                $recovery->user_id = $ride->user_id;
+                $recovery->description = 'Cancellation advances recovered through '.$ride->request_number;
+                $recovery->save();
+                RideRequest::query()->whereKey($recoveredCancellations->pluck('id'))->update([
+                    'cancellation_recovered_at' => now(), 'payment_status' => 'recovered',
+                    'payment_method' => 'next_ride', 'paid_at' => now(), 'settled_at' => now(),
+                ]);
+            }
 
-            return ['ride' => $ride->fresh(['user', 'deliveryMan', 'rideVehicle', 'category']), 'newly_settled' => true];
+            return ['ride' => $ride->fresh(['user', 'deliveryMan', 'rideVehicle', 'category']), 'newly_settled' => true, 'cancellation_recovery' => $isCancellationRecovery];
         });
 
         if (! $result) {
             return null;
         }
         if ($result['newly_settled']) {
-            $this->notificationService->customer($result['ride'], 'Ride payment received', 'Your ride payment was confirmed and the receipt is ready.');
-            $this->notificationService->captain($result['ride'], 'Ride earning posted', 'Your ride earning has been added to your wallet.');
+            $this->notificationService->event($result['ride'], 'payment_received');
+            if (! ($result['cancellation_recovery'] ?? false)) {
+                $this->notificationService->event($result['ride'], 'earning_posted');
+            }
             $this->realtimeService->payment($result['ride']);
         }
 
@@ -363,7 +394,7 @@ class RidePaymentService
     private function assertPayable(RideRequest $ride): void
     {
         $payable = $ride->status === RideRequest::STATUS_COMPLETED
-            || ($ride->status === RideRequest::STATUS_CANCELLED && $ride->cancellation_charge_amount > 0);
+            || ($ride->status === RideRequest::STATUS_CANCELLED && $ride->cancellation_charge_amount > 0 && $ride->cancellation_compensation_paid_at && ! $ride->cancellation_recovered_at);
         if (! $payable) {
             throw new RuntimeException('This ride is not ready for payment.');
         }

@@ -210,10 +210,21 @@ components. Captain `collected_cash` increases only by the actual cash
 remainder, and admin `digital_received` increases only by the online remainder.
 Economic settlement waits until paid components equal the full payable amount.
 
-A customer cancellation after Captain selection creates an unpaid Ride
-receivable rather than a negative customer-wallet balance. The customer can
-discover it through `GET api/v1/ride-hailing/customer/payment-due` and must pay
-all such cancellation dues before creating another Ride request.
+A chargeable customer cancellation immediately credits the original Captain
+from Zaqoota and records an admin `ride_cancellation_advance` expense and
+Captain ledger entry. The customer receivable is exposed by
+`GET api/v1/ride-hailing/customer/payment-due`, reserved on the next Ride, and
+added as `carried_cancellation_due_amount` when that Ride completes. It never
+increases the new Captain's earning or platform commission and coupons cannot
+discount it. Cancelling the recovery Ride releases its source dues; successful
+payment marks them recovered and records an offsetting
+`ride_cancellation_recovery` accounting row.
+
+After a passenger reaches two lifetime chargeable Ride cancellations, any
+unrecovered cancellation advance blocks new booking and must be paid directly
+through an online gateway. The existing Ride payment endpoint accepts digital
+payment only for each cancelled source Ride. Direct recovery posts no second
+Captain earning; once all dues are recovered, booking is unlocked.
 
 ## Ride coupons
 
@@ -255,6 +266,20 @@ integer-cents arithmetic for estimates, negotiation bounds, and final accepted
 fare commission snapshots. Customer fare quotes are encrypted, customer-bound,
 and valid for five minutes.
 
+Captain discovery is pickup-distance aware. It uses each Captain's existing
+latest `delivery_histories` coordinate, excludes requests outside the
+admin-configured `ride_hailing_maximum_pickup_radius_km`, and returns available
+requests nearest-first with `pickup_distance_meters` and
+`pickup_eta_seconds`. ETA uses `ride_hailing_pickup_eta_speed_kmh` only for
+display and never affects fare. Realtime creation events are refresh signals;
+the REST list is authoritative and the offer write path repeats the radius
+check.
+
+Offer submission snapshots pickup distance/ETA in `ride_offers`. Passenger
+offer lists sort these snapshots nearest-first and expose them in REST and
+realtime payloads, so the customer app can compare proximity with fare and
+rating without trusting client-calculated distance.
+
 Customer APIs live under `/api/v1/ride-hailing/customer` with Passport auth.
 Captain discovery/offers live under `/api/v1/delivery-man` with `dm.api`.
 Captain discovery is polling-based in this milestone. Eligibility is rechecked
@@ -287,6 +312,21 @@ now reduce latency, while API polling remains authoritative during reconnects.
 See `docs/api/ride-trip-lifecycle.md` and `docs/api/ride-realtime.md`.
 
 ## Payment and settlement milestone
+
+Admin Ride details include a pre-start cancellation action with a required
+reason. Admin cancellation records `cancelled_by=admin`, charges neither party,
+notifies the passenger and assigned Captain, and appears prominently in Ride
+operations. Passenger and Captain cancellations use different notification
+wording, include the recorded reason, and explicitly describe whether a
+cancellation charge/compensation applies.
+
+Ride lifecycle message templates live in the `BusinessSetting` JSON key
+`ride_hailing_notification_templates` and are managed at
+`admin/ride-hailing/notification-settings`. Each condition has a fixed
+passenger or Captain audience, editable title/body, and independent Push and
+In-App toggles. `RideNotificationService` is the only renderer/delivery entry
+point; controllers send event keys rather than hardcoded user-facing text.
+
 
 Completed rides are payable at accepted fare plus waiting. Zaqoota commission
 remains the accepted-fare commission snapshot; waiting goes entirely to the

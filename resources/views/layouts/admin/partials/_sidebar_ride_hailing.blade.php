@@ -63,6 +63,7 @@
                             </span>
                         </a>
                     </li>
+                    <li class="navbar-vertical-aside-has-menu {{ Request::is('admin/ride-hailing/notification-settings*') ? 'active' : '' }}"><a class="js-navbar-vertical-aside-menu-link nav-link" href="{{ route('admin.ride-hailing.notification-settings.index') }}" title="{{ translate('messages.Notification Messages') }}"><i class="tio-message nav-icon"></i><span class="navbar-vertical-aside-mini-mode-hidden-elements text-truncate">{{ translate('messages.Notification Messages') }}</span></a></li>
                     <li class="nav-item py-5"></li>
                     @includeIf('layouts.admin.partials._logout_modal')
                 </ul>

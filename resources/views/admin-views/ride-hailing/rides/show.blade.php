@@ -22,6 +22,15 @@
 
     @include('admin-views.ride-hailing.partials.alerts')
 
+    @if($ride->status === 'cancelled')
+        @php
+            $cancelActor = match($ride->cancelled_by) { 'customer' => translate('messages.Passenger'), 'captain' => translate('messages.Captain'), 'admin' => translate('messages.Zaqoota Admin'), default => ucfirst((string)$ride->cancelled_by) };
+        @endphp
+        <div class="alert alert-soft-danger mb-3">
+            <div class="d-flex"><i class="tio-clear-circle mr-3 mt-1"></i><div><h5 class="mb-1">{{ translate('messages.Ride Cancelled by') }} {{ $cancelActor }}</h5><p class="mb-1">{{ $ride->cancellation_reason ?: translate('messages.No cancellation reason was provided.') }}</p><small>{{ translate('messages.Cancellation Charge') }}: <strong>{{ \App\CentralLogics\Helpers::format_currency($ride->cancellation_charge_amount) }}</strong> · {{ translate('messages.Payment Status') }}: <strong>{{ ucfirst(str_replace('_', ' ', $ride->payment_status)) }}</strong></small></div></div>
+        </div>
+    @endif
+
     <div class="row g-3">
         <div class="col-lg-8">
             <div class="card mb-3"><div class="card-header"><h5 class="card-title"><i class="tio-map mr-2"></i>{{ translate('messages.Route Details') }}</h5></div><div class="card-body">
@@ -49,6 +58,14 @@
         </div>
 
         <div class="col-lg-4">
+            @if($ride->status !== 'cancelled' && $ride->status !== 'completed' && $ride->status !== 'in_progress')
+            <div class="card mb-3"><div class="card-header"><h5 class="card-title"><i class="tio-clear-circle mr-2 text-danger"></i>{{ translate('messages.Cancel Ride') }}</h5></div><div class="card-body">
+                <form action="{{ route('admin.ride-hailing.rides.cancel', $ride) }}" method="POST" onsubmit="return confirm('{{ translate('messages.Cancel this Ride and notify the passenger and Captain?') }}')">@csrf
+                    <div class="form-group"><label class="input-label">{{ translate('messages.Cancellation Reason') }}</label><textarea name="reason" maxlength="500" rows="3" class="form-control" required>{{ old('reason') }}</textarea>@error('reason')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
+                    <button class="btn btn-outline-danger btn-block"><i class="tio-clear-circle mr-1"></i>{{ translate('messages.Cancel Ride') }}</button>
+                </form>
+            </div></div>
+            @endif
             @if(in_array($ride->status, ['searching', 'negotiating'], true))
             <div class="card mb-3"><div class="card-header"><h5 class="card-title"><i class="tio-account-circle mr-2"></i>{{ translate('messages.Assign Captain') }}</h5></div><div class="card-body">
                 <form action="{{ route('admin.ride-hailing.rides.assign', $ride) }}" method="POST">@csrf
@@ -72,7 +89,7 @@
             </div></div>
 
             <div class="card"><div class="card-header"><h5 class="card-title">{{ translate('messages.Fare and Payment') }}</h5></div><div class="card-body">
-                @foreach ([['Customer Offer', $ride->customer_offer], ['Accepted Fare', $ride->final_accepted_fare], ['Waiting Charge', $ride->waiting_charge_amount], ['Cancellation Charge', $ride->cancellation_charge_amount], ['Coupon Discount', $ride->coupon_discount_amount], ['Final Payable', $ride->final_payable_amount], ['Wallet Paid', $ride->wallet_paid_amount], ['Remaining Due', $ride->payment_status === 'paid' ? 0 : max(0, (float) $ride->final_payable_amount - (float) $ride->wallet_paid_amount)], ['Zaqoota Commission', $ride->platform_commission_amount], ['Captain Earning', $ride->captain_total_earning_amount]] as [$label, $amount])
+                @foreach ([['Customer Offer', $ride->customer_offer], ['Accepted Fare', $ride->final_accepted_fare], ['Waiting Charge', $ride->waiting_charge_amount], ['Cancellation Charge', $ride->cancellation_charge_amount], ['Previous Cancellation Due', $ride->carried_cancellation_due_amount], ['Coupon Discount', $ride->coupon_discount_amount], ['Final Payable', $ride->final_payable_amount], ['Wallet Paid', $ride->wallet_paid_amount], ['Remaining Due', $ride->payment_status === 'paid' ? 0 : max(0, (float) $ride->final_payable_amount - (float) $ride->wallet_paid_amount)], ['Zaqoota Commission', $ride->platform_commission_amount], ['Captain Earning', $ride->captain_total_earning_amount]] as [$label, $amount])
                     <div class="d-flex justify-content-between mb-2"><span class="text-muted">{{ translate('messages.'.$label) }}</span><strong>{{ $amount === null ? '-' : \App\CentralLogics\Helpers::format_currency($amount) }}</strong></div>
                 @endforeach
                 <hr><div class="d-flex justify-content-between"><span>{{ translate('messages.Payment Status') }}</span><span class="badge badge-soft-{{ $ride->payment_status === 'paid' ? 'success' : 'warning' }}">{{ ucfirst(str_replace('_', ' ', $ride->payment_status)) }}</span></div>@if($ride->receipt_number)<div class="d-flex justify-content-between mt-2"><span class="text-muted">{{ translate('messages.Receipt') }}</span><strong>{{ $ride->receipt_number }}</strong></div>@endif

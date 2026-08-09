@@ -16,10 +16,29 @@ class RideSettlementCalculatorTest extends TestCase
             'waiting_charge_amount' => 20,
             'platform_commission_amount' => 75,
             'coupon_discount_amount' => 100,
+            'carried_cancellation_due_amount' => 0,
         ], true);
 
         self::assertSame([
             'final_payable_amount' => 420.0,
+            'platform_commission_amount' => 75.0,
+            'captain_total_earning_amount' => 445.0,
+        ], (new RideSettlementCalculator)->calculate($ride));
+    }
+
+    public function test_previous_cancellation_due_is_added_to_customer_payable_but_not_captain_earning_or_commission(): void
+    {
+        $ride = (new RideRequest)->setRawAttributes([
+            'status' => RideRequest::STATUS_COMPLETED,
+            'final_accepted_fare' => 500,
+            'waiting_charge_amount' => 20,
+            'platform_commission_amount' => 75,
+            'coupon_discount_amount' => 100,
+            'carried_cancellation_due_amount' => 80,
+        ], true);
+
+        self::assertSame([
+            'final_payable_amount' => 500.0,
             'platform_commission_amount' => 75.0,
             'captain_total_earning_amount' => 445.0,
         ], (new RideSettlementCalculator)->calculate($ride));

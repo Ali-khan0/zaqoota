@@ -807,11 +807,13 @@ cash remainder; online payments reuse the generic gateway layer through
 `ride_payment_success`/`ride_payment_fail`. `RidePaymentService` posts Captain
 and admin wallets and dedicated Ride ledger rows exactly once after all
 components are paid under locked `settled_at` idempotency. A chargeable customer
-cancellation remains a Ride receivable, is discoverable at
-`GET api/v1/ride-hailing/customer/payment-due`, and blocks a new Ride request
-until settled; customer wallets never become negative debt. Zaqoota commission
-remains based only on the accepted fare, while waiting and customer
-cancellation charges go entirely to the Captain. Fleet-manager Ride commission,
+cancellation immediately credits the original Captain from Zaqoota, remains a
+customer receivable discoverable at
+`GET api/v1/ride-hailing/customer/payment-due`, and is automatically reserved
+and collected with the passenger's next completed Ride. Cancelling that
+recovery Ride releases the receivable to a later Ride. Coupons, the new
+Captain's earning and Zaqoota commission exclude the carried amount; customer
+wallets never become negative debt. Fleet-manager Ride commission,
 refunds and PDF receipts are not implemented. See
 `docs/api/ride-payments-and-settlement.md`.
 
@@ -856,6 +858,30 @@ zone/category-scoped banners and the last 30 days of zone-scoped notification
 history under `/api/v1/ride-hailing/customer`. Firebase promotion messages use
 the existing customer zone topics and `type=ride_promotion`; mobile behavior is
 defined in `docs/api/ride-promotions.md`.
+
+Ride request discovery is personalized by the Captain's latest
+`delivery_histories` coordinate. `RideCaptainEligibilityService` owns the
+maximum pickup radius and ETA-speed settings, realtime discovery excludes
+Captains outside that radius, and the Captain request list is nearest-first.
+The offer endpoint repeats the distance check. Mobile fields and refresh
+behavior are documented in `docs/api/ride-hailing-rider-app-integration.md`.
+Offer submission also snapshots pickup distance and ETA; passenger offer lists
+return those offers nearest-first so both mobile apps share the same priority.
+
+Ride cancellation notifications are actor-specific. Passenger, Captain and
+admin cancellation all persist the reason and publish realtime status; admin
+cancellation is available from Ride Operations and notifies both sides without
+a charge. `RideNotificationService` persists both customer and Captain Ride
+messages in `user_notifications` before attempting Firebase delivery.
+Conditional Ride message templates are stored in the BusinessSetting key
+`ride_hailing_notification_templates` and managed under the Ride Configuration
+sidebar. Controllers emit stable event keys through `RideNotificationService`;
+the service renders controlled placeholders and applies per-event Push/In-App
+toggles for the fixed passenger or Captain audience.
+Passengers with two lifetime chargeable cancellations are blocked from new
+Ride creation while any cancellation advance remains unrecovered. Those source
+Ride dues accept digital gateway payment only; settlement records admin
+recovery without reposting Captain earnings.
 
 Riders are freelancer-only. Registration APIs and landing/admin/vendor create
 or update paths set `delivery_men.earning = 1` server-side and do not accept a
