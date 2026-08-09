@@ -87,6 +87,7 @@ Route::group(['namespace' => 'Api\V1', 'middleware'=>'localization'], function (
         Route::get('notifications', 'RidePromotionController@notifications');
         Route::post('broadcasting/auth', 'RideBroadcastController@customerAuth')->middleware('throttle:60,1');
         Route::post('fare-estimate', 'CustomerRideController@estimate');
+        Route::post('fare-estimates', 'CustomerRideController@estimates');
         Route::post('coupons/validate', 'CustomerRideController@validateCoupon');
         Route::post('rides', 'CustomerRideController@store');
         Route::get('rides', 'CustomerRideController@index');
@@ -94,7 +95,10 @@ Route::group(['namespace' => 'Api\V1', 'middleware'=>'localization'], function (
         Route::delete('rides/{ride_id}', 'CustomerRideController@cancel');
         Route::get('rides/{ride_id}/offers', 'CustomerRideController@offers');
         Route::put('rides/{ride_id}/coupon', 'CustomerRideController@updateCoupon');
+        Route::put('rides/{ride_id}/customer-offer', 'CustomerRideController@updateCustomerOffer')->middleware('throttle:12,1');
+        Route::delete('rides/{ride_id}/offers/{offer_id}', 'CustomerRideController@rejectOffer')->middleware('throttle:30,1');
         Route::post('rides/{ride_id}/offers/{offer_id}/accept', 'CustomerRideController@acceptOffer');
+        Route::get('nearby-availability', 'CustomerRideController@nearbyAvailability')->middleware('throttle:30,1');
         Route::get('payment-due', 'CustomerRideController@paymentDue');
         Route::get('rides/{ride_id}/payment-summary', 'CustomerRideController@paymentSummary');
         Route::post('rides/{ride_id}/payments', 'CustomerRideController@createPayment');

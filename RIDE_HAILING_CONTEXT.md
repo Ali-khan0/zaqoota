@@ -291,6 +291,14 @@ Captains can account for pickup travel in their bounded offer until formal
 pickup-distance settlement is introduced with the trip lifecycle.
 The complete contract is `docs/api/ride-booking-and-bidding.md`.
 
+The customer-app extension adds an always-advertised config capability object,
+admin-controlled booking/rebid/rejection/nearby settings, vehicle/category
+images, one-route batch estimates, transactional opening-price updates,
+individual offer rejection and aggregate nearby availability. Customer-rejected
+offers are final for that Captain. Realtime and Firebase are refresh hints and
+never contain Trip PIN. Nearby markers are rounded and identity-free. See
+`docs/ap/ride-customer-app-integration.md`.
+
 ## Trip lifecycle milestone
 
 Assigned rides advance only through `rider_selected`, `captain_arriving`,

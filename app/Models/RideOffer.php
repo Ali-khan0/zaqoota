@@ -25,6 +25,7 @@ class RideOffer extends Model
         'pickup_distance_meters' => 'integer',
         'pickup_eta_seconds' => 'integer',
         'expires_at' => 'datetime',
+        'rejected_at' => 'datetime',
     ];
 
     public function rideRequest(): BelongsTo

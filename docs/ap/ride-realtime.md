@@ -220,3 +220,14 @@ REST expiry checks remain correct without the worker.
 - `app/Services/RidePaymentService.php`
 - `app/Http/Controllers/Api/V1/ConfigController.php`
 - `tests/Unit/RideRealtimeEventTest.php`
+## Customer negotiation events
+
+- `.ride.request.updated` is sent to currently eligible Captain account
+  channels after the passenger changes the opening price. It is a REST refresh
+  hint and includes the authoritative Ride summary.
+- `.ride.offer.updated` is sent to the customer and affected Captain after an
+  individual customer rejection. Its offer object includes `id`, `status`,
+  `rejected_by`, and `rejected_at`.
+- Firebase `ride_request_updated`, `ride_offer_rejected`, and
+  `ride_offer_accepted` include `ride_id`; offer events also include
+  `offer_id`. None of these payloads contains Trip PIN.

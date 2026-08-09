@@ -340,3 +340,24 @@ It does not confirm that the device displayed or the Captain read it.
 Push submission is handled by the retryable `SendRideRequestPush` queue job.
 Production must use a durable non-sync queue connection with a supervised
 worker; the in-app notification record is still created immediately.
+## Customer app capability extension
+
+The additive customer-app contract is finalized in
+`ride-customer-app-integration.md`. New authenticated endpoints are:
+
+- `POST /api/v1/ride-hailing/customer/fare-estimates`: one Google route and
+  category-bound encrypted quotes for every active fare category in the pickup
+  zone.
+- `PUT /api/v1/ride-hailing/customer/rides/{ride_id}/customer-offer`: update
+  the opening price under ownership, state, quote-expiry, bounds, lock and
+  configured cooldown checks.
+- `DELETE /api/v1/ride-hailing/customer/rides/{ride_id}/offers/{offer_id}`:
+  idempotently reject one pending offer without affecting the Ride or other
+  offers. A customer-rejected Captain cannot offer again on that Ride.
+- `GET /api/v1/ride-hailing/customer/nearby-availability`: optional,
+  throttled counts/ETA and rounded anonymous markers. It never returns Captain
+  identity or exact position.
+
+`GET /api/v1/config` advertises all capability toggles. New estimates and
+booking are rejected with `code=ride_hailing` when customer Ride booking is
+disabled, while existing Ride/history/payment APIs remain available.

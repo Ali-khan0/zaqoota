@@ -69,6 +69,8 @@ class RideRequest extends Model
         'platform_commission_amount' => 'float',
         'rider_earning_amount' => 'float',
         'offer_expiry_seconds' => 'integer',
+        'quote_expires_at' => 'datetime',
+        'customer_offer_updated_at' => 'datetime',
         'trip_pin' => 'encrypted',
         'selected_at' => 'datetime',
         'captain_arriving_at' => 'datetime',

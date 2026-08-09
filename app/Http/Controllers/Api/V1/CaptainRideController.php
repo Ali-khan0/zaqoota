@@ -52,8 +52,11 @@ class CaptainRideController extends Controller
             ->whereIn('status', [RideRequest::STATUS_SEARCHING, RideRequest::STATUS_NEGOTIATING])
             ->whereDoesntHave('offers', fn ($query) => $query
                 ->where('delivery_man_id', $captain->id)
-                ->whereIn('status', [RideOffer::STATUS_PENDING, RideOffer::STATUS_ACCEPTED])
-                ->where('expires_at', '>', now()))
+                ->where(fn ($offer) => $offer
+                    ->where('rejected_by', 'customer')
+                    ->orWhere(fn ($active) => $active
+                        ->whereIn('status', [RideOffer::STATUS_PENDING, RideOffer::STATUS_ACCEPTED])
+                        ->where('expires_at', '>', now()))))
             ->whereRaw("$distanceSql <= ?", [...$distanceBindings, $this->eligibilityService->maximumPickupRadiusMeters()])
             ->orderBy('pickup_distance_meters')->oldest('created_at')->paginate(max(1, min($request->integer('limit', 20), 50)));
         $rides->getCollection()->transform(fn ($ride) => $this->requestData($ride));
@@ -90,6 +93,9 @@ class CaptainRideController extends Controller
             $existing = RideOffer::query()->where('ride_request_id', $ride->id)->where('delivery_man_id', $captain->id)->lockForUpdate()->first();
             if ($existing && $existing->status === RideOffer::STATUS_ACCEPTED) {
                 return ['error' => 'This offer has already been accepted.'];
+            }
+            if ($existing && $existing->status === RideOffer::STATUS_REJECTED && $existing->rejected_by === 'customer') {
+                return ['error' => 'The passenger rejected your offer for this Ride. You cannot submit another offer.'];
             }
             $offer = RideOffer::query()->updateOrCreate(
                 ['ride_request_id' => $ride->id, 'delivery_man_id' => $captain->id],
@@ -298,7 +304,8 @@ class CaptainRideController extends Controller
     {
         return ['id' => (int) $offer->id, 'ride_request_id' => (int) $offer->ride_request_id, 'amount' => (float) $offer->amount,
             'pickup_distance_meters' => $offer->pickup_distance_meters, 'pickup_eta_seconds' => $offer->pickup_eta_seconds,
-            'status' => $offer->status, 'expires_at' => $offer->expires_at->toIso8601String()];
+            'status' => $offer->status, 'expires_at' => $offer->expires_at->toIso8601String(),
+            'rejected_by' => $offer->rejected_by, 'rejected_at' => $offer->rejected_at?->toIso8601String()];
     }
 
     private function error(string $code, string $message)

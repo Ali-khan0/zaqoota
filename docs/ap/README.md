@@ -29,6 +29,8 @@ applications.
 | Ride arrival, Trip PIN, waiting, location and completion | [ride-trip-lifecycle.md](ride-trip-lifecycle.md) | Trip lifecycle milestone implemented |
 | Ride cash/online/customer-wallet payment, partial payment, cancellation dues, settlement and receipts | [ride-payments-and-settlement.md](ride-payments-and-settlement.md) | Payment milestone implemented |
 | Private Ride channels, events, reconnect and polling fallback | [ride-realtime.md](ride-realtime.md) | Realtime milestone implemented |
+| Complete customer Ride capability, estimate, bidding, lifecycle and payment handoff | [ride-customer-app-integration.md](ride-customer-app-integration.md) | Backend implemented |
+| Customer Ride backend delivery checklist | [ride-customer-backend-implementation-steps.md](ride-customer-backend-implementation-steps.md) | Implementation complete; deployment pending |
 
 ## Common conventions
 

@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Admin\RideHailing;
 
 use App\Http\Controllers\Controller;
 use App\Models\BusinessSetting;
+use App\Models\RideSettingAudit;
+use App\Services\RideCustomerSettingService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -17,6 +19,14 @@ class RideHailingSettingController extends Controller
         'support_phone' => 'ride_hailing_support_phone',
         'maximum_pickup_radius_km' => 'ride_hailing_maximum_pickup_radius_km',
         'pickup_eta_speed_kmh' => 'ride_hailing_pickup_eta_speed_kmh',
+        'customer_enabled' => 'ride_hailing_customer_enabled',
+        'customer_rebid_enabled' => 'ride_hailing_customer_rebid_enabled',
+        'offer_rejection_enabled' => 'ride_hailing_customer_offer_rejection_enabled',
+        'customer_rebid_cooldown_seconds' => 'ride_hailing_customer_rebid_cooldown_seconds',
+        'nearby_availability_enabled' => 'ride_hailing_nearby_availability_enabled',
+        'nearby_marker_precision' => 'ride_hailing_nearby_marker_precision',
+        'nearby_marker_limit' => 'ride_hailing_nearby_marker_limit',
+        'nearby_refresh_seconds' => 'ride_hailing_nearby_refresh_seconds',
     ];
 
     public function index(): View
@@ -32,9 +42,12 @@ class RideHailingSettingController extends Controller
             'support_phone' => $stored->get(self::KEYS['support_phone']),
             'maximum_pickup_radius_km' => $stored->get(self::KEYS['maximum_pickup_radius_km'], 25),
             'pickup_eta_speed_kmh' => $stored->get(self::KEYS['pickup_eta_speed_kmh'], 25),
+            ...(app(RideCustomerSettingService::class)->all()),
         ];
 
-        return view('admin-views.ride-hailing.settings', compact('settings'));
+        $settingAudits = RideSettingAudit::query()->latest('id')->limit(20)->get();
+
+        return view('admin-views.ride-hailing.settings', compact('settings', 'settingAudits'));
     }
 
     public function update(Request $request): RedirectResponse
@@ -46,13 +59,36 @@ class RideHailingSettingController extends Controller
             'support_phone' => ['nullable', 'string', 'max:30'],
             'maximum_pickup_radius_km' => ['required', 'numeric', 'min:1', 'max:200'],
             'pickup_eta_speed_kmh' => ['required', 'numeric', 'min:5', 'max:120'],
+            'customer_enabled' => ['nullable', 'boolean'],
+            'customer_rebid_enabled' => ['nullable', 'boolean'],
+            'offer_rejection_enabled' => ['nullable', 'boolean'],
+            'customer_rebid_cooldown_seconds' => ['required', 'integer', 'min:5', 'max:300'],
+            'nearby_availability_enabled' => ['nullable', 'boolean'],
+            'nearby_marker_precision' => ['required', 'integer', 'min:1', 'max:3'],
+            'nearby_marker_limit' => ['required', 'integer', 'min:0', 'max:20'],
+            'nearby_refresh_seconds' => ['required', 'integer', 'min:10', 'max:300'],
         ]);
 
+        foreach (['customer_enabled', 'customer_rebid_enabled', 'offer_rejection_enabled', 'nearby_availability_enabled'] as $field) {
+            $validated[$field] = $request->boolean($field) ? '1' : '0';
+        }
+
         foreach (self::KEYS as $field => $key) {
-            BusinessSetting::updateOrCreate(
-                ['key' => $key],
-                ['value' => filled($validated[$field] ?? null) ? trim($validated[$field]) : null]
-            );
+            $newValue = filled($validated[$field] ?? null) ? trim((string) $validated[$field]) : null;
+            $setting = BusinessSetting::query()->firstOrNew(['key' => $key]);
+            $oldValue = $setting->exists ? $setting->value : null;
+            if ((string) $oldValue === (string) $newValue) {
+                continue;
+            }
+            $setting->value = $newValue;
+            $setting->save();
+            RideSettingAudit::query()->create([
+                'admin_id' => auth('admin')->id(),
+                'setting_key' => $key,
+                'old_value' => $oldValue,
+                'new_value' => $newValue,
+                'ip_address' => $request->ip(),
+            ]);
         }
 
         return back()->with('success', translate('messages.Ride hailing setup updated successfully.'));

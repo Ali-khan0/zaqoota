@@ -474,3 +474,18 @@ this file for shared account, work-mode, and vehicle behavior.
 Scheduled rides, route-deviation handling, ratings, safety, chat, complaints,
 refunds/disputes, and detailed Ride earnings history still require separate
 backend/API specifications. Do not invent those workflows locally.
+## 16. Customer negotiation refresh additions
+
+The Captain app must also recognize these refresh hints:
+
+- Firebase `type=ride_request_updated` and realtime `.ride.request.updated`:
+  fetch the authoritative nearby Ride request list and show the new
+  `customer_offer`. The payload contains `ride_id` and never contains Trip PIN.
+- Firebase `type=ride_offer_rejected` and realtime `.ride.offer.updated`:
+  refresh offer history. A customer-rejected offer is final and the API will
+  reject another offer from that Captain for the same Ride.
+- Firebase `type=ride_offer_accepted`: fetch the assigned Ride by `ride_id`
+  and open the current-Ride workflow. The payload also contains `offer_id`.
+
+No new API client or channel is required. Continue using the existing Captain
+account channel, notification navigation and REST fallback.

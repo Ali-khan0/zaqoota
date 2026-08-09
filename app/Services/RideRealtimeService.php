@@ -27,6 +27,35 @@ class RideRealtimeService
         );
     }
 
+    public function requestUpdated(RideRequest $ride, Collection $captains): void
+    {
+        $captainChannels = $captains->map(fn ($captain) => "ride.captain.{$captain->id}")->all();
+        if ($captainChannels !== []) {
+            $this->send($captainChannels, 'ride.request.updated', ['ride' => $this->rideSummary($ride)]);
+        }
+        $this->send(["ride.customer.{$ride->user_id}"], 'ride.status.updated', [
+            'ride_id' => (int) $ride->id,
+            'status' => $ride->status,
+            'customer_offer' => (float) $ride->customer_offer,
+            'updated_at' => $ride->updated_at?->toIso8601String(),
+        ]);
+    }
+
+    public function offerRejected(RideOffer $offer): void
+    {
+        $ride = $offer->rideRequest;
+        $this->send(["ride.customer.{$ride->user_id}", "ride.captain.{$offer->delivery_man_id}"], 'ride.offer.updated', [
+            'ride_id' => (int) $ride->id,
+            'status' => $ride->status,
+            'offer' => [
+                'id' => (int) $offer->id,
+                'status' => $offer->status,
+                'rejected_by' => $offer->rejected_by,
+                'rejected_at' => $offer->rejected_at?->toIso8601String(),
+            ],
+        ]);
+    }
+
     public function offer(RideOffer $offer): void
     {
         $ride = $offer->rideRequest;

@@ -23,10 +23,12 @@ class RideHailingController extends Controller
                 'id' => (int) $type->id,
                 'name' => $type->name,
                 'slug' => $type->slug,
+                'image_url' => $type->image_url,
                 'categories' => $type->categories->map(fn ($category) => [
                     'id' => (int) $category->id,
                     'name' => $category->name,
                     'slug' => $category->slug,
+                    'image_url' => $category->image_url,
                     'required_fuel_type' => $category->fuel_type,
                     'passenger_capacity' => (int) $category->passenger_capacity,
                 ])->values(),

@@ -1290,6 +1290,8 @@ class Helpers
         $module_id = $data['module_id'] ?? '';
         $order_id = $data['order_id'] ?? '';
         $trip_id = $data['trip_id'] ?? '';
+        $ride_id = $data['ride_id'] ?? $trip_id;
+        $offer_id = $data['offer_id'] ?? '';
         $order_type = $data['order_type'] ?? '';
         $data_id = $data['data_id'] ?? '';
         $status = $data['status'] ?? '';
@@ -1304,6 +1306,8 @@ class Helpers
                     "image" => (string)$data['image'],
                     "order_id" => (string)$order_id,
                     "trip_id" => (string)$trip_id,
+                    "ride_id" => (string)$ride_id,
+                    "offer_id" => (string)$offer_id,
                     "status" => (string)$status,
                     "type" => (string)$data['type'],
                     "data_id" => (string)$data_id,

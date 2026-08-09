@@ -24,7 +24,7 @@
     <div class="alert alert-soft-info mb-3">
         <strong>{{ translate('messages.Available Variables') }}:</strong>
         <code>{rideNumber}</code> <code>{passengerName}</code> <code>{captainName}</code> <code>{reason}</code>
-        <code>{cancellationCharge}</code> <code>{pickupAddress}</code> <code>{finalFare}</code> <code>{captainEarning}</code>
+        <code>{cancellationCharge}</code> <code>{pickupAddress}</code> <code>{finalFare}</code> <code>{captainEarning}</code> <code>{customerOffer}</code>
     </div>
 
     <form method="POST" action="{{ route('admin.ride-hailing.notification-settings.update') }}">

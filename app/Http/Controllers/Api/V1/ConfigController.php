@@ -391,6 +391,19 @@ if (addon_published_status('TaxModule')) {
                 'trip_channel' => 'ride.trip.{ride_id}',
                 'fallback_poll_seconds' => 10,
             ],
+            'ride_hailing' => (function () {
+                $capabilities = app(\App\Services\RideCustomerSettingService::class)->all();
+                $moduleEnabled = \App\Models\Module::query()->where('module_type', 'ride_hailing')->where('status', 1)->exists();
+
+                return [
+                    'customer_enabled' => $moduleEnabled && $capabilities['customer_enabled'],
+                    'nearby_availability_enabled' => $capabilities['nearby_availability_enabled'],
+                    'customer_rebid_enabled' => $capabilities['customer_rebid_enabled'],
+                    'offer_rejection_enabled' => $capabilities['offer_rejection_enabled'],
+                    'customer_rebid_cooldown_seconds' => $capabilities['customer_rebid_cooldown_seconds'],
+                    'nearby_refresh_seconds' => $capabilities['nearby_refresh_seconds'],
+                ];
+            })(),
             'guest_checkout_status' => (int)(isset($settings['guest_checkout_status']) ? $settings['guest_checkout_status'] : 0),
             'disbursement_type' => (string)(isset($settings['disbursement_type']) ? $settings['disbursement_type'] : 'manual'),
             'restaurant_disbursement_waiting_time' => (int)(isset($settings['restaurant_disbursement_waiting_time']) ? $settings['restaurant_disbursement_waiting_time'] : 0),

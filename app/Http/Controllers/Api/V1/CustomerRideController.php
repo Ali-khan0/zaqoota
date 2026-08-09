@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Models\Zone;
 use App\Services\RideCaptainEligibilityService;
 use App\Services\RideCouponService;
+use App\Services\RideCustomerSettingService;
 use App\Services\RideFareCalculator;
 use App\Services\RideNotificationService;
 use App\Services\RidePaymentService;
@@ -37,6 +38,7 @@ class CustomerRideController extends Controller
         private readonly RidePaymentService $paymentService,
         private readonly RideRealtimeService $realtimeService,
         private readonly RideCouponService $couponService,
+        private readonly RideCustomerSettingService $customerSettings,
     ) {}
 
     public function validateCoupon(Request $request)
@@ -66,6 +68,9 @@ class CustomerRideController extends Controller
 
     public function estimate(Request $request)
     {
+        if (! $this->customerBookingEnabled()) {
+            return $this->error('ride_hailing', 'Customer Ride booking is currently unavailable.');
+        }
         $validator = Validator::make($request->all(), [
             'ride_category_id' => 'required|integer|exists:ride_categories,id',
             'pickup_latitude' => 'required|numeric|between:-90,90',
@@ -147,7 +152,7 @@ class CustomerRideController extends Controller
             'quote_token' => Crypt::encryptString(json_encode($quote, JSON_THROW_ON_ERROR)),
             'quote_expires_at' => now()->addMinutes(5)->toIso8601String(),
             'zone' => ['id' => (int) $zone->id, 'name' => $zone->name],
-            'category' => ['id' => (int) $category->id, 'name' => $category->name],
+            'category' => ['id' => (int) $category->id, 'name' => $category->name, 'image_url' => $category->image_url, 'passenger_capacity' => (int) $category->passenger_capacity],
             'distance_meters' => $route['distance_meters'],
             'duration_seconds' => $route['duration_seconds'],
             'route_polyline' => $route['route_polyline'],
@@ -157,8 +162,75 @@ class CustomerRideController extends Controller
         ]);
     }
 
+    public function estimates(Request $request)
+    {
+        if (! $this->customerBookingEnabled()) {
+            return $this->error('ride_hailing', 'Customer Ride booking is currently unavailable.');
+        }
+        $validator = Validator::make($request->all(), [
+            'pickup_latitude' => 'required|numeric|between:-90,90',
+            'pickup_longitude' => 'required|numeric|between:-180,180',
+            'destination_latitude' => 'required|numeric|between:-90,90',
+            'destination_longitude' => 'required|numeric|between:-180,180',
+        ]);
+        if ($validator->fails()) {
+            return response()->json(['errors' => Helpers::error_processor($validator)], 403);
+        }
+
+        $rideModuleId = Module::query()->where('module_type', 'ride_hailing')->where('status', 1)->value('id');
+        $zone = $rideModuleId ? Zone::query()->where('status', 1)
+            ->whereHas('modules', fn ($query) => $query->where('modules.id', $rideModuleId))
+            ->whereContains('coordinates', new Point((float) $request->pickup_latitude, (float) $request->pickup_longitude, POINT_SRID))
+            ->first() : null;
+        if (! $zone) {
+            return $this->error('pickup_location', 'Ride Hailing is not available at this pickup location.');
+        }
+        try {
+            $route = $this->routeService->calculate(
+                (float) $request->pickup_latitude,
+                (float) $request->pickup_longitude,
+                (float) $request->destination_latitude,
+                (float) $request->destination_longitude,
+            );
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return response()->json(['errors' => [['code' => 'route', 'message' => 'A driving route could not be calculated. Please try again.']]], 503);
+        }
+
+        $fares = RideFare::query()->where('zone_id', $zone->id)->where('status', true)
+            ->whereHas('category', fn ($query) => $query->where('status', true))
+            ->with('category')->get();
+        $expiresAt = now()->addMinutes(5);
+        $previousDue = $this->previousCancellationDue((int) $request->user()->id);
+        $estimates = $fares->map(function (RideFare $fare) use ($request, $route, $zone, $expiresAt, $previousDue) {
+            $calculation = $this->fareCalculator->calculate($fare, $route['distance_meters'], $route['duration_seconds']);
+            $quote = $this->quoteData($request, $zone, $fare->category, $fare, $route, $calculation, $expiresAt, $previousDue);
+
+            return [
+                'category' => ['id' => (int) $fare->category->id, 'name' => $fare->category->name, 'slug' => $fare->category->slug, 'image_url' => $fare->category->image_url, 'passenger_capacity' => (int) $fare->category->passenger_capacity],
+                'quote_token' => Crypt::encryptString(json_encode($quote, JSON_THROW_ON_ERROR)),
+                'quote_expires_at' => $expiresAt->toIso8601String(),
+                ...$calculation,
+                'free_waiting_minutes' => (int) $fare->free_waiting_minutes,
+                'waiting_charge_per_minute' => (float) $fare->waiting_charge_per_minute,
+            ];
+        })->values();
+
+        return response()->json([
+            'zone' => ['id' => (int) $zone->id, 'name' => $zone->name],
+            'distance_meters' => $route['distance_meters'],
+            'duration_seconds' => $route['duration_seconds'],
+            'route_polyline' => $route['route_polyline'],
+            'estimates' => $estimates,
+        ]);
+    }
+
     public function store(Request $request)
     {
+        if (! $this->customerBookingEnabled()) {
+            return $this->error('ride_hailing', 'Customer Ride booking is currently unavailable.');
+        }
         $validator = Validator::make($request->all(), [
             'quote_token' => 'required|string',
             'pickup_address' => 'required|string|max:500',
@@ -243,6 +315,7 @@ class CustomerRideController extends Controller
                 'maximum_negotiated_fare' => $quote['maximum_negotiated_fare'],
                 'customer_offer' => $customerOffer,
                 'offer_expiry_seconds' => $quote['offer_expiry_seconds'],
+                'quote_expires_at' => \Carbon\Carbon::createFromTimestamp((int) $quote['expires_at']),
                 'carried_cancellation_due_amount' => round((float) $outstandingCancellations->sum('cancellation_charge_amount'), 2),
             ]);
             if ($outstandingCancellations->isNotEmpty()) {
@@ -338,6 +411,142 @@ class CustomerRideController extends Controller
         }
 
         return response()->json(['message' => $ride->coupon_code ? 'Ride coupon updated.' : 'Ride coupon removed.', 'ride' => $this->rideData($ride)]);
+    }
+
+    public function updateCustomerOffer(Request $request, int $rideId)
+    {
+        if (! $this->customerSettings->enabled('customer_rebid_enabled')) {
+            return $this->error('action', 'Customer price updates are currently disabled.');
+        }
+        $validator = Validator::make($request->all(), ['customer_offer' => 'required|numeric|min:0']);
+        if ($validator->fails()) {
+            return response()->json(['errors' => Helpers::error_processor($validator)], 403);
+        }
+        $cooldown = $this->customerSettings->all()['customer_rebid_cooldown_seconds'];
+        $result = DB::transaction(function () use ($request, $rideId, $cooldown) {
+            $ride = PassengerRide::query()->where('user_id', $request->user()->id)->lockForUpdate()->findOrFail($rideId);
+            if (! in_array($ride->status, [PassengerRide::STATUS_SEARCHING, PassengerRide::STATUS_NEGOTIATING], true)) {
+                return ['error' => 'This Ride no longer accepts customer price updates.', 'code' => 'ride'];
+            }
+            if ($ride->quote_expires_at?->isPast()) {
+                return ['error' => 'The original fare quote has expired. Create a new Ride request.', 'code' => 'customer_offer'];
+            }
+            if ($ride->customer_offer_updated_at && $ride->customer_offer_updated_at->gt(now()->subSeconds($cooldown))) {
+                return ['error' => "Wait {$cooldown} seconds between price updates.", 'code' => 'action'];
+            }
+            $amount = round((float) $request->customer_offer, 2);
+            if ($amount < $ride->minimum_negotiated_fare || $amount > $ride->maximum_negotiated_fare) {
+                return ['error' => 'The customer offer must be inside the allowed negotiation range.', 'code' => 'customer_offer'];
+            }
+            $ride->update([
+                'customer_offer' => $amount,
+                'customer_offer_updated_at' => now(),
+                'status' => PassengerRide::STATUS_NEGOTIATING,
+            ]);
+
+            return ['ride' => $ride->fresh(['category'])];
+        });
+        if (isset($result['error'])) {
+            return $this->error($result['code'], $result['error']);
+        }
+
+        $captains = $this->eligibilityService->eligibleCaptainsForRide($result['ride']);
+        $this->realtimeService->requestUpdated($result['ride'], $captains);
+        $this->notificationService->captainsEvent(
+            $result['ride'],
+            'customer_offer_updated',
+            $captains,
+            'ride_request_updated',
+            'customer_offer_updated:'.$result['ride']->customer_offer_updated_at->timestamp,
+        );
+
+        return response()->json(['message' => 'Ride offer updated.', 'ride' => $this->rideData($result['ride'])]);
+    }
+
+    public function rejectOffer(Request $request, int $rideId, int $offerId)
+    {
+        if (! $this->customerSettings->enabled('offer_rejection_enabled')) {
+            return $this->error('action', 'Individual offer rejection is currently disabled.');
+        }
+        $result = DB::transaction(function () use ($request, $rideId, $offerId) {
+            $ride = PassengerRide::query()->where('user_id', $request->user()->id)->lockForUpdate()->findOrFail($rideId);
+            if (! in_array($ride->status, [PassengerRide::STATUS_SEARCHING, PassengerRide::STATUS_NEGOTIATING], true)) {
+                return ['error' => 'This Ride is no longer accepting offer changes.'];
+            }
+            $offer = RideOffer::query()->where('ride_request_id', $ride->id)->lockForUpdate()->findOrFail($offerId);
+            if ($offer->status === RideOffer::STATUS_REJECTED && $offer->rejected_by === 'customer') {
+                return ['offer' => $offer->fresh('rideRequest'), 'changed' => false];
+            }
+            if ($offer->status !== RideOffer::STATUS_PENDING || $offer->expires_at->isPast()) {
+                return ['error' => 'Only a pending, unexpired Captain offer can be rejected.'];
+            }
+            $offer->update(['status' => RideOffer::STATUS_REJECTED, 'rejected_by' => 'customer', 'rejected_at' => now()]);
+
+            return ['offer' => $offer->fresh(['rideRequest', 'deliveryMan']), 'changed' => true];
+        });
+        if (isset($result['error'])) {
+            return $this->error('offer', $result['error']);
+        }
+        if ($result['changed']) {
+            $this->realtimeService->offerRejected($result['offer']);
+            $this->notificationService->offerRejected($result['offer']->rideRequest, $result['offer']);
+        }
+
+        return response()->json(['message' => 'Captain offer rejected.', 'offer' => [
+            'id' => (int) $result['offer']->id,
+            'status' => $result['offer']->status,
+            'rejected_by' => $result['offer']->rejected_by,
+            'rejected_at' => $result['offer']->rejected_at?->toIso8601String(),
+        ]]);
+    }
+
+    public function nearbyAvailability(Request $request)
+    {
+        if (! $this->customerSettings->enabled('nearby_availability_enabled')) {
+            return $this->error('ride_hailing', 'Nearby Captain availability is currently disabled.');
+        }
+        $validator = Validator::make($request->all(), [
+            'zone_id' => 'required|integer|exists:zones,id',
+            'ride_category_id' => 'required|integer|exists:ride_categories,id',
+            'latitude' => 'required|numeric|between:-90,90',
+            'longitude' => 'required|numeric|between:-180,180',
+        ]);
+        if ($validator->fails()) {
+            return response()->json(['errors' => Helpers::error_processor($validator)], 403);
+        }
+        $available = RideFare::query()->where('zone_id', $request->integer('zone_id'))
+            ->where('ride_category_id', $request->integer('ride_category_id'))->where('status', true)
+            ->whereHas('zone.modules', fn ($query) => $query->where('module_type', 'ride_hailing')->where('modules.status', 1))
+            ->whereHas('category', fn ($query) => $query->where('status', true))->exists();
+        if (! $available) {
+            return $this->error('ride_category_id', 'This Ride category is unavailable in the selected zone.');
+        }
+        $probe = new PassengerRide([
+            'zone_id' => $request->integer('zone_id'),
+            'ride_category_id' => $request->integer('ride_category_id'),
+            'pickup_latitude' => (float) $request->latitude,
+            'pickup_longitude' => (float) $request->longitude,
+        ]);
+        $captains = $this->eligibilityService->eligibleCaptainsForRide($probe, 100);
+        $settings = $this->customerSettings->all();
+        $precision = $settings['nearby_marker_precision'];
+        $markers = $captains->take($settings['nearby_marker_limit'])->map(function ($captain) use ($precision) {
+            $location = $captain->last_location()->first();
+            if (! $location) {
+                return null;
+            }
+
+            return ['latitude' => round((float) $location->latitude, $precision), 'longitude' => round((float) $location->longitude, $precision)];
+        })->filter()->unique(fn ($marker) => $marker['latitude'].':'.$marker['longitude'])->values();
+        $etas = $captains->pluck('pickup_eta_seconds')->filter()->map(fn ($seconds) => max(1, (int) ceil($seconds / 60)));
+
+        return response()->json([
+            'available_count' => $captains->count(),
+            'estimated_pickup_minutes' => ['minimum' => $etas->min(), 'maximum' => $etas->max()],
+            'approximate_markers' => $markers,
+            'generated_at' => now()->toIso8601String(),
+            'refresh_after_seconds' => $settings['nearby_refresh_seconds'],
+        ]);
     }
 
     public function acceptOffer(Request $request, int $rideId, int $offerId)
@@ -567,7 +776,7 @@ class CustomerRideController extends Controller
     {
         return [
             'id' => (int) $ride->id, 'request_number' => $ride->request_number, 'status' => $ride->status,
-            'category' => $ride->category ? ['id' => (int) $ride->category->id, 'name' => $ride->category->name] : null,
+            'category' => $ride->category ? ['id' => (int) $ride->category->id, 'name' => $ride->category->name, 'image_url' => $ride->category->image_url, 'passenger_capacity' => (int) $ride->category->passenger_capacity] : null,
             'pickup' => ['address' => $ride->pickup_address, 'latitude' => (float) $ride->pickup_latitude, 'longitude' => (float) $ride->pickup_longitude],
             'destination' => ['address' => $ride->destination_address, 'latitude' => (float) $ride->destination_latitude, 'longitude' => (float) $ride->destination_longitude],
             'distance_meters' => (int) $ride->distance_meters, 'duration_seconds' => (int) $ride->duration_seconds,
@@ -648,6 +857,47 @@ class CustomerRideController extends Controller
             'transaction_reference' => $payment->transaction_reference,
             'created_at' => $payment->created_at?->toIso8601String(),
             'paid_at' => $payment->paid_at?->toIso8601String(),
+        ];
+    }
+
+    private function customerBookingEnabled(): bool
+    {
+        return $this->customerSettings->enabled('customer_enabled')
+            && Module::query()->where('module_type', 'ride_hailing')->where('status', 1)->exists();
+    }
+
+    private function previousCancellationDue(int $userId): float
+    {
+        return round((float) PassengerRide::query()->where('user_id', $userId)
+            ->where('status', PassengerRide::STATUS_CANCELLED)
+            ->whereNotNull('cancellation_compensation_paid_at')->whereNull('cancellation_recovered_at')
+            ->sum('cancellation_charge_amount'), 2);
+    }
+
+    private function quoteData(Request $request, Zone $zone, RideCategory $category, RideFare $fare, array $route, array $calculation, \Carbon\CarbonInterface $expiresAt, float $previousDue): array
+    {
+        return [
+            'user_id' => (int) $request->user()->id,
+            'expires_at' => $expiresAt->timestamp,
+            'zone_id' => (int) $zone->id,
+            'ride_category_id' => (int) $category->id,
+            'ride_fare_id' => (int) $fare->id,
+            'pickup_latitude' => (float) $request->pickup_latitude,
+            'pickup_longitude' => (float) $request->pickup_longitude,
+            'destination_latitude' => (float) $request->destination_latitude,
+            'destination_longitude' => (float) $request->destination_longitude,
+            ...$route,
+            ...$calculation,
+            'previous_cancellation_due_amount' => $previousDue,
+            'estimated_total_with_previous_due' => round((float) $calculation['suggested_fare'] + $previousDue, 2),
+            'minimum_fare' => (float) $fare->minimum_fare,
+            'per_km_charge' => (float) $fare->per_km_charge,
+            'per_minute_charge' => (float) $fare->per_minute_charge,
+            'waiting_charge_per_minute' => (float) $fare->waiting_charge_per_minute,
+            'free_waiting_minutes' => (int) $fare->free_waiting_minutes,
+            'cancellation_charge' => (float) $fare->cancellation_charge,
+            'platform_commission_percent' => (float) $fare->platform_commission_percent,
+            'offer_expiry_seconds' => (int) $fare->offer_expiry_seconds,
         ];
     }
 

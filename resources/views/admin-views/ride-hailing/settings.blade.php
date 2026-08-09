@@ -69,10 +69,38 @@
                     </div>
                 </div>
             </div>
+            <div class="card mt-3">
+                <div class="card-header"><h5 class="card-title">{{ translate('messages.Customer Ride Capabilities') }}</h5></div>
+                <div class="card-body">
+                    <div class="row">
+                        @foreach ([
+                            ['customer_enabled', 'Customer Ride Booking', 'Show Ride in the customer app and permit new estimates and bookings.'],
+                            ['customer_rebid_enabled', 'Customer Price Updates', 'Allow passengers to update their opening price before Captain selection.'],
+                            ['offer_rejection_enabled', 'Individual Offer Rejection', 'Allow passengers to reject one pending Captain offer.'],
+                            ['nearby_availability_enabled', 'Nearby Availability', 'Expose privacy-preserving Captain availability before booking.'],
+                        ] as [$field, $label, $help])
+                            <div class="col-lg-6 mb-3"><div class="border rounded p-3 h-100 d-flex justify-content-between align-items-start">
+                                <div class="pr-3"><strong>{{ translate('messages.'.$label) }}</strong><div class="small text-muted mt-1">{{ translate('messages.'.$help) }}</div></div>
+                                <label class="toggle-switch mb-0"><input type="checkbox" name="{{ $field }}" value="1" class="toggle-switch-input" @checked(old($field, $settings[$field]))><span class="toggle-switch-label"><span class="toggle-switch-indicator"></span></span></label>
+                            </div></div>
+                        @endforeach
+                        <div class="col-lg-6"><div class="form-group"><label class="input-label">{{ translate('messages.Price Update Cooldown') }}</label><div class="input-group"><input type="number" min="5" max="300" name="customer_rebid_cooldown_seconds" class="form-control" value="{{ old('customer_rebid_cooldown_seconds', $settings['customer_rebid_cooldown_seconds']) }}" required><div class="input-group-append"><span class="input-group-text">sec</span></div></div></div></div>
+                        <div class="col-lg-6"><div class="form-group"><label class="input-label">{{ translate('messages.Availability Refresh Time') }}</label><div class="input-group"><input type="number" min="10" max="300" name="nearby_refresh_seconds" class="form-control" value="{{ old('nearby_refresh_seconds', $settings['nearby_refresh_seconds']) }}" required><div class="input-group-append"><span class="input-group-text">sec</span></div></div></div></div>
+                        <div class="col-lg-6"><div class="form-group"><label class="input-label">{{ translate('messages.Maximum Approximate Markers') }}</label><input type="number" min="0" max="20" name="nearby_marker_limit" class="form-control" value="{{ old('nearby_marker_limit', $settings['nearby_marker_limit']) }}" required></div></div>
+                        <div class="col-lg-6"><div class="form-group"><label class="input-label">{{ translate('messages.Marker Coordinate Precision') }}</label><input type="number" min="1" max="3" name="nearby_marker_precision" class="form-control" value="{{ old('nearby_marker_precision', $settings['nearby_marker_precision']) }}" required><small class="text-muted">{{ translate('messages.Lower precision gives passengers less exact Captain positions.') }}</small></div></div>
+                    </div>
+                </div>
+            </div>
             <div class="btn--container justify-content-end mt-4">
                 <button type="reset" class="btn btn--reset">{{ translate('messages.Reset') }}</button>
                 <button type="submit" class="btn btn--primary">{{ translate('messages.Save Information') }}</button>
             </div>
         </form>
+        <div class="card mt-3">
+            <div class="card-header"><h5 class="card-title">{{ translate('messages.Recent Setting Changes') }}</h5></div>
+            <div class="table-responsive"><table class="table table-align-middle mb-0"><thead class="thead-light"><tr><th>{{ translate('messages.Setting') }}</th><th>{{ translate('messages.Previous') }}</th><th>{{ translate('messages.New') }}</th><th>{{ translate('messages.Admin') }}</th><th>{{ translate('messages.Time') }}</th></tr></thead><tbody>
+                @forelse($settingAudits as $audit)<tr><td>{{ $audit->setting_key }}</td><td>{{ $audit->old_value ?? '-' }}</td><td>{{ $audit->new_value ?? '-' }}</td><td>#{{ $audit->admin_id ?? '-' }}</td><td>{{ $audit->created_at?->format('d M Y, h:i A') }}</td></tr>@empty<tr><td colspan="5" class="text-center text-muted py-4">{{ translate('messages.No setting changes recorded yet.') }}</td></tr>@endforelse
+            </tbody></table></div>
+        </div>
     </div>
 @endsection

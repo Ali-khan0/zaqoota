@@ -90,6 +90,8 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
             Route::get('categories', [RideHailingController::class, 'categories'])->name('categories.index');
             Route::post('categories', [RideHailingController::class, 'storeCategory'])->name('categories.store');
             Route::put('categories/{category}/status', [RideHailingController::class, 'categoryStatus'])->name('categories.status');
+            Route::post('categories/{category}/image', [RideHailingController::class, 'categoryImage'])->name('categories.image');
+            Route::post('vehicle-types/{type}/image', [RideHailingController::class, 'vehicleTypeImage'])->name('vehicle-types.image');
             Route::get('vehicles', [RideHailingController::class, 'vehicles'])->name('vehicles.index');
             Route::get('vehicles/create', [RideHailingController::class, 'createVehicle'])->name('vehicles.create');
             Route::post('vehicles', [RideHailingController::class, 'storeVehicle'])->name('vehicles.store');

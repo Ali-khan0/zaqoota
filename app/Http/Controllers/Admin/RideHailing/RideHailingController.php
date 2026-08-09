@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin\RideHailing;
 
+use App\CentralLogics\Helpers;
 use App\Http\Controllers\Controller;
 use App\Models\DeliveryMan;
 use App\Models\RideCategory;
@@ -68,22 +69,59 @@ class RideHailingController extends Controller
             'name' => ['required', 'string', 'max:100'],
             'fuel_type' => ['nullable', Rule::in(RideVehicle::FUEL_TYPES)],
             'passenger_capacity' => ['required', 'integer', 'min:1', 'max:12'],
+            'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
         $slug = Str::slug($validated['name']);
         if (RideCategory::query()->where('slug', $slug)->exists()) {
             throw ValidationException::withMessages(['name' => translate('messages.This ride category already exists.')]);
         }
 
-        RideCategory::create([...$validated, 'slug' => $slug, 'status' => true]);
+        $image = isset($validated['image']) ? Helpers::upload('ride-category/', 'webp', $validated['image']) : null;
+        unset($validated['image']);
+        RideCategory::create([...$validated, 'slug' => $slug, 'image' => $image, 'image_storage' => Helpers::getDisk(), 'status' => true]);
 
         return back()->with('success', translate('messages.Ride category created successfully.'));
     }
 
     public function categoryStatus(RideCategory $category): RedirectResponse
     {
-        $category->update(['status' => !$category->status]);
+        $category->update(['status' => ! $category->status]);
 
         return back()->with('success', translate('messages.Ride category status updated.'));
+    }
+
+    public function categoryImage(Request $request, RideCategory $category): RedirectResponse
+    {
+        $this->updateImage($request, $category);
+
+        return back()->with('success', translate('messages.Ride category image updated.'));
+    }
+
+    public function vehicleTypeImage(Request $request, RideVehicleType $type): RedirectResponse
+    {
+        $this->updateImage($request, $type);
+
+        return back()->with('success', translate('messages.Vehicle type image updated.'));
+    }
+
+    private function updateImage(Request $request, RideCategory|RideVehicleType $model): void
+    {
+        $validated = $request->validate([
+            'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120', 'required_without:remove_image'],
+            'remove_image' => ['nullable', 'boolean'],
+        ]);
+        $oldImage = $model->image;
+        if ($request->boolean('remove_image')) {
+            $model->update(['image' => null, 'image_storage' => Helpers::getDisk()]);
+        } elseif ($request->hasFile('image')) {
+            $model->update([
+                'image' => Helpers::upload('ride-category/', 'webp', $validated['image']),
+                'image_storage' => Helpers::getDisk(),
+            ]);
+        }
+        if ($oldImage && $oldImage !== $model->image) {
+            Helpers::check_and_delete('ride-category/', $oldImage);
+        }
     }
 
     public function vehicles(Request $request): View
@@ -160,7 +198,7 @@ class RideHailingController extends Controller
 
         return response()->json(['results' => $riders->map(fn ($rider) => [
             'id' => $rider->id,
-            'text' => trim("{$rider->f_name} {$rider->l_name}") . " ({$rider->phone}) - {$rider->ride_vehicles_count}/2",
+            'text' => trim("{$rider->f_name} {$rider->l_name}")." ({$rider->phone}) - {$rider->ride_vehicles_count}/2",
         ])]);
     }
 
@@ -173,7 +211,7 @@ class RideHailingController extends Controller
             'fuel_type' => ['required', Rule::in(RideVehicle::FUEL_TYPES)],
             'make' => ['required', 'string', 'max:100'],
             'model' => ['required', 'string', 'max:100'],
-            'model_year' => ['nullable', 'integer', 'min:1980', 'max:' . (now()->year + 1)],
+            'model_year' => ['nullable', 'integer', 'min:1980', 'max:'.(now()->year + 1)],
             'color' => ['required', 'string', 'max:50'],
             'registration_number' => ['required', 'string', 'max:80', 'unique:ride_vehicles,registration_number'],
             'vehicle_front_image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
@@ -207,7 +245,7 @@ class RideHailingController extends Controller
                 'front_image_storage' => \App\CentralLogics\Helpers::getDisk(),
                 'back_image' => $backImage,
                 'back_image_storage' => \App\CentralLogics\Helpers::getDisk(),
-                'is_active' => $validated['status'] === 'approved' && !$hasActive,
+                'is_active' => $validated['status'] === 'approved' && ! $hasActive,
             ]);
         });
 
@@ -241,5 +279,4 @@ class RideHailingController extends Controller
 
         return back()->with('success', translate('messages.Active ride vehicle updated.'));
     }
-
 }

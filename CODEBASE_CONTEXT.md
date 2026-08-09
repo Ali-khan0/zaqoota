@@ -887,6 +887,37 @@ The notification settings page also reports whether the required Firebase
 service-account fields are configured. "Firebase accepted" is an API
 submission result, not proof that a person opened or read the notification.
 
+Customer Ride capability discovery is exposed as the always-present
+`ride_hailing` object in `/api/v1/config`. Admin settings control new customer
+booking, customer opening-price updates and cooldown, individual Captain-offer
+rejection, and privacy-preserving nearby availability. Disabling new booking
+blocks only estimates and creation; owned history, active Ride details,
+payments, dues and receipts remain accessible. Every changed Ride setting is
+recorded in `ride_setting_audits`.
+
+Vehicle types and Ride categories have optional admin-managed images stored
+under `ride-category/`; public vehicle options and customer Ride/category
+responses expose absolute `image_url` values or an empty string. The customer
+batch estimate endpoint resolves Google Routes once and produces independently
+encrypted, customer/route/zone/category-bound quotes for all active fare
+categories in the pickup zone.
+
+Passengers may update their opening price under a locked Ride and configured
+cooldown while the quote and searching/negotiating state remain valid. Existing
+Captain offers are unchanged; eligible Captains receive
+`ride_request_updated`/`.ride.request.updated` refresh hints. Passengers may
+also reject one pending offer without cancelling the Ride. The mutation is
+idempotent, audited on the offer with `rejected_by/rejected_at`, publishes
+`.ride.offer.updated`, sends `ride_offer_rejected`, and permanently prevents
+that Captain from offering again on that Ride. Notification payloads include
+`ride_id`/`offer_id` as applicable and never include Trip PIN.
+
+Optional nearby availability returns only eligible-Captain counts, ETA range
+and at most 20 rounded markers. It never exposes pre-assignment Captain IDs,
+names, phones, vehicles or exact coordinates. The complete customer handoff is
+`docs/ap/ride-customer-app-integration.md`; the Captain delta is recorded in
+`docs/ap/ride-hailing-rider-app-integration.md`.
+
 Ride cancellation notifications are actor-specific. Passenger, Captain and
 admin cancellation all persist the reason and publish realtime status; admin
 cancellation is available from Ride Operations and notifies both sides without
