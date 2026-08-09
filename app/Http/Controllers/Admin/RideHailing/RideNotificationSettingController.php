@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin\RideHailing;
 
+use App\CentralLogics\Helpers;
 use App\Http\Controllers\Controller;
 use App\Models\BusinessSetting;
 use App\Services\RideNotificationService;
@@ -13,7 +14,15 @@ class RideNotificationSettingController extends Controller
 {
     public function index(): View
     {
-        return view('admin-views.ride-hailing.notification-settings', ['templates' => RideNotificationService::templates()]);
+        $firebase = (array) Helpers::get_business_settings('push_notification_service_file_content');
+        $firebaseReady = filled($firebase['project_id'] ?? null)
+            && filled($firebase['client_email'] ?? null)
+            && filled($firebase['private_key'] ?? null);
+
+        return view('admin-views.ride-hailing.notification-settings', [
+            'templates' => RideNotificationService::templates(),
+            'firebaseReady' => $firebaseReady,
+        ]);
     }
 
     public function update(Request $request): RedirectResponse

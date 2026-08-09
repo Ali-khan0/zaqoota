@@ -147,4 +147,9 @@ class RideRequest extends Model
     {
         return $this->hasMany(RideCouponUsage::class);
     }
+
+    public function notificationDeliveries(): HasMany
+    {
+        return $this->hasMany(RideNotificationDelivery::class);
+    }
 }

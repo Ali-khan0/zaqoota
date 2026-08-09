@@ -5,14 +5,15 @@ namespace App\Services;
 use App\Events\RideRealtimeEvent;
 use App\Models\RideOffer;
 use App\Models\RideRequest;
+use Illuminate\Support\Collection;
 
 class RideRealtimeService
 {
     public function __construct(private readonly RideCaptainEligibilityService $eligibilityService) {}
 
-    public function discovery(RideRequest $ride): void
+    public function discovery(RideRequest $ride, ?Collection $captains = null): void
     {
-        $channels = $this->eligibilityService->eligibleCaptainsForRide($ride)
+        $channels = ($captains ?? $this->eligibilityService->eligibleCaptainsForRide($ride))
             ->map(fn ($captain) => "ride.captain.{$captain->id}")
             ->all();
         if ($channels === []) {

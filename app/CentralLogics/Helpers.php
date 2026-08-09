@@ -1252,8 +1252,9 @@ class Helpers
                 'Content-Type' => 'application/json',
             ];
             try {
-                Http::withHeaders($headers)->post($url, $data);
-            } catch (\Exception $exception) {
+                return Http::withHeaders($headers)->post($url, $data)->successful();
+            } catch (\Throwable $exception) {
+                report($exception);
                 return false;
             }
         }
@@ -1320,14 +1321,19 @@ class Helpers
                     "image" => (string)$data['image'],
                 ],
                 "android" => [
+                    "priority" => "high",
                     "notification" => [
                         "channelId" => '6ammart',
                     ]
                 ],
                 "apns" => [
+                    "headers" => [
+                        "apns-priority" => "10",
+                    ],
                     "payload" => [
                         "aps" => [
-                            "sound" => "notification.wav"
+                            "sound" => "notification.wav",
+                            "content-available" => 1,
                         ]
                     ]
                 ]

@@ -64,6 +64,7 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
             Route::get('rides/{ride}', [RideOperationController::class, 'show'])->name('rides.show');
             Route::post('rides/{ride}/assign', [RideOperationController::class, 'assign'])->name('rides.assign');
             Route::post('rides/{ride}/cancel', [RideOperationController::class, 'cancel'])->name('rides.cancel');
+            Route::post('rides/{ride}/retry-request-notifications', [RideOperationController::class, 'retryRequestNotifications'])->name('rides.retry-request-notifications');
             Route::get('coupons', [RideCouponController::class, 'index'])->name('coupons.index');
             Route::post('coupons', [RideCouponController::class, 'store'])->name('coupons.store');
             Route::get('coupons/{coupon}/edit', [RideCouponController::class, 'edit'])->name('coupons.edit');

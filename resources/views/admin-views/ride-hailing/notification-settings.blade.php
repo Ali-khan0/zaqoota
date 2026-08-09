@@ -11,6 +11,16 @@
 
     @include('admin-views.ride-hailing.partials.alerts')
 
+    <div class="alert {{ $firebaseReady ? 'alert-soft-success' : 'alert-soft-danger' }} mb-3">
+        <div class="d-flex align-items-start">
+            <i class="{{ $firebaseReady ? 'tio-checkmark-circle' : 'tio-warning' }} mr-2 mt-1"></i>
+            <div>
+                <strong>{{ translate($firebaseReady ? 'messages.Firebase push configuration is ready.' : 'messages.Firebase push configuration is incomplete.') }}</strong>
+                <div class="small mt-1">{{ translate($firebaseReady ? 'messages.Push messages can be submitted to Firebase. Device delivery still depends on a valid Captain token and device permissions.' : 'messages.Upload a valid Firebase service-account configuration in Push Notification settings before enabling Ride push messages.') }}</div>
+            </div>
+        </div>
+    </div>
+
     <div class="alert alert-soft-info mb-3">
         <strong>{{ translate('messages.Available Variables') }}:</strong>
         <code>{rideNumber}</code> <code>{passengerName}</code> <code>{captainName}</code> <code>{reason}</code>
@@ -25,7 +35,7 @@
                 <div class="col-xl-6 mb-3">
                     <div class="card h-100">
                         <div class="card-header d-flex justify-content-between align-items-center">
-                            <div><h5 class="card-title mb-1">{{ translate('messages.'.$template['label']) }}</h5><span class="badge badge-soft-{{ $template['audience'] === 'customer' ? 'info' : 'primary' }}">{{ translate($template['audience'] === 'customer' ? 'messages.Passenger' : 'messages.Captain') }}</span></div>
+                            <div><h5 class="card-title mb-1">{{ translate('messages.'.$template['label']) }}</h5><span class="badge badge-soft-{{ $template['audience'] === 'customer' ? 'info' : 'primary' }}">{{ translate($template['audience'] === 'customer' ? 'messages.Passenger' : ($template['audience'] === 'eligible_captains' ? 'messages.Eligible Captains' : 'messages.Captain')) }}</span></div>
                             <div class="d-flex align-items-center">
                                 <label class="toggle-switch toggle-switch-sm mb-0 mr-2" title="{{ translate('messages.Push') }}"><input type="checkbox" name="templates[{{ $key }}][push_enabled]" value="1" class="toggle-switch-input" @checked(old("templates.$key.push_enabled", $template['push_enabled']))><span class="toggle-switch-label"><span class="toggle-switch-indicator"></span></span></label><small class="mr-3">{{ translate('messages.Push') }}</small>
                                 <label class="toggle-switch toggle-switch-sm mb-0 mr-2" title="{{ translate('messages.In-App') }}"><input type="checkbox" name="templates[{{ $key }}][in_app_enabled]" value="1" class="toggle-switch-input" @checked(old("templates.$key.in_app_enabled", $template['in_app_enabled']))><span class="toggle-switch-label"><span class="toggle-switch-indicator"></span></span></label><small>{{ translate('messages.In-App') }}</small>

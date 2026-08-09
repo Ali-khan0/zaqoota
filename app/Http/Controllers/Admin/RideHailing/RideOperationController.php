@@ -95,6 +95,7 @@ class RideOperationController extends Controller
         $ride = $this->scopedQuery()->with([
             'user', 'deliveryMan', 'category', 'zone', 'rideVehicle.vehicleType',
             'offers.deliveryMan', 'offers.rideVehicle', 'statusHistories', 'payments',
+            'notificationDeliveries.deliveryMan',
         ])->findOrFail($ride->id);
         $eligibleCaptains = in_array($ride->status, [RideRequest::STATUS_SEARCHING, RideRequest::STATUS_NEGOTIATING], true)
             ? $this->eligibilityService->eligibleCaptains($ride->zone_id, $ride->ride_category_id)
@@ -102,6 +103,19 @@ class RideOperationController extends Controller
             : collect();
 
         return view('admin-views.ride-hailing.rides.show', compact('ride', 'eligibleCaptains'));
+    }
+
+    public function retryRequestNotifications(RideRequest $ride): RedirectResponse
+    {
+        $ride = $this->scopedQuery()->findOrFail($ride->id);
+        if (! in_array($ride->status, [RideRequest::STATUS_SEARCHING, RideRequest::STATUS_NEGOTIATING], true)) {
+            return back()->with('error', translate('messages.Notifications can only be retried while the Ride is awaiting a Captain.'));
+        }
+
+        $captains = $this->eligibilityService->eligibleCaptainsForRide($ride);
+        $this->notificationService->newRequest($ride, $captains);
+
+        return back()->with('success', translate('messages.Eligible Captain notifications were retried without duplicating accepted deliveries.'));
     }
 
     public function assign(Request $request, RideRequest $ride): RedirectResponse

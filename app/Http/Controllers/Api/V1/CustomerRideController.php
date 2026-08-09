@@ -270,7 +270,9 @@ class CustomerRideController extends Controller
             return $this->error('ride', 'Complete or cancel your active ride request before creating another one.');
         }
 
-        $this->realtimeService->discovery($ride);
+        $eligibleCaptains = $this->eligibilityService->eligibleCaptainsForRide($ride);
+        $this->realtimeService->discovery($ride, $eligibleCaptains);
+        $this->notificationService->newRequest($ride, $eligibleCaptains);
 
         return response()->json(['message' => 'Ride request created.', 'ride' => $this->rideData($ride)], 201);
     }

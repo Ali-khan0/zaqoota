@@ -867,6 +867,25 @@ The offer endpoint repeats the distance check. Mobile fields and refresh
 behavior are documented in `docs/api/ride-hailing-rider-app-integration.md`.
 Offer submission also snapshots pickup distance and ETA; passenger offer lists
 return those offers nearest-first so both mobile apps share the same priority.
+New Ride creation resolves eligible Captains once and shares that collection
+between realtime discovery and `RideNotificationService::newRequest`. Only
+approved, online Ride-mode Captains with the matching active vehicle, zone,
+pickup radius, and no conflicting work receive the stored/FCM
+`type=ride_request` alert. Delivery-mode order notifications are unchanged.
+Each recipient is audited in `ride_notification_deliveries`, which prevents
+duplicate in-app records and repeat delivery after Firebase has accepted a
+push. Ride Details shows recipient, accepted, failed, missing-token and in-app
+counts and permits a bounded retry only while the Ride remains unassigned. The
+retry recalculates current eligibility and does not resend accepted pushes.
+Actual Firebase submission runs through the retryable
+`SendRideRequestPush` queue job so booking latency does not grow with the
+number of eligible Captains; production therefore requires a durable queue
+connection and supervised worker. `.env.example` uses the existing database
+queue table; deployed `.env` files must explicitly set
+`QUEUE_CONNECTION=database` (or another durable driver).
+The notification settings page also reports whether the required Firebase
+service-account fields are configured. "Firebase accepted" is an API
+submission result, not proof that a person opened or read the notification.
 
 Ride cancellation notifications are actor-specific. Passenger, Captain and
 admin cancellation all persist the reason and publish realtime status; admin

@@ -4,7 +4,7 @@
 
 Available requests are personalized using the Captain's latest stored location. The backend calculates straight-line pickup distance, excludes requests beyond `ride_hailing_maximum_pickup_radius_km`, and returns the remaining requests nearest-first. Responses include `pickup_distance_meters` and `pickup_eta_seconds`; ETA uses `ride_hailing_pickup_eta_speed_kmh` and does not affect fare calculations. Captains without a stored location cannot discover or offer on passenger Rides.
 
-The realtime creation event only tells the Captain app to refresh. The REST list remains authoritative for personalized ordering and eligibility. The offer write path repeats the radius check to prevent bypassing discovery with a Ride ID.
+The realtime creation event only tells the Captain app to refresh. The same eligible Captain collection also receives a stored in-app message and Firebase `type=ride_request` push when a token is available. REST remains authoritative for personalized ordering and eligibility. The offer write path repeats the radius check to prevent bypassing discovery with a Ride ID.
 
 Pickup distance and ETA are snapshotted on every submitted offer. `GET /api/v1/ride-hailing/customer/rides/{ride_id}/offers` returns offers nearest-first and includes both fields, allowing the passenger app to show proximity beside the Captain's price and rating. `ride.offer.updated` carries the same fields; refresh the REST list after the event to preserve authoritative ordering.
 
@@ -13,7 +13,8 @@ Backend status: first booking and negotiation milestone implemented.
 This contract covers server fare estimation, customer ride requests, eligible
 Captain discovery, Captain offers, and customer offer selection. It does not
 yet cover arrival, Trip PIN, trip execution, post-selection cancellation,
-payment collection, wallet posting, live sockets, or push notifications.
+payment collection or wallet posting. Live sockets and new-request push
+discovery are implemented as latency improvements over authoritative polling.
 
 ## Authentication And Headers
 
@@ -323,3 +324,19 @@ in `ride-realtime.md`.
 - `app/Services/RideCaptainEligibilityService.php`
 - `database/migrations/2026_08_09_000002_create_ride_booking_tables.php`
 - `tests/Unit/RideFareCalculatorTest.php`
+### New Ride notification delivery audit
+
+When a request is created, the same nearest-first eligible Captain collection
+used by realtime discovery receives `type=ride_request` push and/or in-app
+notification according to the admin template toggles. Each Captain attempt is
+stored by Ride, Captain, and event. In-app records are created once, and a push
+already accepted by Firebase is never resent. Captains without an FCM token and
+failed Firebase submissions remain visible to administrators. While the Ride
+is still searching or negotiating, an administrator may retry; the server
+recalculates eligibility and attempts only recipients without an accepted push.
+
+Firebase acceptance means the Firebase API accepted the message for processing.
+It does not confirm that the device displayed or the Captain read it.
+Push submission is handled by the retryable `SendRideRequestPush` queue job.
+Production must use a durable non-sync queue connection with a supervised
+worker; the in-app notification record is still created immediately.

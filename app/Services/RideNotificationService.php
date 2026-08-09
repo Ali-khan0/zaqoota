@@ -3,15 +3,19 @@
 namespace App\Services;
 
 use App\CentralLogics\Helpers;
+use App\Jobs\SendRideRequestPush;
 use App\Models\BusinessSetting;
+use App\Models\RideNotificationDelivery;
 use App\Models\RideRequest;
 use App\Models\UserNotification;
+use Illuminate\Support\Collection;
 
 class RideNotificationService
 {
     public const SETTING_KEY = 'ride_hailing_notification_templates';
 
     public const DEFINITIONS = [
+        'ride_request_available' => ['label' => 'New Ride Request - Captain', 'audience' => 'eligible_captains', 'title' => 'New Ride request nearby', 'body' => 'A new Ride {rideNumber} is available near {pickupAddress}. Open the app to send your offer.'],
         'offer_accepted' => ['label' => 'Passenger Accepted Offer', 'audience' => 'captain', 'title' => 'Ride offer accepted', 'body' => '{passengerName} selected your offer for Ride {rideNumber}. Start travelling to {pickupAddress}.'],
         'admin_assigned_customer' => ['label' => 'Admin Assigned Captain - Passenger', 'audience' => 'customer', 'title' => 'Captain assigned', 'body' => '{captainName} has been assigned to your Ride {rideNumber}.'],
         'admin_assigned_captain' => ['label' => 'Admin Assigned Ride - Captain', 'audience' => 'captain', 'title' => 'New Ride assigned', 'body' => 'Zaqoota assigned Ride {rideNumber} to you. Start travelling to {pickupAddress}.'],
@@ -27,6 +31,60 @@ class RideNotificationService
         'payment_received' => ['label' => 'Payment Received', 'audience' => 'customer', 'title' => 'Ride payment received', 'body' => 'Your payment of {finalFare} for Ride {rideNumber} was confirmed and the receipt is ready.'],
         'earning_posted' => ['label' => 'Captain Earning Posted', 'audience' => 'captain', 'title' => 'Ride earning posted', 'body' => 'Your earning of {captainEarning} for Ride {rideNumber} has been added to your wallet.'],
     ];
+
+    public function newRequest(RideRequest $ride, Collection $captains): void
+    {
+        $definition = self::DEFINITIONS['ride_request_available'];
+        $configuration = $this->configuration()['ride_request_available'] ?? [];
+        $title = $this->render($configuration['title'] ?? $definition['title'], $ride);
+        $body = $this->render($configuration['body'] ?? $definition['body'], $ride);
+        $push = (bool) ($configuration['push_enabled'] ?? true);
+        $inApp = (bool) ($configuration['in_app_enabled'] ?? true);
+        $data = [
+            ...$this->payload($ride, $title, $body),
+            'type' => 'ride_request',
+        ];
+
+        foreach ($captains->unique('id') as $captain) {
+            $delivery = RideNotificationDelivery::query()->firstOrCreate([
+                'ride_request_id' => $ride->id,
+                'delivery_man_id' => $captain->id,
+                'event' => 'ride_request_available',
+            ]);
+
+            try {
+                if ($inApp && ! $delivery->in_app_stored) {
+                    UserNotification::query()->create([
+                        'delivery_man_id' => $captain->id,
+                        'data' => json_encode($data),
+                    ]);
+                    $delivery->in_app_stored = true;
+                }
+
+                if (! $push) {
+                    $delivery->push_status = 'disabled';
+                } elseif (! $captain->fcm_token) {
+                    $delivery->push_status = 'no_token';
+                } elseif ($delivery->push_status !== 'accepted'
+                    && ($delivery->push_status !== 'queued' || $delivery->updated_at?->lt(now()->subMinutes(5)))) {
+                    $delivery->push_status = 'queued';
+                    $delivery->last_error = null;
+                    $delivery->save();
+                    SendRideRequestPush::dispatch($delivery->id, $data);
+
+                    continue;
+                }
+                $delivery->save();
+            } catch (\Throwable $exception) {
+                $delivery->forceFill([
+                    'push_status' => 'failed',
+                    'last_error' => (string) str($exception->getMessage())->limit(1000),
+                    'last_attempted_at' => now(),
+                ])->save();
+                report($exception);
+            }
+        }
+    }
 
     private ?array $configured = null;
 

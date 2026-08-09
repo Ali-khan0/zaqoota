@@ -326,6 +326,16 @@ Ride lifecycle message templates live in the `BusinessSetting` JSON key
 passenger or Captain audience, editable title/body, and independent Push and
 In-App toggles. `RideNotificationService` is the only renderer/delivery entry
 point; controllers send event keys rather than hardcoded user-facing text.
+New-request fan-out is additionally recorded per eligible Captain in
+`ride_notification_deliveries`. The unique Ride/Captain/event key prevents
+duplicate in-app entries and repeat pushes after Firebase acceptance. Admin
+Ride Details exposes the aggregate delivery state and may retry only open
+searching/negotiating requests; retry eligibility is recalculated and accepted
+recipients are skipped. Firebase acceptance does not represent device receipt
+or message-read confirmation.
+Firebase submissions run in the retryable `SendRideRequestPush` queue job;
+production must not use the synchronous queue connection and must supervise a
+durable queue worker.
 
 
 Completed rides are payable at accepted fare plus waiting. Zaqoota commission

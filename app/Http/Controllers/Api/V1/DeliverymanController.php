@@ -243,6 +243,12 @@ class DeliverymanController extends Controller
     public function rideVehicles(Request $request)
     {
         $dm = DeliveryMan::where(['auth_token' => $request['token']])->first();
+        if (! $dm) {
+            return response()->json(['errors' => [[
+                'code' => 'token',
+                'message' => translate('messages.The token field is required.'),
+            ]]], 401);
+        }
         $vehicles = $dm->rideVehicles()->with(['vehicleType', 'category'])->orderByDesc('is_active')->get();
 
         return response()->json([
@@ -255,6 +261,12 @@ class DeliverymanController extends Controller
 
     public function storeRideVehicle(Request $request, RideVehicleRegistrationService $vehicleService)
     {
+        if (! DeliveryMan::where(['auth_token' => $request['token']])->exists()) {
+            return response()->json(['errors' => [[
+                'code' => 'token',
+                'message' => translate('messages.The token field is required.'),
+            ]]], 401);
+        }
         $validator = Validator::make($request->all(), $vehicleService->rules());
         if ($validator->fails()) {
             return response()->json(['errors' => Helpers::error_processor($validator)], 422);
@@ -276,6 +288,12 @@ class DeliverymanController extends Controller
     public function activateRideVehicle(Request $request, $vehicleId)
     {
         $dm = DeliveryMan::where(['auth_token' => $request['token']])->first();
+        if (! $dm) {
+            return response()->json(['errors' => [[
+                'code' => 'token',
+                'message' => translate('messages.The token field is required.'),
+            ]]], 401);
+        }
         $vehicle = $dm->rideVehicles()->whereKey($vehicleId)->first();
         if (!$vehicle) {
             return response()->json(['errors' => [[

@@ -58,6 +58,41 @@
         </div>
 
         <div class="col-lg-4">
+            @php
+                $requestDeliveries = $ride->notificationDeliveries->where('event', 'ride_request_available');
+                $acceptedPushes = $requestDeliveries->where('push_status', 'accepted')->count();
+                $queuedPushes = $requestDeliveries->whereIn('push_status', ['pending', 'queued'])->count();
+                $failedPushes = $requestDeliveries->where('push_status', 'failed')->count();
+                $missingTokens = $requestDeliveries->where('push_status', 'no_token')->count();
+                $inAppStored = $requestDeliveries->where('in_app_stored', true)->count();
+            @endphp
+            <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0"><i class="tio-notifications mr-2"></i>{{ translate('messages.Request Notification Delivery') }}</h5>
+                    @if($requestDeliveries->isNotEmpty())
+                        <span class="badge badge-soft-primary">{{ $requestDeliveries->count() }} {{ translate('messages.Captains') }}</span>
+                    @endif
+                </div>
+                <div class="card-body">
+                    @if($requestDeliveries->isEmpty())
+                        <p class="text-muted mb-0">{{ translate('messages.No eligible Captain notification attempts were recorded for this Ride.') }}</p>
+                    @else
+                        <div class="row text-center mx-n1">
+                            <div class="col-6 px-1 mb-2"><div class="bg-light rounded p-2"><strong class="d-block text-success">{{ $acceptedPushes }}</strong><small>{{ translate('messages.Firebase Accepted') }}</small></div></div>
+                            <div class="col-6 px-1 mb-2"><div class="bg-light rounded p-2"><strong class="d-block text-primary">{{ $inAppStored }}</strong><small>{{ translate('messages.In-App Stored') }}</small></div></div>
+                            <div class="col-6 px-1 mb-2"><div class="bg-light rounded p-2"><strong class="d-block text-warning">{{ $queuedPushes }}</strong><small>{{ translate('messages.Queued') }}</small></div></div>
+                            <div class="col-6 px-1 mb-2"><div class="bg-light rounded p-2"><strong class="d-block text-danger">{{ $failedPushes }}</strong><small>{{ translate('messages.Failed') }}</small></div></div>
+                            <div class="col-6 px-1"><div class="bg-light rounded p-2"><strong class="d-block text-warning">{{ $missingTokens }}</strong><small>{{ translate('messages.No Device Token') }}</small></div></div>
+                        </div>
+                        <p class="small text-muted mt-2 mb-0">{{ translate('messages.Firebase Accepted means Firebase accepted the push request; it is not a device-read receipt.') }}</p>
+                    @endif
+                    @if(in_array($ride->status, ['searching', 'negotiating'], true))
+                        <form action="{{ route('admin.ride-hailing.rides.retry-request-notifications', $ride) }}" method="POST" class="mt-3">@csrf
+                            <button class="btn btn-outline-primary btn-block" onclick="return confirm('{{ translate('messages.Retry notifications for Captains who are currently eligible and do not already have an accepted push?') }}')"><i class="tio-refresh mr-1"></i>{{ translate('messages.Retry Pending Notifications') }}</button>
+                        </form>
+                    @endif
+                </div>
+            </div>
             @if($ride->status !== 'cancelled' && $ride->status !== 'completed' && $ride->status !== 'in_progress')
             <div class="card mb-3"><div class="card-header"><h5 class="card-title"><i class="tio-clear-circle mr-2 text-danger"></i>{{ translate('messages.Cancel Ride') }}</h5></div><div class="card-body">
                 <form action="{{ route('admin.ride-hailing.rides.cancel', $ride) }}" method="POST" onsubmit="return confirm('{{ translate('messages.Cancel this Ride and notify the passenger and Captain?') }}')">@csrf
