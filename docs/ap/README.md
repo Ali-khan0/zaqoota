@@ -31,6 +31,7 @@ applications.
 | Private Ride channels, events, reconnect and polling fallback | [ride-realtime.md](ride-realtime.md) | Realtime milestone implemented |
 | Complete customer Ride capability, estimate, bidding, lifecycle and payment handoff | [ride-customer-app-integration.md](ride-customer-app-integration.md) | Backend implemented |
 | Customer Ride backend delivery checklist | [ride-customer-backend-implementation-steps.md](ride-customer-backend-implementation-steps.md) | Implementation complete; deployment pending |
+| Customer home module visibility by zone | [module-visibility.md](../api/module-visibility.md) | Backend implemented |
 
 ## Common conventions
 
