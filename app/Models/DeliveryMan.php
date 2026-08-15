@@ -175,6 +175,13 @@ class DeliveryMan extends Authenticatable
             ->groupBy('delivery_man_id');
     }
 
+    public function rideRating()
+    {
+        return $this->hasMany(RideRating::class)
+            ->select(DB::raw('avg(rating) average, count(delivery_man_id) rating_count, delivery_man_id'))
+            ->groupBy('delivery_man_id');
+    }
+
     public function scopeActive($query)
     {
         return $query->where('active', 1)->where('application_status', 'approved');

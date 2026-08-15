@@ -96,12 +96,20 @@ class RideRealtimeService
 
     public function location(RideRequest $ride): void
     {
-        $this->send(["ride.trip.{$ride->id}"], 'ride.location.updated', [
+        $this->send(["ride.trip.{$ride->id}"], 'ride.location.updated', self::locationPayload($ride));
+    }
+
+    public static function locationPayload(RideRequest $ride): array
+    {
+        return [
             'ride_id' => (int) $ride->id,
             'latitude' => (float) $ride->current_latitude,
             'longitude' => (float) $ride->current_longitude,
+            'heading' => $ride->current_heading,
+            'speed_mps' => $ride->current_speed_mps,
+            'accuracy_meters' => $ride->current_accuracy_meters,
             'updated_at' => $ride->location_updated_at?->toIso8601String(),
-        ]);
+        ];
     }
 
     public function payment(RideRequest $ride): void

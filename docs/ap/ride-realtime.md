@@ -138,9 +138,15 @@ Assigned trip channel:
   "ride_id": 42,
   "latitude": 31.4504,
   "longitude": 73.135,
+  "heading": 145.5,
+  "speed_mps": 8.5,
+  "accuracy_meters": 12.0,
   "updated_at": "2026-08-09T14:21:11+05:00"
 }
 ```
+
+Telemetry fields are nullable. This private assigned-trip event never includes
+Captain identity, phone, image, rating, Trip PIN, or auth data.
 
 ### `ride.payment.updated`
 

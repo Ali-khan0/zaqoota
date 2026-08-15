@@ -182,6 +182,12 @@ Captain delivery history. The customer reads the location from their owned ride
 detail response. The mobile app should send updates only while an active ride
 screen is visible or background tracking permission is active.
 
+The request may also send nullable `heading` (`0 <= x < 360`), `speed_mps`
+(`0-100`) and `accuracy_meters` (`0-1000`). The owned active-Ride response and
+private location event return these fields. Terminal Ride responses suppress
+the last exact location and telemetry. See
+`../api/ride-customer-experience-enhancements.md`.
+
 ### Captain Cancellation
 
 ```http

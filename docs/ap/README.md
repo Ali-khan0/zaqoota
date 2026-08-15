@@ -32,6 +32,7 @@ applications.
 | Complete customer Ride capability, estimate, bidding, lifecycle and payment handoff | [ride-customer-app-integration.md](ride-customer-app-integration.md) | Backend implemented |
 | Customer Ride backend delivery checklist | [ride-customer-backend-implementation-steps.md](ride-customer-backend-implementation-steps.md) | Implementation complete; deployment pending |
 | Customer home module visibility by zone | [module-visibility.md](../api/module-visibility.md) | Backend implemented |
+| Customer Ride experience enrichment, ratings, history filters and telemetry | [ride-customer-experience-enhancements.md](../api/ride-customer-experience-enhancements.md) | P0 implemented; P1/P2 in progress |
 
 ## Common conventions
 

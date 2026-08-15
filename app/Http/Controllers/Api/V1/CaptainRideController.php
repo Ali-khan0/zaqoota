@@ -18,6 +18,14 @@ use Illuminate\Support\Facades\Validator;
 
 class CaptainRideController extends Controller
 {
+    public const LOCATION_RULES = [
+        'latitude' => 'required|numeric|between:-90,90',
+        'longitude' => 'required|numeric|between:-180,180',
+        'heading' => 'nullable|numeric|min:0|lt:360',
+        'speed_mps' => 'nullable|numeric|between:0,100',
+        'accuracy_meters' => 'nullable|numeric|between:0,1000',
+    ];
+
     public function __construct(
         private readonly RideCaptainEligibilityService $eligibilityService,
         private readonly RideTripService $tripService,
@@ -188,22 +196,38 @@ class CaptainRideController extends Controller
 
     public function updateLocation(Request $request, int $rideId)
     {
-        $validator = Validator::make($request->all(), [
-            'latitude' => 'required|numeric|between:-90,90',
-            'longitude' => 'required|numeric|between:-180,180',
-        ]);
+        $validator = Validator::make($request->all(), self::LOCATION_RULES);
         if ($validator->fails()) {
             return response()->json(['errors' => Helpers::error_processor($validator)], 403);
         }
 
         $captain = $this->eligibilityService->captainByToken($request->token);
-        $ride = $this->tripService->updateLocation($captain, $rideId, (float) $request->latitude, (float) $request->longitude);
+        $ride = $this->tripService->updateLocation(
+            $captain,
+            $rideId,
+            (float) $request->latitude,
+            (float) $request->longitude,
+            $request->filled('heading') ? (float) $request->heading : null,
+            $request->filled('speed_mps') ? (float) $request->speed_mps : null,
+            $request->filled('accuracy_meters') ? (float) $request->accuracy_meters : null,
+        );
         if (! $ride) {
             return $this->error('ride', 'Location can only be updated for an active assigned ride.');
         }
         $this->realtimeService->location($ride);
 
-        return response()->json(['message' => 'Ride location updated.', 'location_updated_at' => $ride->location_updated_at?->toIso8601String()]);
+        return response()->json([
+            'message' => 'Ride location updated.',
+            'location_updated_at' => $ride->location_updated_at?->toIso8601String(),
+            'captain_location' => [
+                'latitude' => (float) $ride->current_latitude,
+                'longitude' => (float) $ride->current_longitude,
+                'heading' => $ride->current_heading,
+                'speed_mps' => $ride->current_speed_mps,
+                'accuracy_meters' => $ride->current_accuracy_meters,
+                'updated_at' => $ride->location_updated_at?->toIso8601String(),
+            ],
+        ]);
     }
 
     public function cancelRide(Request $request, int $rideId)

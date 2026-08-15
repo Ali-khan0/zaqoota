@@ -92,6 +92,7 @@ Route::group(['namespace' => 'Api\V1', 'middleware'=>'localization'], function (
         Route::post('rides', 'CustomerRideController@store');
         Route::get('rides', 'CustomerRideController@index');
         Route::get('rides/{ride_id}', 'CustomerRideController@show');
+        Route::put('rides/{ride_id}/rating', 'CustomerRideController@rate');
         Route::delete('rides/{ride_id}', 'CustomerRideController@cancel');
         Route::get('rides/{ride_id}/offers', 'CustomerRideController@offers');
         Route::put('rides/{ride_id}/coupon', 'CustomerRideController@updateCoupon');

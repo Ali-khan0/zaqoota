@@ -385,6 +385,24 @@ configured websocket server under process supervision. See
 
 ## Next bounded contexts
 
+Customer Ride list/detail responses now restore the stored route polyline and
+accepted-offer pickup distance/ETA snapshot and include assigned Captain image
+and aggregate rating fields. The list eager-loads category, Captain rating,
+vehicle and accepted offer data; pre-assignment identity remains null and
+legacy routes return an empty polyline. The phased customer-experience ledger
+is `docs/ride-customer-experience-enhancements.md`, and the active mobile
+contract is `docs/api/ride-customer-experience-enhancements.md`.
+
+Customer ratings use the dedicated `ride_ratings` table with one locked,
+idempotent record per completed owned Ride. Owner responses expose the
+customer's rating; aggregate Captain scores combine existing delivery reviews
+and Ride ratings, while comments are not exposed to Captains or admins. The
+existing Ride history list accepts optional owner-scoped status and application-
+timezone date filters without changing its unfiltered newest-first behavior.
+Active Captain location updates optionally persist heading, speed and accuracy
+on `ride_requests` and publish them only on the assigned private trip channel;
+terminal Ride responses suppress the last exact location.
+
 The next milestone should add customer/Captain ratings and Ride admin
 operations/reporting. Refunds, disputes, safety, complaints, downloadable PDF
 receipts, tips, and a separately approved fleet-manager Ride commission policy

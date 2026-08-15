@@ -8,6 +8,7 @@ use App\Models\Module;
 use App\Models\RideCategory;
 use App\Models\RideFare;
 use App\Models\RideOffer;
+use App\Models\RideRating;
 use App\Models\RideRequest as PassengerRide;
 use App\Models\User;
 use App\Models\Zone;
@@ -15,6 +16,7 @@ use App\Services\RideCaptainEligibilityService;
 use App\Services\RideCouponService;
 use App\Services\RideCustomerSettingService;
 use App\Services\RideFareCalculator;
+use App\Services\RideHistoryFilterService;
 use App\Services\RideNotificationService;
 use App\Services\RidePaymentService;
 use App\Services\RideRealtimeService;
@@ -25,6 +27,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use MatanYadaev\EloquentSpatial\Objects\Point;
 
 class CustomerRideController extends Controller
@@ -39,6 +42,7 @@ class CustomerRideController extends Controller
         private readonly RideRealtimeService $realtimeService,
         private readonly RideCouponService $couponService,
         private readonly RideCustomerSettingService $customerSettings,
+        private readonly RideHistoryFilterService $historyFilterService,
     ) {}
 
     public function validateCoupon(Request $request)
@@ -352,7 +356,32 @@ class CustomerRideController extends Controller
 
     public function index(Request $request)
     {
-        $rides = PassengerRide::query()->where('user_id', $request->user()->id)->with('category')->latest()->paginate(max(1, min($request->integer('limit', 20), 50)));
+        $validator = Validator::make($request->all(), [
+            'status' => ['nullable', Rule::in([
+                PassengerRide::STATUS_SEARCHING,
+                PassengerRide::STATUS_NEGOTIATING,
+                PassengerRide::STATUS_RIDER_SELECTED,
+                PassengerRide::STATUS_CAPTAIN_ARRIVING,
+                PassengerRide::STATUS_ARRIVED,
+                PassengerRide::STATUS_IN_PROGRESS,
+                PassengerRide::STATUS_COMPLETED,
+                PassengerRide::STATUS_CANCELLED,
+            ])],
+            'from' => 'nullable|date_format:Y-m-d',
+            'to' => array_values(array_filter([
+                'nullable',
+                'date_format:Y-m-d',
+                $request->filled('from') ? 'after_or_equal:from' : null,
+            ])),
+        ]);
+        if ($validator->fails()) {
+            return response()->json(['errors' => Helpers::error_processor($validator)], 403);
+        }
+
+        $query = PassengerRide::query()->where('user_id', $request->user()->id);
+        $rides = $this->historyFilterService->apply($query, $validator->validated())
+            ->with(['category', 'deliveryMan.rating', 'deliveryMan.rideRating', 'rideVehicle', 'acceptedOffer', 'customerRating'])
+            ->latest()->paginate(max(1, min($request->integer('limit', 20), 50)));
         $rides->getCollection()->transform(fn ($ride) => $this->rideData($ride));
 
         return response()->json($rides);
@@ -360,9 +389,55 @@ class CustomerRideController extends Controller
 
     public function show(Request $request, int $rideId)
     {
-        $ride = PassengerRide::query()->where('user_id', $request->user()->id)->with(['category', 'deliveryMan', 'rideVehicle', 'user'])->findOrFail($rideId);
+        $ride = PassengerRide::query()->where('user_id', $request->user()->id)
+            ->with(['category', 'deliveryMan.rating', 'deliveryMan.rideRating', 'rideVehicle', 'acceptedOffer', 'customerRating', 'user'])
+            ->findOrFail($rideId);
 
         return response()->json(['ride' => $this->rideData($ride)]);
+    }
+
+    public function rate(Request $request, int $rideId)
+    {
+        $validator = Validator::make($request->all(), [
+            'rating' => 'required|integer|between:1,5',
+            'comment' => 'nullable|string|max:1000',
+        ]);
+        if ($validator->fails()) {
+            return response()->json(['errors' => Helpers::error_processor($validator)], 403);
+        }
+
+        $comment = $request->filled('comment') ? trim(strip_tags((string) $request->comment)) : null;
+        $comment = $comment === '' ? null : $comment;
+        $rating = DB::transaction(function () use ($request, $rideId, $comment) {
+            $ride = PassengerRide::query()->where('user_id', $request->user()->id)->lockForUpdate()->findOrFail($rideId);
+            if ($ride->status !== PassengerRide::STATUS_COMPLETED) {
+                return null;
+            }
+            if (! $ride->delivery_man_id) {
+                return false;
+            }
+
+            return RideRating::query()->updateOrCreate(
+                ['ride_request_id' => $ride->id],
+                [
+                    'user_id' => (int) $request->user()->id,
+                    'delivery_man_id' => (int) $ride->delivery_man_id,
+                    'rating' => $request->integer('rating'),
+                    'comment' => $comment,
+                ],
+            );
+        });
+        if ($rating === null) {
+            return $this->error('rating', 'Only a completed Ride can be rated.');
+        }
+        if ($rating === false) {
+            return $this->error('rating', 'A Ride without an assigned Captain cannot be rated.');
+        }
+
+        return response()->json([
+            'message' => 'Ride rating saved.',
+            'rating' => $this->customerRatingData($rating),
+        ]);
     }
 
     public function offers(Request $request, int $rideId)
@@ -370,7 +445,7 @@ class CustomerRideController extends Controller
         $ride = PassengerRide::query()->where('user_id', $request->user()->id)->findOrFail($rideId);
         RideOffer::query()->where('ride_request_id', $ride->id)->where('status', RideOffer::STATUS_PENDING)->where('expires_at', '<=', now())->update(['status' => RideOffer::STATUS_EXPIRED]);
         $offers = $ride->offers()->where('status', RideOffer::STATUS_PENDING)->where('expires_at', '>', now())
-            ->with(['deliveryMan.rating', 'rideVehicle.category'])
+            ->with(['deliveryMan.rating', 'deliveryMan.rideRating', 'rideVehicle.category'])
             ->orderByRaw('pickup_distance_meters IS NULL')->orderBy('pickup_distance_meters')->oldest('created_at')->get()->map(fn ($offer) => $this->offerData($offer));
 
         return response()->json(['offers' => $offers]);
@@ -774,11 +849,19 @@ class CustomerRideController extends Controller
 
     private function rideData(PassengerRide $ride): array
     {
+        $captainRating = $this->captainRatingData($ride->deliveryMan);
+
         return [
             'id' => (int) $ride->id, 'request_number' => $ride->request_number, 'status' => $ride->status,
             'category' => $ride->category ? ['id' => (int) $ride->category->id, 'name' => $ride->category->name, 'image_url' => $ride->category->image_url, 'passenger_capacity' => (int) $ride->category->passenger_capacity] : null,
             'pickup' => ['address' => $ride->pickup_address, 'latitude' => (float) $ride->pickup_latitude, 'longitude' => (float) $ride->pickup_longitude],
             'destination' => ['address' => $ride->destination_address, 'latitude' => (float) $ride->destination_latitude, 'longitude' => (float) $ride->destination_longitude],
+            'route_polyline' => (string) ($ride->route_polyline ?? ''),
+            'accepted_pickup' => $ride->acceptedOffer ? [
+                'distance_meters' => $ride->acceptedOffer->pickup_distance_meters,
+                'eta_seconds' => $ride->acceptedOffer->pickup_eta_seconds,
+                'calculated_at' => $ride->acceptedOffer->created_at?->toIso8601String(),
+            ] : null,
             'distance_meters' => (int) $ride->distance_meters, 'duration_seconds' => (int) $ride->duration_seconds,
             'suggested_fare' => (float) $ride->suggested_fare, 'customer_offer' => (float) $ride->customer_offer,
             'minimum_negotiated_fare' => (float) $ride->minimum_negotiated_fare, 'maximum_negotiated_fare' => (float) $ride->maximum_negotiated_fare,
@@ -798,9 +881,29 @@ class CustomerRideController extends Controller
             'wallet_paid_amount' => (float) $ride->wallet_paid_amount,
             'remaining_payment_amount' => $ride->payment_status === 'paid' ? 0.0 : round(max(0, (float) $ride->final_payable_amount - (float) $ride->wallet_paid_amount), 2),
             'receipt_number' => $ride->receipt_number,
-            'captain_location' => $ride->location_updated_at ? ['latitude' => (float) $ride->current_latitude, 'longitude' => (float) $ride->current_longitude, 'updated_at' => $ride->location_updated_at->toIso8601String()] : null,
-            'captain' => $ride->deliveryMan ? ['id' => (int) $ride->deliveryMan->id, 'name' => $ride->deliveryMan->full_name, 'phone' => $ride->deliveryMan->phone] : null,
+            'captain_location' => $ride->location_updated_at && in_array($ride->status, [
+                PassengerRide::STATUS_RIDER_SELECTED,
+                PassengerRide::STATUS_CAPTAIN_ARRIVING,
+                PassengerRide::STATUS_ARRIVED,
+                PassengerRide::STATUS_IN_PROGRESS,
+            ], true) ? [
+                'latitude' => (float) $ride->current_latitude,
+                'longitude' => (float) $ride->current_longitude,
+                'heading' => $ride->current_heading,
+                'speed_mps' => $ride->current_speed_mps,
+                'accuracy_meters' => $ride->current_accuracy_meters,
+                'updated_at' => $ride->location_updated_at->toIso8601String(),
+            ] : null,
+            'captain' => $ride->deliveryMan ? [
+                'id' => (int) $ride->deliveryMan->id,
+                'name' => $ride->deliveryMan->full_name,
+                'phone' => $ride->deliveryMan->phone,
+                'image_url' => $ride->deliveryMan->image ? (string) $ride->deliveryMan->image_full_url : '',
+                'rating' => $captainRating['rating'],
+                'rating_count' => $captainRating['rating_count'],
+            ] : null,
             'vehicle' => $ride->rideVehicle ? ['id' => (int) $ride->rideVehicle->id, 'make' => $ride->rideVehicle->make, 'model' => $ride->rideVehicle->model, 'color' => $ride->rideVehicle->color, 'registration_number' => $ride->rideVehicle->registration_number] : null,
+            'customer_rating' => $ride->customerRating ? $this->customerRatingData($ride->customerRating) : null,
             'created_at' => $ride->created_at?->toIso8601String(),
             'captain_arriving_at' => $ride->captain_arriving_at?->toIso8601String(),
             'arrived_at' => $ride->arrived_at?->toIso8601String(),
@@ -812,14 +915,41 @@ class CustomerRideController extends Controller
 
     private function offerData(RideOffer $offer): array
     {
-        $rating = $offer->deliveryMan?->rating?->first();
+        $rating = $this->captainRatingData($offer->deliveryMan);
 
         return [
             'id' => (int) $offer->id, 'amount' => (float) $offer->amount, 'expires_at' => $offer->expires_at->toIso8601String(),
             'pickup_distance_meters' => $offer->pickup_distance_meters,
             'pickup_eta_seconds' => $offer->pickup_eta_seconds,
-            'captain' => ['id' => (int) $offer->delivery_man_id, 'name' => $offer->deliveryMan?->full_name, 'rating' => (float) ($rating?->average ?? 0), 'rating_count' => (int) ($rating?->rating_count ?? 0)],
+            'captain' => ['id' => (int) $offer->delivery_man_id, 'name' => $offer->deliveryMan?->full_name, 'rating' => $rating['rating'], 'rating_count' => $rating['rating_count']],
             'vehicle' => ['id' => (int) $offer->ride_vehicle_id, 'make' => $offer->rideVehicle?->make, 'model' => $offer->rideVehicle?->model, 'color' => $offer->rideVehicle?->color, 'registration_number' => $offer->rideVehicle?->registration_number],
+        ];
+    }
+
+    private function captainRatingData($captain): array
+    {
+        $deliveryRating = $captain?->rating?->first();
+        $rideRating = $captain?->rideRating?->first();
+        $deliveryCount = (int) ($deliveryRating?->rating_count ?? 0);
+        $rideCount = (int) ($rideRating?->rating_count ?? 0);
+        $count = $deliveryCount + $rideCount;
+        $total = ((float) ($deliveryRating?->average ?? 0) * $deliveryCount)
+            + ((float) ($rideRating?->average ?? 0) * $rideCount);
+
+        return [
+            'rating' => $count > 0 ? round($total / $count, 2) : 0.0,
+            'rating_count' => $count,
+        ];
+    }
+
+    private function customerRatingData(RideRating $rating): array
+    {
+        return [
+            'ride_id' => (int) $rating->ride_request_id,
+            'captain_id' => (int) $rating->delivery_man_id,
+            'rating' => (int) $rating->rating,
+            'comment' => $rating->comment,
+            'updated_at' => $rating->updated_at?->toIso8601String(),
         ];
     }
 

@@ -90,6 +90,9 @@ class RideRequest extends Model
         'captain_total_earning_amount' => 'float',
         'current_latitude' => 'float',
         'current_longitude' => 'float',
+        'current_heading' => 'float',
+        'current_speed_mps' => 'float',
+        'current_accuracy_meters' => 'float',
         'location_updated_at' => 'datetime',
         'paid_at' => 'datetime',
         'settled_at' => 'datetime',
@@ -135,6 +138,11 @@ class RideRequest extends Model
         return $this->hasMany(RideOffer::class);
     }
 
+    public function acceptedOffer(): BelongsTo
+    {
+        return $this->belongsTo(RideOffer::class, 'accepted_offer_id');
+    }
+
     public function statusHistories(): HasMany
     {
         return $this->hasMany(RideStatusHistory::class);
@@ -153,5 +161,10 @@ class RideRequest extends Model
     public function notificationDeliveries(): HasMany
     {
         return $this->hasMany(RideNotificationDelivery::class);
+    }
+
+    public function customerRating()
+    {
+        return $this->hasOne(RideRating::class);
     }
 }

@@ -136,9 +136,16 @@ class RideTripService
         return $ride->fresh(['category', 'user', 'deliveryMan', 'rideVehicle']);
     }
 
-    public function updateLocation(DeliveryMan $captain, int $rideId, float $latitude, float $longitude): ?RideRequest
-    {
-        return DB::transaction(function () use ($captain, $rideId, $latitude, $longitude) {
+    public function updateLocation(
+        DeliveryMan $captain,
+        int $rideId,
+        float $latitude,
+        float $longitude,
+        ?float $heading = null,
+        ?float $speedMps = null,
+        ?float $accuracyMeters = null,
+    ): ?RideRequest {
+        return DB::transaction(function () use ($captain, $rideId, $latitude, $longitude, $heading, $speedMps, $accuracyMeters) {
             $ride = RideRequest::query()->where('delivery_man_id', $captain->id)->lockForUpdate()->findOrFail($rideId);
             if (! in_array($ride->status, [
                 RideRequest::STATUS_RIDER_SELECTED,
@@ -152,6 +159,9 @@ class RideTripService
             $ride->update([
                 'current_latitude' => $latitude,
                 'current_longitude' => $longitude,
+                'current_heading' => $heading,
+                'current_speed_mps' => $speedMps,
+                'current_accuracy_meters' => $accuracyMeters,
                 'location_updated_at' => now(),
             ]);
             DeliveryHistory::query()->updateOrCreate(['delivery_man_id' => $captain->id], [
