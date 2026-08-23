@@ -95,10 +95,10 @@ customer voluntarily shares it.
 DELETE /ride-hailing/customer/rides/{ride_id}
 ```
 
-Optional request:
+Required request:
 
 ```json
-{"reason": "Plans changed"}
+{"cancellation_reason_id": 7}
 ```
 
 - `searching` or `negotiating`: free cancellation.
@@ -195,10 +195,14 @@ DELETE /delivery-man/rides/{ride_id}
 ```
 
 ```json
-{"reason": "Vehicle problem"}
+{"cancellation_reason_id": 12}
 ```
 
-The reason is required. Cancellation is allowed before `in_progress` and has no
+The actor- and lifecycle-scoped Ride cancellation reason ID is required.
+Customers list reasons at
+`GET /api/v1/ride-hailing/customer/cancellation-reasons`; Captains use
+`GET /api/v1/delivery-man/ride-cancellation-reasons`. Cancellation is allowed
+before `in_progress` and has no
 customer charge. An in-progress or completed ride cannot be cancelled through
 this endpoint.
 
@@ -276,7 +280,7 @@ Captain app:
 - `tests/Unit/RideFareCalculatorTest.php`
 # Cancellation notifications
 
-Cancellation messages are actor-specific. A passenger cancellation notifies the assigned Captain with the passenger's reason and whether cancellation compensation is due. A Captain cancellation notifies the passenger with the reason and confirms that no cancellation charge applies. An admin cancellation records `cancelled_by=admin`, requires a reason, charges neither party, and notifies both passenger and assigned Captain. All three flows publish `ride.status.updated`; REST `cancelled_by`, `cancellation_reason`, `cancellation_charge_amount`, and `payment_status` remain authoritative.
+Cancellation messages are actor-specific. A passenger cancellation notifies the assigned Captain with the snapshotted passenger reason and whether cancellation compensation is due. A Captain cancellation notifies the passenger with the snapshotted reason and confirms that no cancellation charge applies. An admin cancellation records `cancelled_by=admin`, requires an admin-scoped reason ID, charges neither party, and notifies both passenger and assigned Captain. All three flows publish `ride.status.updated` after commit; REST `cancelled_by`, structured `cancellation_reason`, `cancellation_charge_amount`, and `payment_status` remain authoritative. See `docs/api/ride-map-markers-cancellation-routing.md` for the active contract.
 
 Ride messages for both passengers and Captains are stored in the existing `user_notifications` feed as well as sent through Firebase when a token is available. Captain Ride notifications therefore appear through the existing delivery-man notifications endpoint after reconnecting or missing a push.
 

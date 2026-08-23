@@ -79,6 +79,7 @@ class RideRequest extends Model
         'completed_at' => 'datetime',
         'cancelled_at' => 'datetime',
         'cancellation_charge_amount' => 'float',
+        'cancellation_reason_id' => 'integer',
         'carried_cancellation_due_amount' => 'float',
         'cancellation_compensation_paid_at' => 'datetime',
         'cancellation_recovered_at' => 'datetime',
@@ -94,6 +95,11 @@ class RideRequest extends Model
         'current_speed_mps' => 'float',
         'current_accuracy_meters' => 'float',
         'location_updated_at' => 'datetime',
+        'captain_pickup_route_distance_meters' => 'integer',
+        'captain_pickup_route_duration_seconds' => 'integer',
+        'captain_pickup_route_origin_latitude' => 'float',
+        'captain_pickup_route_origin_longitude' => 'float',
+        'captain_pickup_route_generated_at' => 'datetime',
         'paid_at' => 'datetime',
         'settled_at' => 'datetime',
     ];
@@ -121,6 +127,25 @@ class RideRequest extends Model
     public function coupon(): BelongsTo
     {
         return $this->belongsTo(RideCoupon::class, 'ride_coupon_id');
+    }
+
+    public function cancellationReasonDefinition(): BelongsTo
+    {
+        return $this->belongsTo(RideCancellationReason::class, 'cancellation_reason_id');
+    }
+
+    public function cancellationReasonData(): ?array
+    {
+        if (! $this->cancellation_reason_id && ! $this->cancellation_reason_code && ! $this->cancellation_reason) {
+            return null;
+        }
+
+        return [
+            'id' => $this->cancellation_reason_id ? (int) $this->cancellation_reason_id : null,
+            'code' => $this->cancellation_reason_code,
+            'title' => $this->cancellation_reason,
+            'user_type' => $this->cancellation_reason_user_type ?: $this->cancelled_by,
+        ];
     }
 
     public function deliveryMan(): BelongsTo

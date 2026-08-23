@@ -8,6 +8,7 @@ use App\Models\DeliveryManWallet;
 use App\Models\DeliveryManWalletLedger;
 use App\Models\Expense;
 use App\Models\RideOffer;
+use App\Models\RideCancellationReason;
 use App\Models\RideRequest;
 use App\Models\RideStatusHistory;
 use Illuminate\Support\Facades\DB;
@@ -54,6 +55,7 @@ class RideTripService
                     (float) $ride->waiting_charge_per_minute,
                 );
                 $this->couponService->redeem($ride);
+                $updates += app(RideCaptainPickupRouteService::class)->emptyCache();
             } elseif ($toStatus === RideRequest::STATUS_COMPLETED) {
                 $updates['completed_at'] = now();
                 $updates += $this->settlementCalculator->calculate($ride);
@@ -73,8 +75,9 @@ class RideTripService
         });
     }
 
-    public function cancel(RideRequest $ride, string $actorType, int $actorId, ?string $reason): RideRequest
+    public function cancel(RideRequest $ride, string $actorType, int $actorId, RideCancellationReason $reason): RideRequest
     {
+        $actorType = RideCancellationReason::canonicalActor($actorType);
         $fromStatus = $ride->status;
         $charge = $actorType === 'customer' && in_array($fromStatus, [
             RideRequest::STATUS_RIDER_SELECTED,
@@ -97,11 +100,15 @@ class RideTripService
             'status' => RideRequest::STATUS_CANCELLED,
             'cancelled_at' => now(),
             'cancelled_by' => $actorType,
-            'cancellation_reason' => $reason,
+            'cancellation_reason_id' => $reason->id,
+            'cancellation_reason_code' => $reason->code,
+            'cancellation_reason_user_type' => $reason->user_type,
+            'cancellation_reason' => $reason->title,
             'cancellation_charge_amount' => $charge,
             'rider_earning_amount' => $charge,
             'coupon_discount_amount' => 0,
             'admin_coupon_expense_amount' => 0,
+            ...app(RideCaptainPickupRouteService::class)->emptyCache(),
             ...$financials,
         ]);
         $this->couponService->release($ride);
@@ -110,7 +117,11 @@ class RideTripService
             $ride->update(['carried_cancellation_due_amount' => 0]);
         }
         RideOffer::query()->where('ride_request_id', $ride->id)->where('status', RideOffer::STATUS_PENDING)->update(['status' => RideOffer::STATUS_REJECTED]);
-        $this->history($ride, $fromStatus, RideRequest::STATUS_CANCELLED, $actorType, $actorId, $reason, ['cancellation_charge_amount' => $charge]);
+        $this->history($ride, $fromStatus, RideRequest::STATUS_CANCELLED, $actorType, $actorId, $reason->title, [
+            'cancellation_charge_amount' => $charge,
+            'cancellation_reason_id' => $reason->id,
+            'cancellation_reason_code' => $reason->code,
+        ]);
 
         if ($charge > 0 && $ride->delivery_man_id && ! $ride->cancellation_compensation_paid_at) {
             $wallet = DeliveryManWallet::query()->firstOrCreate(['delivery_man_id' => $ride->delivery_man_id]);

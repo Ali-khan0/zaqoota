@@ -50,6 +50,7 @@ use App\Http\Controllers\Admin\RideHailing\RideCouponController;
 use App\Http\Controllers\Admin\RideHailing\RideBannerController;
 use App\Http\Controllers\Admin\RideHailing\RidePushNotificationController;
 use App\Http\Controllers\Admin\RideHailing\RideNotificationSettingController;
+use App\Http\Controllers\Admin\RideHailing\RideCancellationReasonController;
 
 Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
 
@@ -65,6 +66,12 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
             Route::post('rides/{ride}/assign', [RideOperationController::class, 'assign'])->name('rides.assign');
             Route::post('rides/{ride}/cancel', [RideOperationController::class, 'cancel'])->name('rides.cancel');
             Route::post('rides/{ride}/retry-request-notifications', [RideOperationController::class, 'retryRequestNotifications'])->name('rides.retry-request-notifications');
+            Route::get('cancellation-reasons', [RideCancellationReasonController::class, 'index'])->name('cancellation-reasons.index');
+            Route::post('cancellation-reasons', [RideCancellationReasonController::class, 'store'])->name('cancellation-reasons.store');
+            Route::get('cancellation-reasons/{reason}/edit', [RideCancellationReasonController::class, 'edit'])->name('cancellation-reasons.edit');
+            Route::put('cancellation-reasons/{reason}', [RideCancellationReasonController::class, 'update'])->name('cancellation-reasons.update');
+            Route::put('cancellation-reasons/{reason}/status', [RideCancellationReasonController::class, 'status'])->name('cancellation-reasons.status');
+            Route::delete('cancellation-reasons/{reason}', [RideCancellationReasonController::class, 'destroy'])->name('cancellation-reasons.destroy');
             Route::get('coupons', [RideCouponController::class, 'index'])->name('coupons.index');
             Route::post('coupons', [RideCouponController::class, 'store'])->name('coupons.store');
             Route::get('coupons/{coupon}/edit', [RideCouponController::class, 'edit'])->name('coupons.edit');

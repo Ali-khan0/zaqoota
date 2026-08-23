@@ -8,6 +8,8 @@ use App\Jobs\ExpireRideOffer;
 use App\Models\RideOffer;
 use App\Models\RideRequest;
 use App\Services\RideCaptainEligibilityService;
+use App\Services\RideCaptainPickupRouteService;
+use App\Services\RideCancellationReasonService;
 use App\Services\RideNotificationService;
 use App\Services\RidePaymentService;
 use App\Services\RideRealtimeService;
@@ -32,7 +34,24 @@ class CaptainRideController extends Controller
         private readonly RideNotificationService $notificationService,
         private readonly RidePaymentService $paymentService,
         private readonly RideRealtimeService $realtimeService,
+        private readonly RideCancellationReasonService $cancellationReasonService,
+        private readonly RideCaptainPickupRouteService $captainPickupRouteService,
     ) {}
+
+    public function cancellationReasons(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'ride_status' => 'required|in:searching,negotiating,rider_selected,captain_arriving,arrived',
+        ]);
+        if ($validator->fails()) {
+            return response()->json(['errors' => Helpers::error_processor($validator)], 422);
+        }
+
+        return response()->json(['reasons' => $this->cancellationReasonService
+            ->available('captain', $request->ride_status)
+            ->map(fn ($reason) => $this->cancellationReasonService->data($reason))
+            ->values()]);
+    }
 
     public function availableRequests(Request $request)
     {
@@ -153,6 +172,9 @@ class CaptainRideController extends Controller
                 RideRequest::STATUS_ARRIVED,
                 RideRequest::STATUS_IN_PROGRESS,
             ])->with(['category', 'user', 'rideVehicle'])->latest('selected_at')->first();
+        if ($ride) {
+            $ride = $this->captainPickupRouteService->refresh($ride)->loadMissing(['category', 'user', 'rideVehicle']);
+        }
 
         return response()->json(['ride' => $ride ? $this->tripData($ride) : null]);
     }
@@ -161,6 +183,7 @@ class CaptainRideController extends Controller
     {
         $captain = $this->eligibilityService->captainByToken($request->token);
         $ride = RideRequest::query()->where('delivery_man_id', $captain->id)->with(['category', 'user', 'rideVehicle'])->findOrFail($rideId);
+        $ride = $this->captainPickupRouteService->refresh($ride)->loadMissing(['category', 'user', 'rideVehicle']);
 
         return response()->json(['ride' => $this->tripData($ride)]);
     }
@@ -214,6 +237,7 @@ class CaptainRideController extends Controller
         if (! $ride) {
             return $this->error('ride', 'Location can only be updated for an active assigned ride.');
         }
+        $ride = $this->captainPickupRouteService->refresh($ride);
         $this->realtimeService->location($ride);
 
         return response()->json([
@@ -232,9 +256,9 @@ class CaptainRideController extends Controller
 
     public function cancelRide(Request $request, int $rideId)
     {
-        $validator = Validator::make($request->all(), ['reason' => 'required|string|max:500']);
+        $validator = Validator::make($request->all(), ['cancellation_reason_id' => 'required|integer']);
         if ($validator->fails()) {
-            return response()->json(['errors' => Helpers::error_processor($validator)], 403);
+            return response()->json(['errors' => Helpers::error_processor($validator)], 422);
         }
 
         $captain = $this->eligibilityService->captainByToken($request->token);
@@ -243,9 +267,21 @@ class CaptainRideController extends Controller
             if (! $this->tripService->canCancel($ride->status)) {
                 return null;
             }
+            $reason = $this->cancellationReasonService->resolve(
+                $request->integer('cancellation_reason_id'), 'captain', $ride->status
+            );
+            if (! $reason) {
+                return ['invalid_reason' => true];
+            }
 
-            return $this->tripService->cancel($ride, 'captain', $captain->id, $request->reason);
+            return $this->tripService->cancel($ride, 'captain', $captain->id, $reason);
         });
+        if (is_array($ride) && isset($ride['invalid_reason'])) {
+            return response()->json(['errors' => [[
+                'code' => 'cancellation_reason_id',
+                'message' => 'Please select a valid cancellation reason.',
+            ]]], 422);
+        }
         if (! $ride) {
             return $this->error('ride', 'An in-progress or completed ride cannot be cancelled.');
         }
@@ -304,8 +340,9 @@ class CaptainRideController extends Controller
             'waiting_charge_amount' => (float) $ride->waiting_charge_amount,
             'cancellation_charge_amount' => (float) $ride->cancellation_charge_amount,
             'previous_cancellation_due_amount' => (float) $ride->carried_cancellation_due_amount,
+            'captain_pickup_route' => $this->captainPickupRouteService->data($ride),
             'cancelled_by' => $ride->cancelled_by,
-            'cancellation_reason' => $ride->cancellation_reason,
+            'cancellation_reason' => $ride->cancellationReasonData(),
             'payment_status' => $ride->payment_status,
             'payment_method' => $ride->payment_method,
             'final_payable_amount' => $ride->final_payable_amount,

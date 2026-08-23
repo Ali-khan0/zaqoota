@@ -232,7 +232,7 @@ Example:
   "available_count": 7,
   "estimated_pickup_minutes": {"minimum": 3, "maximum": 9},
   "approximate_markers": [
-    {"latitude": 31.45, "longitude": 73.13}
+    {"latitude": 31.45, "longitude": 73.13, "heading": 145.5}
   ],
   "generated_at": "2026-08-10T12:00:00+05:00",
   "refresh_after_seconds": 20

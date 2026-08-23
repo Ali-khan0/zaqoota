@@ -198,13 +198,14 @@ GET /api/v1/ride-hailing/customer/nearby-availability?zone_id=1&ride_category_id
 {
   "available_count": 7,
   "estimated_pickup_minutes": {"minimum": 3, "maximum": 9},
-  "approximate_markers": [{"latitude": 31.45, "longitude": 73.13}],
+  "approximate_markers": [{"latitude": 31.45, "longitude": 73.13, "heading": 145.5}],
   "generated_at": "2026-08-10T12:00:00+05:00",
   "refresh_after_seconds": 20
 }
 ```
 
-Markers are rounded server-side and may represent multiple Captains. Never
+Markers are rounded server-side and may represent multiple Captains. `heading`
+is nullable and visual-only; it is suppressed for unreliable telemetry. Never
 treat them as live identity/location data or create Captain channels from them.
 The backend returns no Captain ID, name, phone or vehicle before assignment.
 

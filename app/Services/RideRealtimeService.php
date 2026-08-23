@@ -6,6 +6,7 @@ use App\Events\RideRealtimeEvent;
 use App\Models\RideOffer;
 use App\Models\RideRequest;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class RideRealtimeService
 {
@@ -150,10 +151,12 @@ class RideRealtimeService
 
     private function send(array $channels, string $event, array $payload): void
     {
-        try {
-            broadcast(new RideRealtimeEvent($channels, $event, $payload));
-        } catch (\Throwable $exception) {
-            report($exception);
-        }
+        DB::afterCommit(function () use ($channels, $event, $payload) {
+            try {
+                broadcast(new RideRealtimeEvent($channels, $event, $payload));
+            } catch (\Throwable $exception) {
+                report($exception);
+            }
+        });
     }
 }

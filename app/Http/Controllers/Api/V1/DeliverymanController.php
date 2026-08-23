@@ -515,10 +515,26 @@ class DeliverymanController extends Controller
 
     public function record_location_data(Request $request)
     {
+        $validator = Validator::make($request->all(), [
+            'latitude' => 'required|numeric|between:-90,90',
+            'longitude' => 'required|numeric|between:-180,180',
+            'heading' => 'nullable|numeric',
+            'speed_mps' => 'nullable|numeric|between:0,100',
+            'accuracy_meters' => 'nullable|numeric|between:0,1000',
+        ]);
+        if ($validator->fails()) {
+            return response()->json(['errors' => Helpers::error_processor($validator)], 403);
+        }
+
         $dm = DeliveryMan::where(['auth_token' => $request['token']])->first();
         DeliveryHistory::updateOrCreate(['delivery_man_id' => $dm['id']], [
             'longitude' => $request['longitude'],
             'latitude' => $request['latitude'],
+            'heading' => app(\App\Services\RideNearbyMarkerService::class)->normalizeHeading(
+                $request->filled('heading') ? (float) $request->heading : null
+            ),
+            'speed_mps' => $request->filled('speed_mps') ? (float) $request->speed_mps : null,
+            'accuracy_meters' => $request->filled('accuracy_meters') ? (float) $request->accuracy_meters : null,
             'time' => now(),
             'location' => $request['location'],
             'created_at' => now(),

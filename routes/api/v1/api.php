@@ -90,6 +90,7 @@ Route::group(['namespace' => 'Api\V1', 'middleware'=>'localization'], function (
         Route::post('fare-estimates', 'CustomerRideController@estimates');
         Route::post('coupons/validate', 'CustomerRideController@validateCoupon');
         Route::post('rides', 'CustomerRideController@store');
+        Route::get('cancellation-reasons', 'CustomerRideController@cancellationReasons');
         Route::get('rides', 'CustomerRideController@index');
         Route::get('rides/{ride_id}', 'CustomerRideController@show');
         Route::put('rides/{ride_id}/rating', 'CustomerRideController@rate');
@@ -134,6 +135,7 @@ Route::group(['namespace' => 'Api\V1', 'middleware'=>'localization'], function (
             Route::post('ride-requests/{ride_id}/offers', 'CaptainRideController@storeOffer');
             Route::get('ride-offers', 'CaptainRideController@offers');
             Route::get('rides/current', 'CaptainRideController@currentRide');
+            Route::get('ride-cancellation-reasons', 'CaptainRideController@cancellationReasons');
             Route::get('rides/{ride_id}', 'CaptainRideController@showRide');
             Route::put('rides/{ride_id}/status', 'CaptainRideController@transition');
             Route::put('rides/{ride_id}/location', 'CaptainRideController@updateLocation')->middleware('throttle:120,1');

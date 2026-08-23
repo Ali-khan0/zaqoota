@@ -7,6 +7,8 @@ use App\Models\DeliveryMan;
 use App\Models\RideOffer;
 use App\Models\RideRating;
 use App\Models\RideRequest;
+use App\Services\RideCaptainPickupRouteService;
+use App\Services\RideRouteService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use ReflectionClass;
@@ -115,6 +117,8 @@ class RideCustomerResponseTest extends TestCase
     private function rideData(RideRequest $ride): array
     {
         $controller = (new ReflectionClass(CustomerRideController::class))->newInstanceWithoutConstructor();
+        $property = new \ReflectionProperty(CustomerRideController::class, 'captainPickupRouteService');
+        $property->setValue($controller, new RideCaptainPickupRouteService(new RideRouteService));
         $method = new ReflectionMethod(CustomerRideController::class, 'rideData');
 
         return $method->invoke($controller, $ride);

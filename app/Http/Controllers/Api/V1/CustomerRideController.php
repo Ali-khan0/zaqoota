@@ -13,6 +13,8 @@ use App\Models\RideRequest as PassengerRide;
 use App\Models\User;
 use App\Models\Zone;
 use App\Services\RideCaptainEligibilityService;
+use App\Services\RideCaptainPickupRouteService;
+use App\Services\RideCancellationReasonService;
 use App\Services\RideCouponService;
 use App\Services\RideCustomerSettingService;
 use App\Services\RideFareCalculator;
@@ -43,7 +45,30 @@ class CustomerRideController extends Controller
         private readonly RideCouponService $couponService,
         private readonly RideCustomerSettingService $customerSettings,
         private readonly RideHistoryFilterService $historyFilterService,
+        private readonly RideCancellationReasonService $cancellationReasonService,
+        private readonly RideCaptainPickupRouteService $captainPickupRouteService,
     ) {}
+
+    public function cancellationReasons(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'ride_status' => ['required', Rule::in([
+                PassengerRide::STATUS_SEARCHING,
+                PassengerRide::STATUS_NEGOTIATING,
+                PassengerRide::STATUS_RIDER_SELECTED,
+                PassengerRide::STATUS_CAPTAIN_ARRIVING,
+                PassengerRide::STATUS_ARRIVED,
+            ])],
+        ]);
+        if ($validator->fails()) {
+            return response()->json(['errors' => Helpers::error_processor($validator)], 422);
+        }
+
+        return response()->json(['reasons' => $this->cancellationReasonService
+            ->available('customer', $request->ride_status)
+            ->map(fn ($reason) => $this->cancellationReasonService->data($reason))
+            ->values()]);
+    }
 
     public function validateCoupon(Request $request)
     {
@@ -392,6 +417,9 @@ class CustomerRideController extends Controller
         $ride = PassengerRide::query()->where('user_id', $request->user()->id)
             ->with(['category', 'deliveryMan.rating', 'deliveryMan.rideRating', 'rideVehicle', 'acceptedOffer', 'customerRating', 'user'])
             ->findOrFail($rideId);
+        $ride = $this->captainPickupRouteService->refresh($ride)->loadMissing([
+            'category', 'deliveryMan.rating', 'deliveryMan.rideRating', 'rideVehicle', 'acceptedOffer', 'customerRating', 'user',
+        ]);
 
         return response()->json(['ride' => $this->rideData($ride)]);
     }
@@ -605,13 +633,15 @@ class CustomerRideController extends Controller
         $captains = $this->eligibilityService->eligibleCaptainsForRide($probe, 100);
         $settings = $this->customerSettings->all();
         $precision = $settings['nearby_marker_precision'];
-        $markers = $captains->take($settings['nearby_marker_limit'])->map(function ($captain) use ($precision) {
+        $generatedAt = now();
+        $markerService = app(\App\Services\RideNearbyMarkerService::class);
+        $markers = $captains->take($settings['nearby_marker_limit'])->map(function ($captain) use ($precision, $generatedAt, $markerService) {
             $location = $captain->last_location()->first();
             if (! $location) {
                 return null;
             }
 
-            return ['latitude' => round((float) $location->latitude, $precision), 'longitude' => round((float) $location->longitude, $precision)];
+            return $markerService->marker($location, $precision, $generatedAt);
         })->filter()->unique(fn ($marker) => $marker['latitude'].':'.$marker['longitude'])->values();
         $etas = $captains->pluck('pickup_eta_seconds')->filter()->map(fn ($seconds) => max(1, (int) ceil($seconds / 60)));
 
@@ -619,7 +649,7 @@ class CustomerRideController extends Controller
             'available_count' => $captains->count(),
             'estimated_pickup_minutes' => ['minimum' => $etas->min(), 'maximum' => $etas->max()],
             'approximate_markers' => $markers,
-            'generated_at' => now()->toIso8601String(),
+            'generated_at' => $generatedAt->toIso8601String(),
             'refresh_after_seconds' => $settings['nearby_refresh_seconds'],
         ]);
     }
@@ -649,6 +679,7 @@ class CustomerRideController extends Controller
                 return ['error' => $exception->getMessage(), 'error_code' => 'coupon_code'];
             }
             $fromStatus = $ride->status;
+            $captainLocation = $captain->last_location()->first();
             $offer->update(['status' => RideOffer::STATUS_ACCEPTED]);
             RideOffer::query()->where('ride_request_id', $ride->id)->whereKeyNot($offer->id)->where('status', RideOffer::STATUS_PENDING)->update(['status' => RideOffer::STATUS_REJECTED]);
             $ride->update([
@@ -658,6 +689,9 @@ class CustomerRideController extends Controller
                 'status' => PassengerRide::STATUS_RIDER_SELECTED,
                 'selected_at' => now(),
                 'trip_pin' => (string) random_int(1000, 9999),
+                'current_latitude' => $captainLocation?->latitude,
+                'current_longitude' => $captainLocation?->longitude,
+                'location_updated_at' => $captainLocation ? now() : null,
                 ...$settlement,
                 ...$coupon,
             ]);
@@ -670,6 +704,9 @@ class CustomerRideController extends Controller
             return $this->error($result['error_code'] ?? 'offer', $result['error']);
         }
 
+        $result['ride'] = $this->captainPickupRouteService->refresh($result['ride'])
+            ->loadMissing(['category', 'deliveryMan', 'rideVehicle']);
+
         $this->notificationService->event($result['ride'], 'offer_accepted');
         $this->realtimeService->status($result['ride']);
 
@@ -678,9 +715,9 @@ class CustomerRideController extends Controller
 
     public function cancel(Request $request, int $rideId)
     {
-        $validator = Validator::make($request->all(), ['reason' => 'nullable|string|max:500']);
+        $validator = Validator::make($request->all(), ['cancellation_reason_id' => 'required|integer']);
         if ($validator->fails()) {
-            return response()->json(['errors' => Helpers::error_processor($validator)], 403);
+            return response()->json(['errors' => Helpers::error_processor($validator)], 422);
         }
 
         $result = DB::transaction(function () use ($request, $rideId) {
@@ -688,9 +725,22 @@ class CustomerRideController extends Controller
             if (! $this->tripService->canCancel($ride->status)) {
                 return null;
             }
+            $reason = $this->cancellationReasonService->resolve(
+                $request->integer('cancellation_reason_id'), 'customer', $ride->status
+            );
+            if (! $reason) {
+                return ['invalid_reason' => true];
+            }
 
-            return $this->tripService->cancel($ride, 'customer', (int) $request->user()->id, $request->reason);
+            return $this->tripService->cancel($ride, 'customer', (int) $request->user()->id, $reason);
         });
+
+        if (is_array($result) && isset($result['invalid_reason'])) {
+            return response()->json(['errors' => [[
+                'code' => 'cancellation_reason_id',
+                'message' => 'Please select a valid cancellation reason.',
+            ]]], 422);
+        }
 
         if (! $result) {
             return $this->error('ride', 'This ride can no longer be cancelled.');
@@ -857,6 +907,7 @@ class CustomerRideController extends Controller
             'pickup' => ['address' => $ride->pickup_address, 'latitude' => (float) $ride->pickup_latitude, 'longitude' => (float) $ride->pickup_longitude],
             'destination' => ['address' => $ride->destination_address, 'latitude' => (float) $ride->destination_latitude, 'longitude' => (float) $ride->destination_longitude],
             'route_polyline' => (string) ($ride->route_polyline ?? ''),
+            'captain_pickup_route' => $this->captainPickupRouteService->data($ride),
             'accepted_pickup' => $ride->acceptedOffer ? [
                 'distance_meters' => $ride->acceptedOffer->pickup_distance_meters,
                 'eta_seconds' => $ride->acceptedOffer->pickup_eta_seconds,
@@ -874,7 +925,7 @@ class CustomerRideController extends Controller
             'cancellation_charge_amount' => (float) $ride->cancellation_charge_amount,
             'previous_cancellation_due_amount' => (float) $ride->carried_cancellation_due_amount,
             'cancelled_by' => $ride->cancelled_by,
-            'cancellation_reason' => $ride->cancellation_reason,
+            'cancellation_reason' => $ride->cancellationReasonData(),
             'payment_status' => $ride->payment_status,
             'payment_method' => $ride->payment_method,
             'final_payable_amount' => $ride->final_payable_amount,

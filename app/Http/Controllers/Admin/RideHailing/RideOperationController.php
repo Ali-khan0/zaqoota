@@ -8,6 +8,8 @@ use App\Models\RideOffer;
 use App\Models\RideRequest;
 use App\Models\Zone;
 use App\Services\RideCaptainEligibilityService;
+use App\Services\RideCaptainPickupRouteService;
+use App\Services\RideCancellationReasonService;
 use App\Services\RideCouponService;
 use App\Services\RideFareCalculator;
 use App\Services\RideNotificationService;
@@ -29,6 +31,8 @@ class RideOperationController extends Controller
         private readonly RideNotificationService $notificationService,
         private readonly RideRealtimeService $realtimeService,
         private readonly RideCouponService $couponService,
+        private readonly RideCancellationReasonService $cancellationReasonService,
+        private readonly RideCaptainPickupRouteService $captainPickupRouteService,
     ) {}
 
     public function index(Request $request): View
@@ -101,8 +105,11 @@ class RideOperationController extends Controller
             ? $this->eligibilityService->eligibleCaptains($ride->zone_id, $ride->ride_category_id)
                 ->load('activeRideVehicle')
             : collect();
+        $cancellationReasons = $this->tripService->canCancel($ride->status)
+            ? $this->cancellationReasonService->available('admin', $ride->status)
+            : collect();
 
-        return view('admin-views.ride-hailing.rides.show', compact('ride', 'eligibleCaptains'));
+        return view('admin-views.ride-hailing.rides.show', compact('ride', 'eligibleCaptains', 'cancellationReasons'));
     }
 
     public function retryRequestNotifications(RideRequest $ride): RedirectResponse
@@ -146,6 +153,7 @@ class RideOperationController extends Controller
                 ['ride_vehicle_id' => $vehicle->id, 'amount' => $fare, 'status' => RideOffer::STATUS_ACCEPTED, 'expires_at' => now()]
             );
             $fromStatus = $ride->status;
+            $captainLocation = $captain->last_location()->first();
             try {
                 $coupon = $this->couponService->reserve($ride, $fare);
             } catch (\RuntimeException $exception) {
@@ -158,6 +166,9 @@ class RideOperationController extends Controller
                 'status' => RideRequest::STATUS_RIDER_SELECTED,
                 'selected_at' => now(),
                 'trip_pin' => (string) random_int(1000, 9999),
+                'current_latitude' => $captainLocation?->latitude,
+                'current_longitude' => $captainLocation?->longitude,
+                'location_updated_at' => $captainLocation ? now() : null,
                 ...$this->fareCalculator->settlement($fare, $ride->platform_commission_percent),
                 ...$coupon,
             ]);
@@ -170,6 +181,9 @@ class RideOperationController extends Controller
             return $ride->fresh(['user', 'deliveryMan', 'rideVehicle', 'category']);
         });
 
+        $ride = $this->captainPickupRouteService->refresh($ride)
+            ->loadMissing(['user', 'deliveryMan', 'rideVehicle', 'category']);
+
         $this->notificationService->event($ride, 'admin_assigned_customer');
         $this->notificationService->event($ride, 'admin_assigned_captain');
         $this->realtimeService->status($ride);
@@ -179,14 +193,18 @@ class RideOperationController extends Controller
 
     public function cancel(Request $request, RideRequest $ride): RedirectResponse
     {
-        $validated = $request->validate(['reason' => ['required', 'string', 'max:500']]);
+        $validated = $request->validate(['cancellation_reason_id' => ['required', 'integer']]);
         $ride = DB::transaction(function () use ($ride, $validated) {
             $ride = $this->scopedQuery()->lockForUpdate()->findOrFail($ride->id);
             if (! $this->tripService->canCancel($ride->status)) {
-                throw ValidationException::withMessages(['reason' => translate('messages.An in-progress or completed Ride cannot be cancelled.')]);
+                throw ValidationException::withMessages(['cancellation_reason_id' => translate('messages.An in-progress or completed Ride cannot be cancelled.')]);
+            }
+            $reason = $this->cancellationReasonService->resolve((int) $validated['cancellation_reason_id'], 'admin', $ride->status);
+            if (! $reason) {
+                throw ValidationException::withMessages(['cancellation_reason_id' => translate('messages.Please select a valid cancellation reason.')]);
             }
 
-            return $this->tripService->cancel($ride, 'admin', (int) auth('admin')->id(), $validated['reason']);
+            return $this->tripService->cancel($ride, 'admin', (int) auth('admin')->id(), $reason);
         });
 
         $this->notificationService->event($ride, 'admin_cancelled_customer');

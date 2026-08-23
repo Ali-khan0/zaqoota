@@ -9,6 +9,9 @@ class DeliveryHistory extends Model
     protected $casts = [
         'order_id' => 'integer',
         'deliveryman_id' => 'integer',
+        'heading' => 'float',
+        'speed_mps' => 'float',
+        'accuracy_meters' => 'float',
         'time' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime'

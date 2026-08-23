@@ -96,7 +96,7 @@
             @if($ride->status !== 'cancelled' && $ride->status !== 'completed' && $ride->status !== 'in_progress')
             <div class="card mb-3"><div class="card-header"><h5 class="card-title"><i class="tio-clear-circle mr-2 text-danger"></i>{{ translate('messages.Cancel Ride') }}</h5></div><div class="card-body">
                 <form action="{{ route('admin.ride-hailing.rides.cancel', $ride) }}" method="POST" onsubmit="return confirm('{{ translate('messages.Cancel this Ride and notify the passenger and Captain?') }}')">@csrf
-                    <div class="form-group"><label class="input-label">{{ translate('messages.Cancellation Reason') }}</label><textarea name="reason" maxlength="500" rows="3" class="form-control" required>{{ old('reason') }}</textarea>@error('reason')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
+                    <div class="form-group"><label class="input-label">{{ translate('messages.Cancellation Reason') }}</label><select name="cancellation_reason_id" class="form-control js-select2-custom" required><option value="">{{ translate('messages.Select cancellation reason') }}</option>@foreach($cancellationReasons as $reason)<option value="{{ $reason->id }}" @selected(old('cancellation_reason_id') == $reason->id)>{{ $reason->title }}</option>@endforeach</select>@error('cancellation_reason_id')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
                     <button class="btn btn-outline-danger btn-block"><i class="tio-clear-circle mr-1"></i>{{ translate('messages.Cancel Ride') }}</button>
                 </form>
             </div></div>

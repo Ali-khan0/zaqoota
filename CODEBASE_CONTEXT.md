@@ -673,6 +673,7 @@ Use this decision sequence:
 | New realtime event | event/channel authorization, broadcaster config, job/listener, Echo client subscriber, retry/failure handling |
 | New fleet-manager capability | manager zone scope and capacity, assignment history, rider profile contract, fleet-manager API permission, admin audit trail, due-recovery effects |
 | New ride-hailing capability | core `ride_hailing` module registration, dedicated admin setup/sidebar, then separately define vehicles, drivers, fares, trips, booking API, payments, safety, dispatch, notifications, and reports |
+| New Ride map/cancellation capability | customer and Captain API routes/controllers, `RideRequest` snapshots, `delivery_histories` telemetry, actor/lifecycle-scoped reason model/admin CRUD, route-provider cache, private realtime after-commit behavior, privacy tests, and dedicated `docs/api/` contract |
 
 ### Ride Hailing foundation
 
@@ -825,6 +826,10 @@ eligible Captain account channels, capped at 100 per immediate event; polling
 remains the overflow/failure path. `ExpireRideOffer` emits punctual expiry only
 with a durable non-sync queue worker. Config API `ride_realtime` documents auth
 URLs, channel templates and fallback interval. See `docs/api/ride-realtime.md`.
+Every `RideRealtimeService` send is additionally registered through
+`DB::afterCommit`; this protects status, location, request, offer, discovery,
+and payment signals even if a future caller invokes the service from inside a
+transaction. Rolled-back state must never reach a private channel.
 
 Admin Ride operations are available at `admin/ride-hailing/rides` through
 `RideOperationController`. The paginated control room filters by assignment,
@@ -913,16 +918,30 @@ that Captain from offering again on that Ride. Notification payloads include
 `ride_id`/`offer_id` as applicable and never include Trip PIN.
 
 Optional nearby availability returns only eligible-Captain counts, ETA range
-and at most 20 rounded markers. It never exposes pre-assignment Captain IDs,
-names, phones, vehicles or exact coordinates. The complete customer handoff is
-`docs/ap/ride-customer-app-integration.md`; the Captain delta is recorded in
-`docs/ap/ride-hailing-rider-app-integration.md`.
+and at most 20 rounded markers. `ride_category_id` is the canonical category
+query field. Shared Captain heartbeats may persist optional normalized heading,
+speed, and accuracy in `delivery_histories`; `RideNearbyMarkerService` returns
+heading only for fresh, accurate, moving telemetry. It never exposes
+pre-assignment Captain IDs, names, phones, vehicles, private channels or exact
+coordinates. The complete active contract is
+`docs/api/ride-map-markers-cancellation-routing.md`; the older customer handoff
+is `docs/ap/ride-customer-app-integration.md` and the Captain delta is recorded
+in `docs/ap/ride-hailing-rider-app-integration.md`.
 
-Ride cancellation notifications are actor-specific. Passenger, Captain and
-admin cancellation all persist the reason and publish realtime status; admin
-cancellation is available from Ride Operations and notifies both sides without
-a charge. `RideNotificationService` persists both customer and Captain Ride
-messages in `user_notifications` before attempting Firebase delivery.
+Ride cancellation definitions are isolated in `ride_cancellation_reasons` and
+managed at `admin/ride-hailing/cancellation-reasons` through
+`RideCancellationReasonController`. Definitions have immutable stable codes,
+canonical `customer`/`captain`/`admin` actor scopes, JSON pre-trip lifecycle
+scopes, localized titles, display order and active status. Customer and Captain
+apps list only their active status-applicable definitions; all three
+cancellation flows require the numeric definition ID and transactionally
+snapshot ID, code, title and actor on `ride_requests`. Legacy internal `user`
+maps only to `customer`, and commerce order/parcel reasons cannot enter Ride
+flows. Deleting or changing a definition does not rewrite the snapshot.
+Passenger, Captain and admin cancellation notifications remain actor-specific;
+admin cancellation is available from Ride Operations and notifies both sides
+without a charge. `RideNotificationService` persists both customer and Captain
+Ride messages in `user_notifications` before attempting Firebase delivery.
 Conditional Ride message templates are stored in the BusinessSetting key
 `ride_hailing_notification_templates` and managed under the Ride Configuration
 sidebar. Controllers emit stable event keys through `RideNotificationService`;
@@ -932,6 +951,20 @@ Passengers with two lifetime chargeable cancellations are blocked from new
 Ride creation while any cancellation advance remains unrecovered. Those source
 Ride dues accept digital gateway payment only; settlement records admin
 recovery without reposting Captain earnings.
+
+Assigned pre-trip Rides maintain a separate server-generated
+`captain_pickup_route` cache; the booked pickup-to-destination `route_polyline`
+is never repurposed. `RideCaptainPickupRouteService` calls the configured
+server `RideRouteService`, stores polyline/distance/duration/generation time and
+route-origin coordinates on `ride_requests`, reuses the cache for 15 seconds
+and until 75 metres of Captain movement, and retains the previous valid cache
+when the provider fails. Customer detail and Captain current/detail responses
+expose it only for `rider_selected`, `captain_arriving`, and `arrived` under
+their existing owner/assignment scopes. Trip start, cancellation and completion
+hide and clear the approach cache. Captain location persistence commits and
+refreshes this cache before the private `ride.location.updated` hint; clients
+then refetch authoritative REST detail. See
+`docs/api/ride-map-markers-cancellation-routing.md`.
 
 Riders are freelancer-only. Registration APIs and landing/admin/vendor create
 or update paths set `delivery_men.earning = 1` server-side and do not accept a
