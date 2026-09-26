@@ -5495,4 +5495,8 @@
   'Rental_Module' => 'Rental Module',
   'Addon_Activation' => 'Addon Activation',
   'Preview_Image' => 'Preview Image',
+  'current_service_area' => 'منطقة الخدمة الحالية',
+  'gps_service_area_note' => 'سيحدد موقع GPS الحالي منطقة خدمتك تلقائياً. لا حاجة لاختيار منطقة.',
+  'getting_current_location' => 'جارٍ الحصول على الموقع الحالي...',
+  'registration_location_unavailable' => 'تعذر الحصول على موقعك الحالي. شغّل الموقع واسمح بالوصول ثم حاول مرة أخرى.',
 );

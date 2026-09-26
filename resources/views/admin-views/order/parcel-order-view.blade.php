@@ -37,6 +37,8 @@
     </div>
     <!-- Page Header -->
 
+    @include('admin-views.order.partials._commerce-dispatch-monitor')
+
     <div class="row flex-xl-nowrap" id="printableArea">
         <div class="col-lg-8 order-print-area-left">
             <!-- Card -->

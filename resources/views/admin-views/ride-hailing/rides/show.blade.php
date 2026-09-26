@@ -64,6 +64,7 @@
                 $queuedPushes = $requestDeliveries->whereIn('push_status', ['pending', 'queued'])->count();
                 $failedPushes = $requestDeliveries->where('push_status', 'failed')->count();
                 $missingTokens = $requestDeliveries->where('push_status', 'no_token')->count();
+                $supersededPushes = $requestDeliveries->where('push_status', 'superseded')->count();
                 $inAppStored = $requestDeliveries->where('in_app_stored', true)->count();
             @endphp
             <div class="card mb-3">
@@ -83,6 +84,7 @@
                             <div class="col-6 px-1 mb-2"><div class="bg-light rounded p-2"><strong class="d-block text-warning">{{ $queuedPushes }}</strong><small>{{ translate('messages.Queued') }}</small></div></div>
                             <div class="col-6 px-1 mb-2"><div class="bg-light rounded p-2"><strong class="d-block text-danger">{{ $failedPushes }}</strong><small>{{ translate('messages.Failed') }}</small></div></div>
                             <div class="col-6 px-1"><div class="bg-light rounded p-2"><strong class="d-block text-warning">{{ $missingTokens }}</strong><small>{{ translate('messages.No Device Token') }}</small></div></div>
+                            <div class="col-6 px-1"><div class="bg-light rounded p-2"><strong class="d-block text-muted">{{ $supersededPushes }}</strong><small>{{ translate('messages.Superseded') }}</small></div></div>
                         </div>
                         <p class="small text-muted mt-2 mb-0">{{ translate('messages.Firebase Accepted means Firebase accepted the push request; it is not a device-read receipt.') }}</p>
                     @endif

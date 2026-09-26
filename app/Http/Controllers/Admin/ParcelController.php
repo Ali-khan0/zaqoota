@@ -259,7 +259,7 @@ class ParcelController extends Controller
 
     public function order_details(Request $request, $id)
     {
-        $order = Order::withOutGlobalScope(ZoneScope::class)->with(['customer' => function ($query) {
+        $order = Order::withOutGlobalScope(ZoneScope::class)->with(['commerceNotificationDeliveries.deliveryMan', 'customer' => function ($query) {
             return $query->withCount('orders');
         }, 'delivery_man' => function ($query) {
             return $query->withCount('orders');

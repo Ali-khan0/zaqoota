@@ -2,20 +2,21 @@
 
 ## Nearest-first Ride discovery
 
-`GET /api/v1/delivery-man/ride-requests` is ordered by the Captain's straight-line distance to each pickup. Only requests inside the admin-configured maximum pickup radius are returned. The Captain must continue sending location through the existing location-update flow before requesting this list.
+`GET /api/v1/delivery-man/ride-requests` is ordered by the Captain's straight-line distance to each pickup. Only requests inside the admin-configured maximum pickup radius and the Captain's currently open dispatch wave are returned. The Captain must continue sending fresh location through the existing location-update flow before requesting this list.
 
 Each Ride object includes:
 
 ```json
 {
   "pickup_distance_meters": 1850,
-  "pickup_eta_seconds": 267
+  "pickup_eta_seconds": 267,
+  "dispatch_wave": 1
 }
 ```
 
 Show the nearest request first, display the formatted pickup distance and approximate arrival time, and preserve server order during pagination. `pickup_eta_seconds` uses the admin-configured average pickup speed and is an estimate, not routed navigation time or a fare input. A `403` error with code `location` means the app must send its current location and retry. A realtime `ride.request.created` event is a refresh signal: fetch this endpoint again to obtain Captain-specific distance, radius filtering and correct ordering.
 
-The offer endpoint checks the pickup radius again. A hidden or stale Ride ID cannot be used to offer from outside the configured radius.
+The offer endpoint checks pickup radius and current wave again. A hidden or stale Ride ID cannot bypass staged visibility; an early attempt returns `dispatch_wave_pending`.
 
 Successful offer responses also contain `pickup_distance_meters` and `pickup_eta_seconds`. These are snapshotted when the offer is submitted so the passenger app can rank offers consistently.
 

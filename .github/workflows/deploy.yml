@@ -43,12 +43,17 @@ jobs:
             git fetch origin $BRANCH
             git reset --hard origin/$BRANCH
 
-            # Laravel permissions & optimization commands
-            composer install --no-dev --optimize-autoloader --quiet || true
-            php artisan migrate --force || true
-            php artisan config:cache || true
-            php artisan route:cache || true
-            php artisan view:cache || true
+            # Laravel dependencies, database and cached configuration.
+            # Do not hide failures: a partial deployment can disable delayed dispatch waves.
+            composer install --no-dev --optimize-autoloader --quiet
+            php artisan migrate --force
+            php artisan config:cache
+            php artisan dispatch:health
+            php artisan route:cache
+            php artisan view:cache
+
+            # Ask the supervised worker to reload the new application code.
+            php artisan queue:restart
 
             # Set folder permissions for storage & cache
             sudo chown -R ubuntu:www-data $TARGET_DIR/storage $TARGET_DIR/bootstrap/cache

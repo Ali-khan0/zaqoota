@@ -74,10 +74,10 @@ ride.captain.{authenticated_captain_id}
 ```
 
 Only that Captain can subscribe. New requests are sent separately to the
-private account channels of up to 100 currently eligible Captains in the pickup
-zone/category. Eligibility is recalculated before broadcast: approved, active,
-Ride mode, matching approved active vehicle, and no conflicting work. Captains
-outside the realtime fan-out still use paginated request polling.
+private account channels in nearest-first timed waves. Wave membership is
+recalculated before broadcast: approved, active, Ride mode, fresh GPS, current
+pickup zone, matching approved active vehicle, pickup radius, and no conflicting
+work. Polling uses the same current wave and remains authoritative.
 
 ### Assigned Trip
 

@@ -38,10 +38,13 @@
             <li class="nav-item">
                 <a class="nav-link {{ Request::is('admin/business-settings/business-setup/automated-message') ?'active':'' }}" href="{{ route('admin.business-settings.business-setup',  ['tab' => 'automated-message']) }}"  aria-disabled="true">{{translate('messages.Automated_Message')}}</a>
             </li>
+            <li class="nav-item">
+                <a class="nav-link {{ Request::is('admin/business-settings/queue-operations*') ?'active':'' }}" href="{{ route('admin.business-settings.queue-operations') }}">{{ translate('Queue Operations') }}</a>
+            </li>
         </ul>
         <!-- End Nav -->
     </div>
-    @if (!(Request::is('admin/business-settings/language') || Request::is('admin/business-settings/business-setup/refund-settings') || Request::is('admin/business-settings/business-setup/automated-message')))
+    @if (!(Request::is('admin/business-settings/language') || Request::is('admin/business-settings/business-setup/refund-settings') || Request::is('admin/business-settings/business-setup/automated-message') || Request::is('admin/business-settings/queue-operations*')))
     <div class="d-flex flex-wrap justify-content-end align-items-center flex-grow-1">
         <div class="blinkings active">
             <i class="tio-info-outined"></i>

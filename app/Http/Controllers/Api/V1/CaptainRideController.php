@@ -8,6 +8,7 @@ use App\Jobs\ExpireRideOffer;
 use App\Models\RideOffer;
 use App\Models\RideRequest;
 use App\Services\RideCaptainEligibilityService;
+use App\Services\RideDispatchService;
 use App\Services\RideCaptainPickupRouteService;
 use App\Services\RideCancellationReasonService;
 use App\Services\RideNotificationService;
@@ -15,6 +16,7 @@ use App\Services\RidePaymentService;
 use App\Services\RideRealtimeService;
 use App\Services\RideTripService;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
@@ -36,6 +38,7 @@ class CaptainRideController extends Controller
         private readonly RideRealtimeService $realtimeService,
         private readonly RideCancellationReasonService $cancellationReasonService,
         private readonly RideCaptainPickupRouteService $captainPickupRouteService,
+        private readonly RideDispatchService $dispatchService,
     ) {}
 
     public function cancellationReasons(Request $request)
@@ -65,13 +68,17 @@ class CaptainRideController extends Controller
         if (! $location || ! is_numeric($location->latitude) || ! is_numeric($location->longitude)) {
             return $this->error('location', 'Update your current location before searching for passenger rides.');
         }
+        $locationTimestamp = $location->time ?: $location->updated_at;
+        if (! $locationTimestamp || $locationTimestamp->lt(now()->subSeconds($this->eligibilityService->locationFreshnessSeconds()))) {
+            return $this->error('location', 'Your location is too old. Update GPS before searching for passenger rides.');
+        }
         $latitude = (float) $location->latitude;
         $longitude = (float) $location->longitude;
         $earthRadius = 6371000;
         $distanceSql = "$earthRadius * 2 * ASIN(SQRT(POWER(SIN(RADIANS(pickup_latitude - ?) / 2), 2) + COS(RADIANS(?)) * COS(RADIANS(pickup_latitude)) * POWER(SIN(RADIANS(pickup_longitude - ?) / 2), 2)))";
         $distanceBindings = [$latitude, $latitude, $longitude];
 
-        $rides = RideRequest::query()
+        $visibleRides = RideRequest::query()
             ->select('ride_requests.*')->selectRaw("$distanceSql AS pickup_distance_meters", $distanceBindings)
             ->with('category')
             ->where('zone_id', $captain->zone_id)
@@ -85,7 +92,25 @@ class CaptainRideController extends Controller
                         ->whereIn('status', [RideOffer::STATUS_PENDING, RideOffer::STATUS_ACCEPTED])
                         ->where('expires_at', '>', now()))))
             ->whereRaw("$distanceSql <= ?", [...$distanceBindings, $this->eligibilityService->maximumPickupRadiusMeters()])
-            ->orderBy('pickup_distance_meters')->oldest('created_at')->paginate(max(1, min($request->integer('limit', 20), 50)));
+            ->orderBy('pickup_distance_meters')->oldest('created_at')->get()
+            ->map(function (RideRequest $ride) use ($captain) {
+                $wave = $this->dispatchService->visibleWaveFor($captain, $ride);
+                if ($wave === null) {
+                    return null;
+                }
+                $ride->setAttribute('dispatch_wave', $wave);
+
+                return $ride;
+            })->filter()->values();
+        $perPage = max(1, min($request->integer('limit', 20), 50));
+        $page = max(1, LengthAwarePaginator::resolveCurrentPage());
+        $rides = new LengthAwarePaginator(
+            $visibleRides->forPage($page, $perPage)->values(),
+            $visibleRides->count(),
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()],
+        );
         $rides->getCollection()->transform(fn ($ride) => $this->requestData($ride));
 
         return response()->json($rides);
@@ -113,6 +138,12 @@ class CaptainRideController extends Controller
             if (! $vehicle || ! $pickupMetrics || $pickupMetrics['distance_meters'] > $this->eligibilityService->maximumPickupRadiusMeters()) {
                 return ['error' => 'Captain is not eligible for this ride request.'];
             }
+            if (! $this->dispatchService->isVisibleTo($captain, $ride)) {
+                return [
+                    'code' => 'dispatch_wave_pending',
+                    'error' => 'This Ride is currently offered to nearer captains. Please wait for the next dispatch wave.',
+                ];
+            }
             $amount = round((float) $request->amount, 2);
             if ($amount < $ride->minimum_negotiated_fare || $amount > $ride->maximum_negotiated_fare) {
                 return ['error' => 'The offer must be inside the allowed negotiation range.'];
@@ -138,7 +169,7 @@ class CaptainRideController extends Controller
         });
 
         if (isset($result['error'])) {
-            return $this->error('offer', $result['error']);
+            return $this->error($result['code'] ?? 'offer', $result['error']);
         }
 
         $this->realtimeService->offer($result['offer']->load('rideRequest'));
@@ -326,6 +357,9 @@ class CaptainRideController extends Controller
             'offer_expiry_seconds' => (int) $ride->offer_expiry_seconds,
             'pickup_distance_meters' => $pickupDistance,
             'pickup_eta_seconds' => $pickupEta,
+            'dispatch_wave' => $ride->getAttribute('dispatch_wave') !== null
+                ? (int) $ride->getAttribute('dispatch_wave')
+                : null,
         ];
     }
 

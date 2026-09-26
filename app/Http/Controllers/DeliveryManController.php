@@ -6,6 +6,7 @@ use App\Models\DeliveryMan;
 use Illuminate\Http\Request;
 use App\CentralLogics\Helpers;
 use App\Services\DeliveryManRegistrationFeeService;
+use App\Services\OperationalZoneService;
 use App\Services\RideVehicleRegistrationService;
 use App\Models\RideVehicleType;
 use App\Models\Admin;
@@ -77,6 +78,7 @@ class DeliveryManController extends Controller
         }
 
         $vehicleService = app(RideVehicleRegistrationService::class);
+        $zoneService = app(OperationalZoneService::class);
         $request->validate([
             'f_name' => 'required|max:100',
             'l_name' => 'nullable|max:100',
@@ -87,15 +89,19 @@ class DeliveryManController extends Controller
             'identity_image.*' => 'required|image|mimes:jpg,jpeg,png,webp|max:5120',
             'email' => 'required|unique:delivery_men',
             'phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:10|unique:delivery_men',
-            'zone_id' => 'required',
+            'latitude' => 'required_without:zone_id|nullable|numeric|between:-90,90',
+            'longitude' => 'required_without:zone_id|nullable|numeric|between:-180,180',
+            'zone_id' => 'nullable|integer|exists:zones,id',
             'password' => ['required', Password::min(8)->mixedCase()->letters()->numbers()->symbols()->uncompromised()],
             ...$vehicleService->rules(),
         ], [
             'f_name.required' => translate('messages.first_name_is_required'),
-            'zone_id.required' => translate('messages.select_a_zone'),
             'ride_vehicle_type_id.required' => translate('messages.select_a_vehicle')
         ]);
 
+        $zone = $request->filled('latitude') && $request->filled('longitude')
+            ? $zoneService->resolve((float) $request->latitude, (float) $request->longitude)
+            : $zoneService->resolveLegacy($request->integer('zone_id'));
         $image_name = Helpers::upload('delivery-man/', 'png', $request->file('image'));
 
         $id_img_names = [];
@@ -109,7 +115,7 @@ class DeliveryManController extends Controller
             $identity_image = json_encode([]);
         }
 
-        $dm = DB::transaction(function () use ($request, $identity_image, $image_name, $vehicleService) {
+        $dm = DB::transaction(function () use ($request, $identity_image, $image_name, $vehicleService, $zone) {
             $dm = new DeliveryMan();
             $dm->f_name = $request->f_name;
             $dm->l_name = $request->l_name;
@@ -118,7 +124,7 @@ class DeliveryManController extends Controller
             $dm->identity_number = $request->identity_number;
             $dm->identity_type = $request->identity_type;
             $dm->vehicle_id = $vehicleService->matchingDeliveryVehicleId((int) $request->ride_vehicle_type_id);
-            $dm->zone_id = $request->zone_id;
+            $dm->zone_id = $zone?->id;
             $dm->identity_image = $identity_image;
             $dm->image = $image_name;
             $dm->active = 0;

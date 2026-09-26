@@ -45,6 +45,27 @@
                         </div>
                         <div class="col-lg-6">
                             <div class="form-group">
+                                <label class="input-label" for="dispatch_wave_size">{{ translate('messages.Captains Per Dispatch Wave') }}</label>
+                                <input id="dispatch_wave_size" name="dispatch_wave_size" type="number" min="1" max="50" class="form-control" value="{{ old('dispatch_wave_size', $settings['dispatch_wave_size']) }}" required>
+                                <small class="text-muted">{{ translate('messages.The nearest group receives and sees the Ride first.') }}</small>
+                            </div>
+                        </div>
+                        <div class="col-lg-6">
+                            <div class="form-group">
+                                <label class="input-label" for="dispatch_wave_interval_seconds">{{ translate('messages.Dispatch Wave Interval') }}</label>
+                                <div class="input-group"><input id="dispatch_wave_interval_seconds" name="dispatch_wave_interval_seconds" type="number" min="5" max="300" class="form-control" value="{{ old('dispatch_wave_interval_seconds', $settings['dispatch_wave_interval_seconds']) }}" required><div class="input-group-append"><span class="input-group-text">sec</span></div></div>
+                                <small class="text-muted">{{ translate('messages.After this delay, the Ride expands to the next nearest group.') }}</small>
+                            </div>
+                        </div>
+                        <div class="col-lg-6">
+                            <div class="form-group">
+                                <label class="input-label" for="dispatch_location_freshness_seconds">{{ translate('messages.Captain Location Freshness') }}</label>
+                                <div class="input-group"><input id="dispatch_location_freshness_seconds" name="dispatch_location_freshness_seconds" type="number" min="30" max="1800" class="form-control" value="{{ old('dispatch_location_freshness_seconds', $settings['dispatch_location_freshness_seconds']) }}" required><div class="input-group-append"><span class="input-group-text">sec</span></div></div>
+                                <small class="text-muted">{{ translate('messages.Captains with older GPS data are excluded from Ride dispatch.') }}</small>
+                            </div>
+                        </div>
+                        <div class="col-lg-6">
+                            <div class="form-group">
                                 <label class="input-label" for="distance_unit">{{ translate('messages.Distance Unit') }}</label>
                                 <select id="distance_unit" name="distance_unit" class="form-control" required>
                                     <option value="km" @selected(old('distance_unit', $settings['distance_unit']) === 'km')>{{ translate('messages.Kilometres (km)') }}</option>

@@ -17,6 +17,7 @@ use App\Services\RideCaptainPickupRouteService;
 use App\Services\RideCancellationReasonService;
 use App\Services\RideCouponService;
 use App\Services\RideCustomerSettingService;
+use App\Services\RideDispatchService;
 use App\Services\RideFareCalculator;
 use App\Services\RideHistoryFilterService;
 use App\Services\RideNotificationService;
@@ -47,6 +48,7 @@ class CustomerRideController extends Controller
         private readonly RideHistoryFilterService $historyFilterService,
         private readonly RideCancellationReasonService $cancellationReasonService,
         private readonly RideCaptainPickupRouteService $captainPickupRouteService,
+        private readonly RideDispatchService $dispatchService,
     ) {}
 
     public function cancellationReasons(Request $request)
@@ -372,9 +374,7 @@ class CustomerRideController extends Controller
             return $this->error('ride', 'Complete or cancel your active ride request before creating another one.');
         }
 
-        $eligibleCaptains = $this->eligibilityService->eligibleCaptainsForRide($ride);
-        $this->realtimeService->discovery($ride, $eligibleCaptains);
-        $this->notificationService->newRequest($ride, $eligibleCaptains);
+        $this->dispatchService->dispatch($ride);
 
         return response()->json(['message' => 'Ride request created.', 'ride' => $this->rideData($ride)], 201);
     }
@@ -553,7 +553,7 @@ class CustomerRideController extends Controller
             return $this->error($result['code'], $result['error']);
         }
 
-        $captains = $this->eligibilityService->eligibleCaptainsForRide($result['ride']);
+        $captains = $this->dispatchService->visibleCaptains($result['ride']);
         $this->realtimeService->requestUpdated($result['ride'], $captains);
         $this->notificationService->captainsEvent(
             $result['ride'],

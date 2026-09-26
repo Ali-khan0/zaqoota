@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\RideOffer;
+use App\Queue\Middleware\EnsureQueueProcessEnabled;
 use App\Services\RideRealtimeService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -13,6 +14,11 @@ class ExpireRideOffer implements ShouldQueue
     use Queueable;
 
     public function __construct(public readonly int $offerId) {}
+
+    public function middleware(): array
+    {
+        return [new EnsureQueueProcessEnabled('ride_offer_expiry')];
+    }
 
     public function handle(RideRealtimeService $realtimeService): void
     {

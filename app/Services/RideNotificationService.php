@@ -10,6 +10,7 @@ use App\Models\RideOffer;
 use App\Models\RideRequest;
 use App\Models\UserNotification;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class RideNotificationService
 {
@@ -54,41 +55,61 @@ class RideNotificationService
         ];
 
         foreach ($captains->unique('id') as $captain) {
-            $delivery = RideNotificationDelivery::query()->firstOrCreate([
-                'ride_request_id' => $ride->id,
-                'delivery_man_id' => $captain->id,
-                'event' => $deliveryEvent ?? $event,
-            ]);
-
             try {
-                if ($inApp && ! $delivery->in_app_stored) {
-                    UserNotification::query()->create([
+                $deliveryId = DB::transaction(function () use ($ride, $captain, $deliveryEvent, $event, $inApp, $push, $data) {
+                    $delivery = RideNotificationDelivery::query()->firstOrCreate([
+                        'ride_request_id' => $ride->id,
                         'delivery_man_id' => $captain->id,
-                        'data' => json_encode($data),
+                        'event' => $deliveryEvent ?? $event,
                     ]);
-                    $delivery->in_app_stored = true;
-                }
+                    $delivery = RideNotificationDelivery::query()->whereKey($delivery->id)->lockForUpdate()->first();
 
-                if (! $push) {
-                    $delivery->push_status = 'disabled';
-                } elseif (! $captain->fcm_token) {
-                    $delivery->push_status = 'no_token';
-                } elseif ($delivery->push_status !== 'accepted'
-                    && ($delivery->push_status !== 'queued' || $delivery->updated_at?->lt(now()->subMinutes(5)))) {
+                    if ($inApp && ! $delivery->in_app_stored) {
+                        UserNotification::query()->create([
+                            'delivery_man_id' => $captain->id,
+                            'data' => json_encode($data),
+                        ]);
+                        $delivery->in_app_stored = true;
+                    }
+
+                    if (! $push) {
+                        $delivery->push_status = 'disabled';
+                        $delivery->save();
+
+                        return null;
+                    }
+                    if (! $captain->fcm_token) {
+                        $delivery->push_status = 'no_token';
+                        $delivery->save();
+
+                        return null;
+                    }
+                    if ($delivery->push_status === 'accepted'
+                        || ($delivery->push_status === 'queued' && ! $delivery->updated_at?->lt(now()->subMinutes(5)))) {
+                        $delivery->save();
+
+                        return null;
+                    }
                     $delivery->push_status = 'queued';
                     $delivery->last_error = null;
                     $delivery->save();
-                    SendRideRequestPush::dispatch($delivery->id, $data);
 
-                    continue;
+                    return $delivery->id;
+                }, 3);
+
+                if ($deliveryId) {
+                    SendRideRequestPush::dispatch($deliveryId, $data);
                 }
-                $delivery->save();
             } catch (\Throwable $exception) {
-                $delivery->forceFill([
+                RideNotificationDelivery::query()->where([
+                    'ride_request_id' => $ride->id,
+                    'delivery_man_id' => $captain->id,
+                    'event' => $deliveryEvent ?? $event,
+                ])->update([
                     'push_status' => 'failed',
                     'last_error' => (string) str($exception->getMessage())->limit(1000),
                     'last_attempted_at' => now(),
-                ])->save();
+                ]);
                 report($exception);
             }
         }

@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Queue\Middleware\EnsureQueueProcessEnabled;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 
@@ -27,6 +28,11 @@ class DispatchDriverLocationJob implements ShouldQueue
         $this->longitude = $longitude;
         $this->location = $location;
         info("from JOB: Broadcasting location update for deliveryman ID: {$deliverymanId} to dm_location_{$deliverymanId} channel.");
+    }
+
+    public function middleware(): array
+    {
+        return [new EnsureQueueProcessEnabled('driver_location_broadcast')];
     }
 
     /**

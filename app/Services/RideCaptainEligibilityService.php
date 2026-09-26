@@ -11,6 +11,12 @@ use Illuminate\Support\Collection;
 
 class RideCaptainEligibilityService
 {
+    private ?int $maximumPickupRadius = null;
+
+    private ?float $pickupEtaSpeed = null;
+
+    private ?int $locationFreshness = null;
+
     public function eligibleCaptains(int $zoneId, int $categoryId, int $limit = 100): Collection
     {
         return DeliveryMan::query()->withoutGlobalScopes()
@@ -38,6 +44,10 @@ class RideCaptainEligibilityService
             ->join('delivery_histories', 'delivery_histories.delivery_man_id', '=', 'delivery_men.id')
             ->select('delivery_men.*')->selectRaw("$distanceSql AS pickup_distance_meters", $bindings)
             ->whereRaw('delivery_histories.id = (SELECT MAX(dh.id) FROM delivery_histories dh WHERE dh.delivery_man_id = delivery_men.id)')
+            ->whereRaw(
+                'COALESCE(delivery_histories.time, delivery_histories.updated_at) >= ?',
+                [now()->subSeconds($this->locationFreshnessSeconds())->toDateTimeString()]
+            )
             ->where('application_status', 'approved')
             ->where('work_mode', 'ride')
             ->where('active', 1)
@@ -68,6 +78,10 @@ class RideCaptainEligibilityService
         if (! $location || ! is_numeric($location->latitude) || ! is_numeric($location->longitude)) {
             return null;
         }
+        $locationTimestamp = $location->time ?: $location->updated_at;
+        if (! $locationTimestamp || $locationTimestamp->lt(now()->subSeconds($this->locationFreshnessSeconds()))) {
+            return null;
+        }
         $distance = $this->distanceMeters((float) $location->latitude, (float) $location->longitude, (float) $ride->pickup_latitude, (float) $ride->pickup_longitude);
         $speedMetersPerSecond = $this->pickupEtaSpeedKmh() * 1000 / 3600;
 
@@ -76,12 +90,19 @@ class RideCaptainEligibilityService
 
     public function maximumPickupRadiusMeters(): int
     {
-        return (int) round(max(1, min(200, (float) BusinessSetting::query()->where('key', 'ride_hailing_maximum_pickup_radius_km')->value('value') ?: 25)) * 1000);
+        return $this->maximumPickupRadius ??= (int) round(max(1, min(200, (float) BusinessSetting::query()->where('key', 'ride_hailing_maximum_pickup_radius_km')->value('value') ?: 25)) * 1000);
     }
 
     public function pickupEtaSpeedKmh(): float
     {
-        return max(5, min(120, (float) BusinessSetting::query()->where('key', 'ride_hailing_pickup_eta_speed_kmh')->value('value') ?: 25));
+        return $this->pickupEtaSpeed ??= max(5, min(120, (float) BusinessSetting::query()->where('key', 'ride_hailing_pickup_eta_speed_kmh')->value('value') ?: 25));
+    }
+
+    public function locationFreshnessSeconds(): int
+    {
+        return $this->locationFreshness ??= max(30, min(1800, (int) BusinessSetting::query()
+            ->where('key', 'ride_hailing_dispatch_location_freshness_seconds')
+            ->value('value') ?: 180));
     }
 
     private function distanceMeters(float $latitude, float $longitude, float $pickupLatitude, float $pickupLongitude): int

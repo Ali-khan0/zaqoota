@@ -34,6 +34,9 @@ use App\Models\WithdrawRequest;
 use App\Traits\Payment;
 use App\Services\DeliveryManMilestoneBonusService;
 use App\Services\DeliveryManRegistrationFeeService;
+use App\Services\CommerceOrderEligibilityService;
+use App\Services\CommerceOrderDispatchService;
+use App\Services\OperationalZoneService;
 use App\Services\RideVehicleRegistrationService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -366,53 +369,7 @@ class DeliverymanController extends Controller
     public function get_latest_orders(Request $request)
     {
         $dm = DeliveryMan::where(['auth_token' => $request['token']])->first();
-
-        $orders = Order::with(['customer', 'store', 'parcel_category']);
-
-        if ($dm->work_mode === 'ride') {
-            $orders->where('order_type', 'parcel');
-        }
-
-        if ($dm->type == 'zone_wise') {
-            $orders = $orders->where('zone_id', $dm->zone_id)
-                ->where(function ($query) {
-                    $query->whereNull('store_id')
-
-                        ->orWhere(function ($query) {
-                            $query->whereHas('store', function ($q) {
-                                $q->where('store_business_model', 'subscription')->whereHas('store_sub', function ($q1) {
-                                    $q1->where('self_delivery', 0);
-                                });
-                            })
-                                ->orWhereHas('store', function ($qu) {
-                                    $qu->where('store_business_model', 'commission')->where('self_delivery_system', 0);
-                                });
-                        });
-                });
-        } else {
-            $orders = $orders->where('store_id', $dm->store_id);
-        }
-
-        if (config('order_confirmation_model') == 'deliveryman' && $dm->type == 'zone_wise') {
-            $orders = $orders->whereIn('order_status', ['pending', 'confirmed', 'processing', 'handover']);
-        } else {
-            $orders = $orders->where(function ($query) {
-                return $query->whereIn('order_status', ['confirmed', 'processing', 'handover'])
-                    ->orWhere(function ($subQuery) {
-                        return $subQuery->where('order_type', 'parcel')->whereIn('order_status', ['pending', 'confirmed', 'processing', 'handover']);
-                    });
-            });
-        }
-        if (isset($dm->vehicle_id)) {
-            $orders = $orders->where('dm_vehicle_id', $dm->vehicle_id);
-        }
-        $orders = $orders->dmOrder()
-            ->Notpos()
-            ->NotDigitalOrder()
-            ->OrderScheduledIn(30)
-            ->whereNull('delivery_man_id')
-            ->orderBy('schedule_at', 'desc')
-            ->get();
+        $orders = app(CommerceOrderDispatchService::class)->visibleOrdersFor($dm);
         $orders = Helpers::order_data_formatting($orders, true);
 
         return response()->json($orders, 200);
@@ -427,70 +384,78 @@ class DeliverymanController extends Controller
             return response()->json(['errors' => Helpers::error_processor($validator)], 403);
         }
         $dm = DeliveryMan::where(['auth_token' => $request['token']])->first();
-        $order = Order::where('id', $request['order_id'])
-            // ->whereIn('order_status', ['pending', 'confirmed'])
-            ->whereNull('delivery_man_id')
-            ->dmOrder()
-            ->first();
-        if (! $order) {
-            return response()->json([
-                'errors' => [
-                    ['code' => 'order', 'message' => translate('messages.can_not_accept')],
-                ],
-            ], 404);
+        $eligibility = app(CommerceOrderEligibilityService::class);
+        $dispatch = app(CommerceOrderDispatchService::class);
+        $result = DB::transaction(function () use ($dm, $request, $eligibility, $dispatch) {
+            $lockedDm = DeliveryMan::withoutGlobalScopes()->whereKey($dm->id)->lockForUpdate()->first();
+            $order = Order::whereKey($request->integer('order_id'))->lockForUpdate()->first();
+
+            if (! $lockedDm || ! $order) {
+                return ['error' => 'order', 'status' => 404, 'message' => translate('messages.can_not_accept')];
+            }
+            if ($order->delivery_man_id !== null) {
+                return (int) $order->delivery_man_id === (int) $lockedDm->id
+                    ? ['order' => $order, 'assigned' => false]
+                    : ['error' => 'order', 'status' => 409, 'message' => translate('messages.can_not_accept')];
+            }
+            if ((int) $lockedDm->active !== 1) {
+                return ['error' => 'active_status', 'status' => 409, 'message' => translate('messages.You_can_not_accept_order_on_offline')];
+            }
+            if ($lockedDm->work_mode !== 'delivery' && $order->order_type !== 'parcel') {
+                return ['error' => 'work_mode', 'status' => 409, 'message' => translate('messages.Switch to Delivery mode before accepting a delivery order.')];
+            }
+            if ((int) $lockedDm->current_orders >= (int) config('dm_maximum_orders')) {
+                return ['error' => 'dm_maximum_order_exceed', 'status' => 409, 'message' => translate('messages.dm_maximum_order_exceed_warning')];
+            }
+            if (! $eligibility->isAvailableTo($lockedDm, $order, false)) {
+                return ['error' => 'order', 'status' => 409, 'message' => translate('messages.can_not_accept')];
+            }
+            if ($eligibility->exceedsCashLimit($lockedDm, $order)) {
+                return [
+                    'error' => 'dm_maximum_hand_in_cash',
+                    'status' => 409,
+                    'message' => Helpers::format_currency($eligibility->maximumCash()).' '.translate('max_cash_in_hand_exceeds'),
+                ];
+            }
+            if (! $dispatch->isVisibleTo($lockedDm, $order)) {
+                return [
+                    'error' => 'dispatch_wave_pending',
+                    'status' => 409,
+                    'message' => 'This order is currently offered to nearer captains. Please wait for the next dispatch wave.',
+                ];
+            }
+            if ($order->order_type === 'parcel' && $order->order_status === 'confirmed') {
+                $order->order_status = 'handover';
+                $order->handover = now();
+                $order->processing = now();
+            } else {
+                $order->order_status = in_array($order->order_status, ['pending', 'confirmed'], true)
+                    ? 'accepted'
+                    : $order->order_status;
+            }
+
+            $order->delivery_man_id = $lockedDm->id;
+            $order->accepted = now();
+            $order->save();
+
+            $lockedDm->current_orders = (int) $lockedDm->current_orders + 1;
+            $lockedDm->assigned_order_count = (int) $lockedDm->assigned_order_count + 1;
+            $lockedDm->save();
+
+            return ['order' => $order, 'assigned' => true];
+        }, 3);
+
+        if (isset($result['error'])) {
+            return response()->json(['errors' => [[
+                'code' => $result['error'],
+                'message' => $result['message'],
+            ]]], $result['status']);
         }
-        if ($dm->active != 1) {
-            return response()->json([
-                'errors' => [
-                    ['code' => 'active_status', 'message' => translate('messages.You_can_not_accept_order_on_offline')],
-                ],
-            ], 404);
+
+        $order = $result['order']->fresh(['customer', 'guest', 'module', 'store', 'delivery_man']);
+        if (! $result['assigned']) {
+            return response()->json(['message' => 'Order already accepted by you'], 200);
         }
-        if ($dm->work_mode !== 'delivery' && $order->order_type !== 'parcel') {
-            return response()->json([
-                'errors' => [
-                    ['code' => 'work_mode', 'message' => translate('messages.Switch to Delivery mode before accepting a delivery order.')],
-                ],
-            ], 409);
-        }
-        if ($dm->current_orders >= config('dm_maximum_orders')) {
-            return response()->json([
-                'errors' => [
-                    ['code' => 'dm_maximum_order_exceed', 'message' => translate('messages.dm_maximum_order_exceed_warning')],
-                ],
-            ], 405);
-        }
-
-        $payments = $order->payments()->where('payment_method', 'cash_on_delivery')->exists();
-        $cash_in_hand = $dm?->wallet?->collected_cash ?? 0;
-        $dm_max_cash = BusinessSetting::where('key', 'dm_max_cash_in_hand')->first();
-        $value = $dm_max_cash?->value ?? 0;
-
-        if (($order->payment_method == 'cash_on_delivery' || $payments) && (($cash_in_hand + $order->order_amount) >= $value)) {
-
-            return response()->json([
-                'errors' => [
-                    ['code' => 'dm_maximum_hand_in_cash', 'message' => \App\CentralLogics\Helpers::format_currency($value).' '.translate('max_cash_in_hand_exceeds')],
-                ],
-            ], 405);
-        }
-
-        if ($order->order_type == 'parcel' && $order->order_status == 'confirmed') {
-            $order->order_status = 'handover';
-            $order->handover = now();
-            $order->processing = now();
-        } else {
-            $order->order_status = in_array($order->order_status, ['pending', 'confirmed']) ? 'accepted' : $order->order_status;
-        }
-
-        $order->delivery_man_id = $dm->id;
-        $order->accepted = now();
-        $order->save();
-
-        $dm->current_orders = $dm->current_orders + 1;
-        $dm->save();
-
-        $dm->increment('assigned_order_count');
 
         $fcm_token = $order->is_guest == 0 ? $order?->customer?->cm_firebase_token : $order?->guest?->fcm_token;
 
@@ -540,7 +505,22 @@ class DeliverymanController extends Controller
             'created_at' => now(),
             'updated_at' => now()
         ]);
-        return response()->json(['message' => translate('location recorded')], 200);
+        $operationalZone = app(OperationalZoneService::class)->synchronize(
+            $dm,
+            (float) $request->latitude,
+            (float) $request->longitude,
+        );
+
+        return response()->json([
+            'message' => translate('location recorded'),
+            'service_available' => $operationalZone['zone'] !== null,
+            'operational_zone' => $operationalZone['zone'] ? [
+                'id' => (int) $operationalZone['zone']->id,
+                'name' => $operationalZone['zone']->name,
+            ] : null,
+            'zone_changed' => $operationalZone['changed'],
+            ...$operationalZone['topics'],
+        ], 200);
     }
 
     public function get_order_history(Request $request)

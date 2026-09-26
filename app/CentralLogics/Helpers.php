@@ -42,6 +42,7 @@ use App\Models\User;
 use App\Models\UserNotification;
 use App\Models\VendorEmployee;
 use App\Models\Zone;
+use App\Services\CommerceOrderDispatchService;
 use App\Traits\NotificationDataSetUpTrait;
 use App\Traits\Payment;
 use App\Traits\PaymentGatewayTrait;
@@ -1784,14 +1785,7 @@ class Helpers
                         'image' => '',
                     ];
                     if ($order->zone && self::getNotificationStatusData('deliveryman', 'deliveryman_order_notification', 'push_notification_status')) {
-                        if ($order->dm_vehicle_id) {
-
-                            $topic = 'delivery_man_' . $order->zone_id . '_' . $order->dm_vehicle_id;
-                            self::send_push_notif_to_topic($data, $topic, 'order_request');
-                        }
-                        self::send_push_notif_to_topic($data, $order->zone->deliveryman_wise_topic, 'order_request');
-
-
+                        app(CommerceOrderDispatchService::class)->dispatch($order, $data);
                     }
                 }
                 // self::send_push_notif_to_topic($data, 'admin_message', 'order_request', url('/').'/admin/order/list/all');
@@ -1807,13 +1801,7 @@ class Helpers
                     'image' => '',
                 ];
                 if ($order->zone && self::getNotificationStatusData('deliveryman', 'deliveryman_order_notification', 'push_notification_status')) {
-                    if ($order->dm_vehicle_id) {
-
-                        $topic = 'delivery_man_' . $order->zone_id . '_' . $order->dm_vehicle_id;
-                        self::send_push_notif_to_topic($data, $topic, 'order_request');
-                    }
-                    self::send_push_notif_to_topic($data, $order->zone->deliveryman_wise_topic, 'order_request');
-
+                    app(CommerceOrderDispatchService::class)->dispatch($order, $data);
                 }
                 // self::send_push_notif_to_topic($data, 'admin_message', 'order_request');
             }
@@ -1918,12 +1906,7 @@ class Helpers
                     self::send_push_notif_to_topic($data, "restaurant_dm_" . $order->store_id, 'order_request', null);
                 } else {
                     if ($order->zone && self::getNotificationStatusData('deliveryman', 'deliveryman_order_notification', 'push_notification_status')) {
-                        if ($order->dm_vehicle_id) {
-
-                            $topic = 'delivery_man_' . $order->zone_id . '_' . $order->dm_vehicle_id;
-                            self::send_push_notif_to_topic($data, $topic, 'order_request');
-                        }
-                        self::send_push_notif_to_topic($data, $order->zone->deliveryman_wise_topic, 'order_request');
+                        app(CommerceOrderDispatchService::class)->dispatch($order, $data);
                     }
                 }
             }

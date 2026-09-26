@@ -761,6 +761,31 @@ receives restaurant, grocery, and parcel work; Ride mode retains parcel work
 and will additionally receive passenger rides. See
 `docs/api/rider-registration-and-vehicles.md`.
 
+Captain self-registration derives `delivery_men.zone_id` from submitted GPS
+coordinates through `OperationalZoneService`; the Captain app and public
+`/captain/apply` form no longer expose a zone picker. The service also updates
+the operational zone from authenticated HTTP and websocket location heartbeats.
+The heartbeat returns current Firebase topic metadata so clients can replace
+stale zone subscriptions. A temporary active `zone_id` fallback remains for
+older app versions during rollout. Commerce nearest-first waves now use fresh
+GPS coordinates, reveal three captains at a time by default, and share one
+ranking across discovery, acceptance, in-app delivery and individual push.
+Zone-wide freelancer order-request broadcasts have been replaced; store-owned
+self-delivery retains its private topic. See
+`docs/api/rider-operational-zone-and-dispatch.md`.
+
+Commerce Captain discovery and acceptance share
+`CommerceOrderEligibilityService`. It owns zone/store, self-delivery, work-mode,
+vehicle, lifecycle, payment, schedule, capacity and cash eligibility.
+`DeliverymanController::accept_order` locks the rider and order in one
+transaction, rechecks that policy, changes ownership/status and increments both
+workload counters atomically. Same-rider retries are successful without repeat
+counters or notifications. `CommerceOrderDispatchService` ranks eligible
+captains by current pickup distance, rejects stale/missing locations, controls
+wave visibility and queues idempotent per-captain notifications through
+`commerce_order_notification_deliveries`. Delayed waves require a database or
+Redis queue worker; never use the synchronous queue in production dispatch.
+
 Ride Hailing zone activation and category pricing use the existing Zone Module
 Setup workflow. Selecting the `ride_hailing` module on
 `admin/business-settings/zone/module-setup/{zone}` reveals all active ride
@@ -864,22 +889,26 @@ history under `/api/v1/ride-hailing/customer`. Firebase promotion messages use
 the existing customer zone topics and `type=ride_promotion`; mobile behavior is
 defined in `docs/api/ride-promotions.md`.
 
-Ride request discovery is personalized by the Captain's latest
+Ride request discovery is personalized by the Captain's latest fresh
 `delivery_histories` coordinate. `RideCaptainEligibilityService` owns the
-maximum pickup radius and ETA-speed settings, realtime discovery excludes
-Captains outside that radius, and the Captain request list is nearest-first.
-The offer endpoint repeats the distance check. Mobile fields and refresh
+maximum pickup radius, location-freshness and ETA-speed settings.
+`RideDispatchService` reveals the nearest eligible Captains in timed waves and
+uses the same membership for polling, private realtime hints, stored/FCM
+notifications and direct offer enforcement. The offer endpoint repeats the
+distance and current-wave checks. Mobile fields and refresh
 behavior are documented in `docs/api/ride-hailing-rider-app-integration.md`.
 Offer submission also snapshots pickup distance and ETA; passenger offer lists
 return those offers nearest-first so both mobile apps share the same priority.
-New Ride creation resolves eligible Captains once and shares that collection
-between realtime discovery and `RideNotificationService::newRequest`. Only
+New Ride creation queues `DispatchRideRequestWave`; each wave recalculates
+current eligible Captains and shares its slice between realtime discovery and
+`RideNotificationService::newRequest`. Only
 approved, online Ride-mode Captains with the matching active vehicle, zone,
 pickup radius, and no conflicting work receive the stored/FCM
 `type=ride_request` alert. Delivery-mode order notifications are unchanged.
 Each recipient is audited in `ride_notification_deliveries`, which prevents
 duplicate in-app records and repeat delivery after Firebase has accepted a
-push. Ride Details shows recipient, accepted, failed, missing-token and in-app
+push. Queued pushes are suppressed after assignment/cancellation. Ride Details
+shows recipient, accepted, failed, missing-token and in-app
 counts and permits a bounded retry only while the Ride remains unassigned. The
 retry recalculates current eligibility and does not resend accepted pushes.
 Actual Firebase submission runs through the retryable
@@ -888,6 +917,12 @@ number of eligible Captains; production therefore requires a durable queue
 connection and supervised worker. `.env.example` uses the existing database
 queue table; deployed `.env` files must explicitly set
 `QUEUE_CONNECTION=database` (or another durable driver).
+Deployments run `php artisan dispatch:health` after migrations and configuration
+caching. The command fails for synchronous/null queues, a missing database jobs
+table when that driver is selected, or missing commerce dispatch recipient
+metadata. The deployment workflow no longer suppresses Composer, migration, or
+cache failures and requests `queue:restart` after validation. The production
+host must still supervise a continuously running default-queue worker.
 The notification settings page also reports whether the required Firebase
 service-account fields are configured. "Firebase accepted" is an API
 submission result, not proof that a person opened or read the notification.

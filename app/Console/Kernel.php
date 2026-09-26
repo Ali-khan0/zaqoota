@@ -2,6 +2,7 @@
 
 namespace App\Console;
 
+use App\Jobs\RecordQueueWorkerHeartbeat;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 
@@ -28,6 +29,7 @@ class Kernel extends ConsoleKernel
         $schedule->command('dm:deduct-registration-fees')->monthlyOn(1, '3:00');
         $schedule->command('dm:process-milestones-daily')->dailyAt('00:15');
         $schedule->command('dm:process-milestones-weekly')->weeklyOn(1, '00:30');
+        $schedule->job(new RecordQueueWorkerHeartbeat)->everyMinute()->withoutOverlapping();
     }
 
     /**

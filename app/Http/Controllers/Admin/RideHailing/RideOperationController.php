@@ -12,6 +12,7 @@ use App\Services\RideCaptainPickupRouteService;
 use App\Services\RideCancellationReasonService;
 use App\Services\RideCouponService;
 use App\Services\RideFareCalculator;
+use App\Services\RideDispatchService;
 use App\Services\RideNotificationService;
 use App\Services\RideRealtimeService;
 use App\Services\RideTripService;
@@ -33,6 +34,7 @@ class RideOperationController extends Controller
         private readonly RideCouponService $couponService,
         private readonly RideCancellationReasonService $cancellationReasonService,
         private readonly RideCaptainPickupRouteService $captainPickupRouteService,
+        private readonly RideDispatchService $dispatchService,
     ) {}
 
     public function index(Request $request): View
@@ -119,8 +121,7 @@ class RideOperationController extends Controller
             return back()->with('error', translate('messages.Notifications can only be retried while the Ride is awaiting a Captain.'));
         }
 
-        $captains = $this->eligibilityService->eligibleCaptainsForRide($ride);
-        $this->notificationService->newRequest($ride, $captains);
+        $this->dispatchService->dispatch($ride);
 
         return back()->with('success', translate('messages.Eligible Captain notifications were retried without duplicating accepted deliveries.'));
     }

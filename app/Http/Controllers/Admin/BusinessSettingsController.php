@@ -166,6 +166,22 @@ class BusinessSettingsController extends Controller
             return back();
         }
 
+        $request->validate([
+            'commerce_dispatch_wave_size' => 'required|integer|between:1,50',
+            'commerce_dispatch_wave_interval_seconds' => 'required|integer|between:5,300',
+            'commerce_dispatch_location_freshness_seconds' => 'required|integer|between:30,1800',
+        ]);
+
+        foreach ([
+            'commerce_dispatch_wave_size',
+            'commerce_dispatch_wave_interval_seconds',
+            'commerce_dispatch_location_freshness_seconds',
+        ] as $key) {
+            Helpers::businessUpdateOrInsert(['key' => $key], [
+                'value' => $request->integer($key),
+            ]);
+        }
+
         Helpers::businessUpdateOrInsert(['key' => 'min_amount_to_pay_dm'], [
             'value' => $request['min_amount_to_pay_dm'],
         ]);

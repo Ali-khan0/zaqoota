@@ -8,6 +8,7 @@ use App\Scopes\ZoneScope;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use App\Traits\ReportFilter;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Modules\TaxModule\Entities\OrderTax;
 
 class Order extends Model
@@ -164,6 +165,13 @@ class Order extends Model
     public function delivery_history()
     {
         return $this->hasMany(DeliveryHistory::class, 'order_id');
+    }
+
+    public function commerceNotificationDeliveries(): HasMany
+    {
+        return $this->hasMany(CommerceOrderNotificationDelivery::class)
+            ->orderBy('dispatch_wave')
+            ->orderBy('pickup_distance_meters');
     }
 
     public function dm_last_location()

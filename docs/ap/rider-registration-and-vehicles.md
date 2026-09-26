@@ -46,7 +46,9 @@ Content-Type: multipart/form-data
 ```
 
 Existing rider fields remain required: `f_name`, `identity_type`,
-`identity_number`, `email`, `phone`, `password`, and `zone_id`.
+`identity_number`, `email`, `phone`, and `password`. Updated clients send
+`latitude` and `longitude`; Laravel derives the active zone. `zone_id` is only
+a temporary fallback for older installed clients during rollout.
 Riders are always created as freelancers; mobile must not display or send an
 `earning`, salary, or rider-type choice.
 Registration is `multipart/form-data` and has three clearly separated

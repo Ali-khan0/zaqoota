@@ -8,6 +8,7 @@ use App\Models\Admin;
 use App\Models\DeliveryMan;
 use App\Models\FleetManager;
 use App\Services\DeliveryManRegistrationFeeService;
+use App\Services\OperationalZoneService;
 use App\Services\RideVehicleRegistrationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -119,7 +120,7 @@ class DeliveryManLoginController extends Controller
         $delivery_man->loadMissing('zone');
 
         $zone_topic = '';
-        $topic = 'restaurant_dm_'.$delivery_man?->store_id;
+        $topic = '';
         if (isset($delivery_man->zone)) {
             if ($delivery_man->vehicle_id) {
                 $topic = 'delivery_man_'.$delivery_man->zone->id.'_'.$delivery_man->vehicle_id;
@@ -140,6 +141,7 @@ class DeliveryManLoginController extends Controller
     public function store(Request $request)
     {
         $vehicleService = app(RideVehicleRegistrationService::class);
+        $zoneService = app(OperationalZoneService::class);
         $validator = Validator::make($request->all(), [
             'f_name' => 'required',
             'identity_type' => 'required|in:passport,driving_license,nid',
@@ -150,11 +152,12 @@ class DeliveryManLoginController extends Controller
             'email' => 'required|unique:delivery_men',
             'phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:10|unique:delivery_men',
             'password' => ['required', Password::min(8)->mixedCase()->letters()->numbers()->symbols()->uncompromised()],
-            'zone_id' => 'required',
+            'latitude' => 'required_without:zone_id|nullable|numeric|between:-90,90',
+            'longitude' => 'required_without:zone_id|nullable|numeric|between:-180,180',
+            'zone_id' => 'nullable|integer|exists:zones,id',
             ...$vehicleService->rules(),
         ], [
             'f_name.required' => translate('messages.first_name_is_required'),
-            'zone_id.required' => translate('messages.select_a_zone'),
             'ride_vehicle_type_id.required' => translate('messages.select_a_vehicle'),
             'password.required' => translate('The password is required'),
             'password.min_length' => translate('The password must be at least :min characters long'),
@@ -170,6 +173,9 @@ class DeliveryManLoginController extends Controller
             return response()->json(['errors' => Helpers::error_processor($validator)],403);
         }
 
+        $zone = $request->filled('latitude') && $request->filled('longitude')
+            ? $zoneService->resolve((float) $request->latitude, (float) $request->longitude)
+            : $zoneService->resolveLegacy($request->integer('zone_id'));
         $image_name = Helpers::upload('delivery-man/', 'png', $request->file('image'));
 
         $id_img_names = [];
@@ -183,7 +189,7 @@ class DeliveryManLoginController extends Controller
             $identity_image = json_encode([]);
         }
 
-        $dm = DB::transaction(function () use ($request, $identity_image, $image_name, $vehicleService) {
+        $dm = DB::transaction(function () use ($request, $identity_image, $image_name, $vehicleService, $zone) {
             $dm = new DeliveryMan();
             $dm->f_name = $request->f_name;
             $dm->l_name = $request->l_name;
@@ -197,7 +203,7 @@ class DeliveryManLoginController extends Controller
             $dm->status = 0;
             $dm->active = 0;
             $dm->application_status = 'pending';
-            $dm->zone_id = $request->zone_id;
+            $dm->zone_id = $zone?->id;
             $dm->earning = 1;
             $dm->password = bcrypt($request->password);
             $dm->save();

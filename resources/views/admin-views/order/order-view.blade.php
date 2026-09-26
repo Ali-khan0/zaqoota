@@ -59,6 +59,8 @@
         </div>
         <!-- Page Header -->
 
+        @include('admin-views.order.partials._commerce-dispatch-monitor')
+
         @php
             $refund_amount = $order->order_amount - $order->delivery_charge - $order->dm_tips;
         @endphp

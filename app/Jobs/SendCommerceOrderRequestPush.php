@@ -3,14 +3,13 @@
 namespace App\Jobs;
 
 use App\CentralLogics\Helpers;
-use App\Models\RideNotificationDelivery;
-use App\Models\RideRequest;
+use App\Models\CommerceOrderNotificationDelivery;
 use App\Queue\Middleware\EnsureQueueProcessEnabled;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Throwable;
 
-class SendRideRequestPush implements ShouldQueue
+class SendCommerceOrderRequestPush implements ShouldQueue
 {
     use Queueable;
 
@@ -27,24 +26,13 @@ class SendRideRequestPush implements ShouldQueue
 
     public function middleware(): array
     {
-        return [new EnsureQueueProcessEnabled('ride_request_push')];
+        return [new EnsureQueueProcessEnabled('commerce_request_push')];
     }
 
     public function handle(): void
     {
-        $delivery = RideNotificationDelivery::query()->with(['deliveryMan', 'rideRequest'])->find($this->deliveryId);
-        if (! $delivery || $delivery->push_status === 'accepted') {
-            return;
-        }
-        if (! $delivery->rideRequest
-            || $delivery->rideRequest->delivery_man_id !== null
-            || ! in_array($delivery->rideRequest->status, [RideRequest::STATUS_SEARCHING, RideRequest::STATUS_NEGOTIATING], true)) {
-            $delivery->update([
-                'push_status' => 'superseded',
-                'last_error' => null,
-                'last_attempted_at' => now(),
-            ]);
-
+        $delivery = CommerceOrderNotificationDelivery::query()->with(['deliveryMan', 'order'])->find($this->deliveryId);
+        if (! $delivery || $delivery->push_status === 'accepted' || $delivery->order?->delivery_man_id !== null) {
             return;
         }
 
@@ -69,13 +57,13 @@ class SendRideRequestPush implements ShouldQueue
         ]);
 
         if (! $accepted) {
-            throw new \RuntimeException('Firebase did not accept the Ride request notification.');
+            throw new \RuntimeException('Firebase did not accept the commerce order notification.');
         }
     }
 
     public function failed(?Throwable $exception): void
     {
-        RideNotificationDelivery::query()->whereKey($this->deliveryId)->update([
+        CommerceOrderNotificationDelivery::query()->whereKey($this->deliveryId)->update([
             'push_status' => 'failed',
             'last_error' => (string) str($exception?->getMessage() ?: 'Push job failed.')->limit(1000),
             'last_attempted_at' => now(),

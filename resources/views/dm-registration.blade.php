@@ -37,6 +37,8 @@
     .captain-upload.has-preview .captain-upload-content { opacity: 0; }
     .captain-submit { width: 100%; min-height: 50px; border: 0; border-radius: 5px; background: var(--captain-teal); color: #fff; font-weight: 700; font-size: 16px; }
     .captain-submit:hover { background: #087d74; color: #fff; }
+    .captain-location-note { display: flex; gap: 10px; align-items: flex-start; margin: 0 0 20px; padding: 12px 14px; border-radius: 5px; color: #47615e; background: rgba(13,152,141,.08); }
+    .captain-location-note strong { display: block; color: var(--captain-ink); }
     .captain-required { color: #d94d4d; }
     .captain-captcha { display: flex; gap: 10px; align-items: stretch; }
     .captain-captcha > * { min-width: 0; flex: 1; }
@@ -78,6 +80,8 @@
                 </div>
                 <form action="{{ route('captain.store') }}" method="post" enctype="multipart/form-data" id="form-id" class="captain-form">
                     @csrf
+                    <input type="hidden" name="latitude" id="registration_latitude" value="{{ old('latitude') }}">
+                    <input type="hidden" name="longitude" id="registration_longitude" value="{{ old('longitude') }}">
                     <header class="captain-form-header">
                         <h2>{{ translate('messages.Become Captain') }}</h2>
                         <p>{{ translate('messages.Complete your details and submit your vehicle for verification.') }}</p>
@@ -89,9 +93,14 @@
                             <div class="col-sm-6"><label class="input-label">{{ translate('messages.first_name') }} <span class="captain-required">*</span></label><input type="text" name="f_name" class="form-control" value="{{ old('f_name') }}" required></div>
                             <div class="col-sm-6"><label class="input-label">{{ translate('messages.last_name') }} <span class="captain-required">*</span></label><input type="text" name="l_name" class="form-control" value="{{ old('l_name') }}" required></div>
                             <div class="col-sm-6"><label class="input-label">{{ translate('messages.email') }} <span class="captain-required">*</span></label><input type="email" name="email" class="form-control" value="{{ old('email') }}" placeholder="name@example.com" required></div>
-                            <div class="col-sm-6"><label class="input-label">{{ translate('messages.zone') }} <span class="captain-required">*</span></label><select name="zone_id" class="form-control" required><option value="">{{ translate('messages.select_zone') }}</option>@foreach (\App\Models\Zone::active()->get() as $zone)<option value="{{ $zone->id }}" @selected(old('zone_id') == $zone->id)>{{ $zone->name }}</option>@endforeach</select></div>
+                            <div class="col-sm-6"><label class="input-label">{{ translate('messages.phone') }} <span class="captain-required">*</span></label><input type="tel" name="phone" id="phone" class="form-control" value="{{ old('phone') }}" placeholder="+92 300 0000000" required></div>
                         </div>
                     </section>
+
+                    <div class="captain-location-note" id="captain-location-note">
+                        <span aria-hidden="true">◎</span>
+                        <div><strong>{{ translate('messages.current_service_area') }}</strong>{{ translate('messages.gps_service_area_note') }}</div>
+                    </div>
 
                     <section class="captain-section">
                         <h3 class="captain-section-title"><span class="captain-step">2</span>{{ translate('messages.Vehicle Information') }}</h3>
@@ -137,8 +146,7 @@
                     <section class="captain-section">
                         <h3 class="captain-section-title"><span class="captain-step">4</span>{{ translate('messages.Account Security') }}</h3>
                         <div class="row g-3">
-                            <div class="col-sm-6"><label class="input-label" for="phone">{{ translate('messages.phone') }} <span class="captain-required">*</span></label><input type="tel" name="phone" id="phone" class="form-control" value="{{ old('phone') }}" placeholder="+92 300 0000000" required></div>
-                            <div class="col-sm-6"><label class="input-label">{{ translate('messages.password') }} <span class="captain-required">*</span></label><input type="password" name="password" class="form-control" minlength="8" autocomplete="new-password" required></div>
+                            <div class="col-12"><label class="input-label">{{ translate('messages.password') }} <span class="captain-required">*</span></label><input type="password" name="password" class="form-control" minlength="8" autocomplete="new-password" required></div>
                             <div class="col-12">
                                 @if(isset($recaptcha) && $recaptcha['status'] == 1)
                                     <input type="hidden" name="g-recaptcha-response" id="g-recaptcha-response">
@@ -183,6 +191,45 @@
     });
     updateRideCategories();
 
+    async function captureRegistrationLocation() {
+        if (!navigator.geolocation) throw new Error('unsupported');
+        const position = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(
+            resolve,
+            reject,
+            {enableHighAccuracy: true, timeout: 20000, maximumAge: 30000}
+        ));
+        $('#registration_latitude').val(position.coords.latitude);
+        $('#registration_longitude').val(position.coords.longitude);
+    }
+
+    $('#form-id').on('submit', async function (event) {
+        event.preventDefault();
+        const form = this;
+        if (!form.reportValidity()) return;
+        const button = document.getElementById('signInBtn');
+        if (button.disabled) return;
+        const originalText = button.textContent;
+        button.disabled = true;
+        button.textContent = '{{ translate('messages.getting_current_location') }}';
+        try {
+            await captureRegistrationLocation();
+            @if(isset($recaptcha) && $recaptcha['status'] == 1)
+                if (typeof grecaptcha === 'undefined') throw new Error('recaptcha');
+                await new Promise(resolve => grecaptcha.ready(resolve));
+                const token = await grecaptcha.execute('{{ $recaptcha['site_key'] }}', {action: 'submit'});
+                $('#g-recaptcha-response').val(token);
+            @endif
+            form.submit();
+        } catch (error) {
+            const message = error?.message === 'recaptcha'
+                ? '{{ translate('messages.Invalid recaptcha key') }}'
+                : '{{ translate('messages.registration_location_unavailable') }}';
+            toastr.error(message);
+            button.disabled = false;
+            button.textContent = originalText;
+        }
+    });
+
     document.querySelectorAll('[data-image-preview]').forEach(input => {
         input.addEventListener('change', function () {
             const file = this.files?.[0];
@@ -198,19 +245,5 @@
 
 @if(isset($recaptcha) && $recaptcha['status'] == 1)
 <script src="https://www.google.com/recaptcha/api.js?render={{ $recaptcha['site_key'] }}"></script>
-<script>
-    $('#signInBtn').on('click', function (event) {
-        event.preventDefault();
-        const form = document.getElementById('form-id');
-        if (!form.reportValidity()) return;
-        if (typeof grecaptcha === 'undefined') { toastr.error('{{ translate('messages.Invalid recaptcha key') }}'); return; }
-        grecaptcha.ready(function () {
-            grecaptcha.execute('{{ $recaptcha['site_key'] }}', {action: 'submit'}).then(function (token) {
-                $('#g-recaptcha-response').val(token);
-                form.submit();
-            });
-        });
-    });
-</script>
 @endif
 @endpush

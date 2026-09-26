@@ -5,6 +5,7 @@ namespace App\Listeners;
 use App\Jobs\DispatchDriverLocationJob;
 use App\Models\DeliveryHistory;
 use App\Models\DeliveryMan;
+use App\Services\OperationalZoneService;
 use Laravel\Reverb\Events\MessageReceived;
 
 class HandleClientMessage
@@ -33,15 +34,21 @@ class HandleClientMessage
                 $latitude = $data['latitude'] ?? null;
                 $longitude = $data['longitude'] ?? null;
 
-                $deliverymanId = DeliveryMan::where(['auth_token' => $token])->first()?->id;
+                $deliveryman = DeliveryMan::where(['auth_token' => $token])->first();
+                $deliverymanId = $deliveryman?->id;
 
-                if ($deliverymanId && $latitude && $longitude) {
+                if ($deliverymanId && is_numeric($latitude) && is_numeric($longitude)) {
                     DeliveryHistory::updateOrCreate(['delivery_man_id' => $deliverymanId], [
                         'longitude' => $data['longitude'],
                         'latitude' => $data['latitude'],
                         'time' => now(),
                         'location' => $data['location'],
                     ]);
+                    app(OperationalZoneService::class)->synchronize(
+                        $deliveryman,
+                        (float) $latitude,
+                        (float) $longitude,
+                    );
                     try {
                         dispatch(new DispatchDriverLocationJob($deliverymanId, $latitude, $longitude, $data['location']))->onQueue('default');
                     } catch (\Exception $e) {

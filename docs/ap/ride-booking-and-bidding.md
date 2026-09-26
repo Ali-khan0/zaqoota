@@ -2,9 +2,9 @@
 
 ## Captain pickup priority
 
-Available requests are personalized using the Captain's latest stored location. The backend calculates straight-line pickup distance, excludes requests beyond `ride_hailing_maximum_pickup_radius_km`, and returns the remaining requests nearest-first. Responses include `pickup_distance_meters` and `pickup_eta_seconds`; ETA uses `ride_hailing_pickup_eta_speed_kmh` and does not affect fare calculations. Captains without a stored location cannot discover or offer on passenger Rides.
+Available requests are personalized using the Captain's latest fresh stored location. The backend calculates straight-line pickup distance, excludes requests beyond `ride_hailing_maximum_pickup_radius_km`, and reveals the remaining requests in nearest-first timed waves. Responses include `pickup_distance_meters`, `pickup_eta_seconds` and `dispatch_wave`; ETA uses `ride_hailing_pickup_eta_speed_kmh` and does not affect fare calculations. Captains without fresh location cannot discover or offer on passenger Rides.
 
-The realtime creation event only tells the Captain app to refresh. The same eligible Captain collection also receives a stored in-app message and Firebase `type=ride_request` push when a token is available. REST remains authoritative for personalized ordering and eligibility. The offer write path repeats the radius check to prevent bypassing discovery with a Ride ID.
+The realtime creation event only tells the Captain app to refresh. Realtime, stored in-app messages and Firebase `type=ride_request` pushes are sent per wave to the same Captain slice. REST remains authoritative for ordering and eligibility. The offer write path repeats radius and current-wave checks to prevent bypassing discovery with a Ride ID.
 
 Pickup distance and ETA are snapshotted on every submitted offer. `GET /api/v1/ride-hailing/customer/rides/{ride_id}/offers` returns offers nearest-first and includes both fields, allowing the passenger app to show proximity beside the Captain's price and rating. `ride.offer.updated` carries the same fields; refresh the REST list after the event to preserve authoritative ordering.
 
@@ -326,14 +326,14 @@ in `ride-realtime.md`.
 - `tests/Unit/RideFareCalculatorTest.php`
 ### New Ride notification delivery audit
 
-When a request is created, the same nearest-first eligible Captain collection
-used by realtime discovery receives `type=ride_request` push and/or in-app
+When a request is created, each nearest-first dispatch wave uses the same
+Captain slice for realtime discovery and `type=ride_request` push/in-app
 notification according to the admin template toggles. Each Captain attempt is
 stored by Ride, Captain, and event. In-app records are created once, and a push
 already accepted by Firebase is never resent. Captains without an FCM token and
 failed Firebase submissions remain visible to administrators. While the Ride
 is still searching or negotiating, an administrator may retry; the server
-recalculates eligibility and attempts only recipients without an accepted push.
+recalculates wave eligibility and attempts only recipients without an accepted push.
 
 Firebase acceptance means the Firebase API accepted the message for processing.
 It does not confirm that the device displayed or the Captain read it.

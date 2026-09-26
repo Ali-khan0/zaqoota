@@ -307,6 +307,58 @@
                                     </div>
                                 </div>
 
+                                <div class="col-12 mt-4">
+                                    <hr>
+                                    <h4 class="mb-1">{{ translate('Commerce nearest-first dispatch') }}</h4>
+                                    <p class="text-muted mb-0">
+                                        {{ translate('Control how order and parcel requests expand from the nearest available deliverymen to wider groups.') }}
+                                    </p>
+                                    @if(in_array(config('queue.default'), ['sync', 'null', ''], true))
+                                        <div class="alert alert-danger mt-3 mb-0" role="alert">
+                                            <strong>{{ translate('Delayed dispatch is not operational.') }}</strong>
+                                            {{ translate('Configure QUEUE_CONNECTION with a durable asynchronous driver and run a supervised queue worker.') }}
+                                        </div>
+                                    @endif
+                                </div>
+                                @php($commerceDispatchSettings = \App\Models\BusinessSetting::whereIn('key', [
+                                    'commerce_dispatch_wave_size',
+                                    'commerce_dispatch_wave_interval_seconds',
+                                    'commerce_dispatch_location_freshness_seconds',
+                                ])->pluck('value', 'key'))
+                                <div class="col-sm-6 col-lg-4">
+                                    <div class="form-group mb-0">
+                                        <label class="form-label" for="commerce_dispatch_wave_size">
+                                            {{ translate('Riders per dispatch wave') }}
+                                        </label>
+                                        <input type="number" name="commerce_dispatch_wave_size" class="form-control"
+                                               id="commerce_dispatch_wave_size" min="1" max="50" required
+                                               value="{{ old('commerce_dispatch_wave_size', $commerceDispatchSettings['commerce_dispatch_wave_size'] ?? 3) }}">
+                                        <small class="text-muted">{{ translate('The closest riders receive the request first in groups of this size.') }}</small>
+                                    </div>
+                                </div>
+                                <div class="col-sm-6 col-lg-4">
+                                    <div class="form-group mb-0">
+                                        <label class="form-label" for="commerce_dispatch_wave_interval_seconds">
+                                            {{ translate('Seconds between waves') }}
+                                        </label>
+                                        <input type="number" name="commerce_dispatch_wave_interval_seconds" class="form-control"
+                                               id="commerce_dispatch_wave_interval_seconds" min="5" max="300" required
+                                               value="{{ old('commerce_dispatch_wave_interval_seconds', $commerceDispatchSettings['commerce_dispatch_wave_interval_seconds'] ?? 20) }}">
+                                        <small class="text-muted">{{ translate('If no rider accepts, the next nearest group becomes eligible after this delay.') }}</small>
+                                    </div>
+                                </div>
+                                <div class="col-sm-6 col-lg-4">
+                                    <div class="form-group mb-0">
+                                        <label class="form-label" for="commerce_dispatch_location_freshness_seconds">
+                                            {{ translate('GPS freshness in seconds') }}
+                                        </label>
+                                        <input type="number" name="commerce_dispatch_location_freshness_seconds" class="form-control"
+                                               id="commerce_dispatch_location_freshness_seconds" min="30" max="1800" required
+                                               value="{{ old('commerce_dispatch_location_freshness_seconds', $commerceDispatchSettings['commerce_dispatch_location_freshness_seconds'] ?? 180) }}">
+                                        <small class="text-muted">{{ translate('Riders with an older location are excluded until their app sends a fresh GPS update.') }}</small>
+                                    </div>
+                                </div>
+
                             </div>
                             <div class="btn--container justify-content-end mt-5">
                                 <button type="reset" id="reset_btn" class="btn btn--reset location-reload">{{ translate('messages.reset') }}</button>
@@ -319,4 +371,3 @@
         </form>
     </div>
 @endsection
-

@@ -7282,4 +7282,8 @@ Smartly or Earn. ',
   'Passwords Matched' => 'Passwords Matched',
   'confirmPassword not match' => 'ConfirmPassword not match',
   'select_pickup_zone' => 'Select pickup zone',
+  'current_service_area' => 'Current service area',
+  'gps_service_area_note' => 'Your current GPS location will set your service area automatically. No zone selection is needed.',
+  'getting_current_location' => 'Getting current location...',
+  'registration_location_unavailable' => 'Unable to get your current location. Turn on location and allow access, then try again.',
 );
