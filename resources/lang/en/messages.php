@@ -9548,7 +9548,7 @@ Smartly or Earn. ',
   'Captain Earning Posted' => 'Captain Earning Posted',
   'Previous Cancellation Due' => 'Previous Cancellation Due',
   'current_service_area' => 'Current service area',
-  'gps_service_area_note' => 'Your current GPS location will set your service area automatically. No zone selection is needed.',
+  'gps_service_area_note' => 'You can register from anywhere. GPS will activate your service area automatically whenever you enter an available zone.',
   'getting_current_location' => 'Getting current location...',
   'registration_location_unavailable' => 'Unable to get your current location. Turn on location and allow access, then try again.',
 );

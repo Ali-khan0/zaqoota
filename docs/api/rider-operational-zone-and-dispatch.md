@@ -13,6 +13,7 @@ Updated 2026-09-27.
 | Nearest-first commerce visibility/push waves | Implemented; runtime verification pending |
 | Nearest-first Ride visibility/realtime/push waves | Implemented; runtime verification pending |
 | Admin wave controls and commerce dispatch monitor | Implemented; runtime verification pending |
+| Queue Operations health/status/enable controls | Implemented; runtime verification pending |
 
 Zones are retained as service and pricing polygons. They are no longer a rider-selected home restriction. A rider's current GPS location resolves the active operational zone; order and Ride pricing continues to come from the pickup/order zone.
 
@@ -25,7 +26,7 @@ Cross-zone behavior is intentionally pickup-led:
 
 ## Registration contract
 
-`POST /api/v1/auth/delivery-man/store` accepts `latitude` and `longitude` in the multipart body. Both coordinates are required for updated clients and Laravel resolves the smallest matching active zone. A coordinate outside all active zones returns HTTP 422 with an `errors` entry using code `location`. The zone is resolved before face, identity, or vehicle files are uploaded.
+`POST /api/v1/auth/delivery-man/store` accepts `latitude` and `longitude` in the multipart body. Both coordinates are required for updated clients and Laravel resolves the smallest matching active zone. Registration is allowed when the coordinate is outside every active polygon; the pending rider is created with `zone_id = null`. Login is also allowed without an operational zone and returns empty `topic`/`zone_topic` values. A later GPS heartbeat assigns the current active zone and topics automatically.
 
 For a safe rolling release, `zone_id` remains a temporary fallback when coordinates are absent. The fallback must reference an active zone. The Captain app and `/captain/apply` landing form no longer show or send a manually selected zone.
 
@@ -91,3 +92,9 @@ The default is three captains immediately and three more every 20 seconds. Admin
 `DispatchRideRequestWave` recalculates current distance at wave time and sends both the private Captain realtime hint and the idempotent in-app/FCM notification to the same slice. Assigned or cancelled Rides stop dispatching, and `SendRideRequestPush` suppresses queued messages that became obsolete before Firebase submission. Admin notification retry uses the same wave scheduler.
 
 Delayed Ride waves require a non-`sync` queue and a running worker. Polling and offer enforcement remain server-time based if the worker is unavailable.
+
+## Queue Operations admin
+
+**Business Setup → Queue Operations** inventories every concrete application job currently implementing `ShouldQueue`: commerce wave dispatch, commerce request push, Ride wave dispatch, Ride request push, Ride offer expiry and driver live-location broadcast. The page shows connection type, queued/ready/delayed/reserved totals for the database driver, failed jobs when that table exists, a worker/scheduler heartbeat, and per-process processed/failed/skipped metrics and last errors.
+
+Admin can enable or disable every process or use the master queue-processing control. Disabled jobs that reach a worker are safely skipped and recorded; the heartbeat is intentionally independent so worker health remains measurable while business processes are disabled. Re-enabling affects subsequent queued executions; skipped work is not replayed automatically.

@@ -62,7 +62,7 @@
             <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
                 <div>
                     <h4 class="card-header-title">{{ translate('Worker heartbeat check') }}</h4>
-                    <p class="text-muted mb-0">{{ translate('This submits a real queued job. A fresh timestamp confirms that the scheduler and queue worker processed a heartbeat.') }}</p>
+                    <p class="text-muted mb-0">{{ translate('This submits a real queued job. A successful manual probe confirms the worker; automatic heartbeats confirm both the scheduler and worker.') }}</p>
                 </div>
                 <form action="{{ route('admin.business-settings.queue-operations.probe') }}" method="post">
                     @csrf
@@ -103,8 +103,10 @@
                                 @php
                                     $status = $statuses->get($key);
                                     $enabled = $status?->enabled ?? true;
-                                    $latestActivity = collect([$status?->last_processed_at, $status?->last_failed_at, $status?->last_skipped_at])->filter()->sortDesc()->first();
-                                    $hasNewFailure = $status?->last_failed_at && (!$status?->last_processed_at || $status->last_failed_at->gt($status->last_processed_at));
+                                    $lastProcessedAt = $status?->last_processed_at;
+                                    $lastFailedAt = $status?->last_failed_at;
+                                    $latestActivity = collect([$lastProcessedAt, $lastFailedAt, $status?->last_skipped_at])->filter()->sortDesc()->first();
+                                    $hasNewFailure = $lastFailedAt && (!$lastProcessedAt || $lastFailedAt->gt($lastProcessedAt));
                                     $state = !$masterEnabled || !$enabled ? 'disabled' : ($hasNewFailure ? 'failing' : ($heartbeatHealthy ? 'ready' : 'worker_unconfirmed'));
                                     $stateClass = match ($state) {
                                         'ready' => 'success',

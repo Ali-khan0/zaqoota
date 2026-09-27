@@ -3230,7 +3230,7 @@
   'Low_Stock_List' => 'Low Stock List',
   'guest_verified' => 'Guest verified',
   'current_service_area' => 'বর্তমান সেবা এলাকা',
-  'gps_service_area_note' => 'আপনার বর্তমান GPS লোকেশন স্বয়ংক্রিয়ভাবে সেবা এলাকা নির্ধারণ করবে। জোন নির্বাচন করতে হবে না।',
+  'gps_service_area_note' => 'আপনি যেকোনো স্থান থেকে নিবন্ধন করতে পারবেন। উপলভ্য জোনে প্রবেশ করলে GPS স্বয়ংক্রিয়ভাবে আপনার সেবা এলাকা সক্রিয় করবে।',
   'getting_current_location' => 'বর্তমান লোকেশন নেওয়া হচ্ছে...',
   'registration_location_unavailable' => 'আপনার বর্তমান লোকেশন পাওয়া যায়নি। লোকেশন চালু করে অনুমতি দিন, তারপর আবার চেষ্টা করুন।',
 );

@@ -763,7 +763,9 @@ and will additionally receive passenger rides. See
 
 Captain self-registration derives `delivery_men.zone_id` from submitted GPS
 coordinates through `OperationalZoneService`; the Captain app and public
-`/captain/apply` form no longer expose a zone picker. The service also updates
+`/captain/apply` form no longer expose a zone picker. Registration and login are
+allowed outside active service polygons, using a null operational zone and
+empty zone topics until a later heartbeat enters coverage. The service also updates
 the operational zone from authenticated HTTP and websocket location heartbeats.
 The heartbeat returns current Firebase topic metadata so clients can replace
 stale zone subscriptions. A temporary active `zone_id` fallback remains for
@@ -923,6 +925,13 @@ table when that driver is selected, or missing commerce dispatch recipient
 metadata. The deployment workflow no longer suppresses Composer, migration, or
 cache failures and requests `queue:restart` after validation. The production
 host must still supervise a continuously running default-queue worker.
+Admin **Business Setup → Queue Operations** shows connection, database queue
+counts, recent failed jobs, a three-minute worker/scheduler heartbeat, and
+processed/failed/skipped metrics for every business `ShouldQueue` job. A master
+switch and six per-process switches gate commerce waves/push, Ride waves/push,
+Ride offer expiry, and driver-location broadcasting. The independent heartbeat
+continues while business processing is disabled so worker health remains
+observable. Controls and metrics are stored in `queue_process_statuses`.
 The notification settings page also reports whether the required Firebase
 service-account fields are configured. "Firebase accepted" is an API
 submission result, not proof that a person opened or read the notification.

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\BusinessSetting;
 use App\Models\QueueProcessStatus;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Throwable;
 
@@ -64,7 +65,7 @@ class QueueProcessService
 
     public function masterEnabled(): bool
     {
-        $value = BusinessSetting::query()->where('key', self::MASTER_KEY)->value('value');
+        $value = DB::table('business_settings')->where('key', self::MASTER_KEY)->value('value');
 
         return $value === null || (string) $value === '1';
     }
@@ -106,8 +107,7 @@ class QueueProcessService
         }
 
         $status = QueueProcessStatus::query()->firstOrCreate(['process' => $process], ['enabled' => true]);
-        $status->increment('processed_count');
-        $status->forceFill(['last_processed_at' => now(), 'last_error' => null])->save();
+        $status->increment('processed_count', 1, ['last_processed_at' => now(), 'last_error' => null]);
     }
 
     public function recordFailed(string $process, Throwable $exception): void
@@ -117,11 +117,10 @@ class QueueProcessService
         }
 
         $status = QueueProcessStatus::query()->firstOrCreate(['process' => $process], ['enabled' => true]);
-        $status->increment('failed_count');
-        $status->forceFill([
+        $status->increment('failed_count', 1, [
             'last_failed_at' => now(),
             'last_error' => (string) str($exception->getMessage())->limit(1000),
-        ])->save();
+        ]);
     }
 
     public function recordSkipped(string $process): void
@@ -131,7 +130,6 @@ class QueueProcessService
         }
 
         $status = QueueProcessStatus::query()->firstOrCreate(['process' => $process], ['enabled' => true]);
-        $status->increment('skipped_count');
-        $status->forceFill(['last_skipped_at' => now()])->save();
+        $status->increment('skipped_count', 1, ['last_skipped_at' => now()]);
     }
 }

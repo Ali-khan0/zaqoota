@@ -2,9 +2,9 @@
 
 namespace App\Jobs;
 
-use App\Models\BusinessSetting;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\DB;
 
 class RecordQueueWorkerHeartbeat implements ShouldQueue
 {
@@ -14,13 +14,13 @@ class RecordQueueWorkerHeartbeat implements ShouldQueue
 
     public function handle(): void
     {
-        BusinessSetting::query()->updateOrCreate(
+        DB::table('business_settings')->updateOrInsert(
             ['key' => 'queue_worker_last_heartbeat_at'],
-            ['value' => now()->toIso8601String()],
+            ['value' => now()->toIso8601String(), 'updated_at' => now()],
         );
-        BusinessSetting::query()->updateOrCreate(
+        DB::table('business_settings')->updateOrInsert(
             ['key' => 'queue_worker_last_connection'],
-            ['value' => (string) config('queue.default')],
+            ['value' => (string) config('queue.default'), 'updated_at' => now()],
         );
     }
 }
