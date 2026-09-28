@@ -50,7 +50,7 @@ class DispatchRideRequestWave implements ShouldQueue
             return;
         }
 
-        $captains = $dispatch->captainsForWave($ride, $this->wave);
+        $captains = $dispatch->captainsVisibleThroughWave($ride, $this->wave);
         if ($captains->isEmpty()) {
             return;
         }

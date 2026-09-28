@@ -93,6 +93,39 @@ class RideCustomerResponseTest extends TestCase
         self::assertSame('Safe and professional', $response['customer_rating']['comment']);
     }
 
+    public function test_payment_summary_keeps_canonical_money_keys_and_rollout_aliases(): void
+    {
+        $method = new ReflectionMethod(CustomerRideController::class, 'paymentSummaryData');
+        $source = file($method->getFileName());
+        $body = implode('', array_slice(
+            $source,
+            $method->getStartLine() - 1,
+            $method->getEndLine() - $method->getStartLine() + 1,
+        ));
+
+        self::assertStringContainsString("'coupon_discount' =>", $body);
+        self::assertStringContainsString("'coupon_discount_amount' =>", $body);
+        self::assertStringContainsString("'previous_cancellation_due' =>", $body);
+        self::assertStringContainsString("'previous_cancellation_due_amount' =>", $body);
+    }
+
+    public function test_payment_due_response_exposes_the_canonical_outstanding_amount(): void
+    {
+        $method = new ReflectionMethod(CustomerRideController::class, 'paymentDue');
+        $source = file($method->getFileName());
+        $body = implode('', array_slice(
+            $source,
+            $method->getStartLine() - 1,
+            $method->getEndLine() - $method->getStartLine() + 1,
+        ));
+
+        self::assertStringContainsString("'total_due' =>", $body);
+        self::assertStringContainsString("'amount_due' =>", $body);
+        self::assertStringContainsString("'cancellation_charge' =>", $body);
+        self::assertStringContainsString("'wallet_paid_amount' =>", $body);
+        self::assertStringContainsString("'recovery_method' =>", $body);
+    }
+
     private function baseRide(): RideRequest
     {
         $ride = new RideRequest;

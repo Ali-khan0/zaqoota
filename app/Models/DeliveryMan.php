@@ -78,6 +78,16 @@ class DeliveryMan extends Authenticatable
         return $this->hasOne(RideVehicle::class)->where('is_active', true)->where('status', 'approved');
     }
 
+    public function activeCommerceVehicle()
+    {
+        return $this->hasOne(RideVehicle::class)
+            ->where('is_active', true)
+            ->where('status', 'approved')
+            ->whereHas('vehicleType', fn ($query) => $query
+                ->where('slug', RideVehicleType::COMMERCE_DELIVERY_SLUG)
+                ->where('status', true));
+    }
+
     public function wallet()
     {
         return $this->hasOne(DeliveryManWallet::class);

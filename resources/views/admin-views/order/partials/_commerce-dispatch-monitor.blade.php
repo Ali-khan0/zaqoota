@@ -2,6 +2,7 @@
     $dispatchDeliveries = $order->commerceNotificationDeliveries;
     $pushAccepted = $dispatchDeliveries->where('push_status', 'accepted')->count();
     $pushFailed = $dispatchDeliveries->where('push_status', 'failed')->count();
+    $pushSuperseded = $dispatchDeliveries->where('push_status', 'superseded')->count();
 @endphp
 
 <div class="card mb-3 mb-lg-5">
@@ -16,6 +17,7 @@
             <span class="badge badge-soft-primary">{{ translate('Contacted') }}: {{ $dispatchDeliveries->count() }}</span>
             <span class="badge badge-soft-success">{{ translate('Push accepted') }}: {{ $pushAccepted }}</span>
             <span class="badge badge-soft-danger">{{ translate('Push failed') }}: {{ $pushFailed }}</span>
+            <span class="badge badge-soft-secondary">{{ translate('Superseded') }}: {{ $pushSuperseded }}</span>
         </div>
     </div>
 
@@ -41,6 +43,7 @@
                             'failed' => 'danger',
                             'no_token' => 'warning',
                             'queued' => 'info',
+                            'superseded' => 'secondary',
                             default => 'secondary',
                         };
                     @endphp

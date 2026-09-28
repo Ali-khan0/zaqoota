@@ -102,9 +102,18 @@ Required request:
 ```
 
 - `searching` or `negotiating`: free cancellation.
-- `rider_selected`, `captain_arriving`, or `arrived`: the snapshotted fixed
-  cancellation charge is recorded.
+- `rider_selected`, `captain_arriving`, or `arrived`: Laravel applies the
+  snapshotted admin cancellation amount only when charging is enabled and the
+  server-calculated Captain-to-pickup progress reaches the configured 30–50%
+  threshold (or the progress rule is disabled).
 - `in_progress` or later: API cancellation is blocked.
+
+Only a charged customer cancellation creates a strike. When the configured
+strike limit is reached, estimate and create endpoints return HTTP 403 with
+`errors[0].code=ride_cancellation_cooldown`, `booking_blocked`,
+`blocked_until`, and `cooldown_seconds`. The create endpoint rechecks this
+under the locked customer row. Captain/admin cancellation never creates a
+customer charge or strike.
 
 Charge collection and wallet posting follow `ride-payments-and-settlement.md`.
 
@@ -116,8 +125,13 @@ Charge collection and wallet posting follow `ride-payments-and-settlement.md`.
 GET /delivery-man/rides/current
 ```
 
-Returns `{"ride": null}` when no active passenger ride is assigned. Otherwise
-the ride contains the customer, route, fare, timestamps, and `next_action`.
+Returns the assigned active passenger Ride first. When no active Ride exists,
+it returns the newest assigned completed Ride whose settlement is still
+`unpaid`, `pending`, or `partially_paid`, allowing the Captain to recover the
+payment screen after restart or a missed notification. Paid and otherwise
+settled completed Rides are excluded. When neither an active nor recoverable
+Ride exists it returns `{"ride": null}`. The Ride contains the customer, route,
+fare, timestamps, payment fields, and `next_action`.
 
 ### Assigned Ride Details
 

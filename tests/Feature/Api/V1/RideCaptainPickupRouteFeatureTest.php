@@ -44,6 +44,8 @@ class RideCaptainPickupRouteFeatureTest extends TestCase
         $ride = $service->refresh($ride, $at);
         self::assertSame('first-road-route', $ride->captain_pickup_route_polyline);
         self::assertSame(1850, $ride->captain_pickup_route_distance_meters);
+        self::assertSame(1850, $ride->captain_pickup_initial_distance_meters);
+        self::assertSame(0.0, $ride->captain_pickup_progress_percent);
         self::assertSame($ride->id, RideRequest::query()->where('user_id', 7)->findOrFail($ride->id)->id);
         self::assertNull(RideRequest::query()->where('user_id', 8)->find($ride->id));
 
@@ -53,6 +55,7 @@ class RideCaptainPickupRouteFeatureTest extends TestCase
         $ride->update(['current_longitude' => 73.131]);
         $ride = $service->refresh($ride->fresh(), $at->copy()->addSeconds(6));
         self::assertSame('moved-road-route', $ride->captain_pickup_route_polyline);
+        self::assertSame(8.11, $ride->captain_pickup_progress_percent);
         self::assertSame('booked-pickup-to-destination', $ride->route_polyline);
     }
 
@@ -74,6 +77,8 @@ class RideCaptainPickupRouteFeatureTest extends TestCase
             $table->decimal('current_latitude', 10, 7)->nullable(); $table->decimal('current_longitude', 10, 7)->nullable();
             $table->text('route_polyline')->nullable(); $table->text('captain_pickup_route_polyline')->nullable();
             $table->unsignedInteger('captain_pickup_route_distance_meters')->nullable();
+            $table->unsignedInteger('captain_pickup_initial_distance_meters')->nullable();
+            $table->decimal('captain_pickup_progress_percent', 5, 2)->nullable();
             $table->unsignedInteger('captain_pickup_route_duration_seconds')->nullable();
             $table->decimal('captain_pickup_route_origin_latitude', 10, 7)->nullable();
             $table->decimal('captain_pickup_route_origin_longitude', 10, 7)->nullable();

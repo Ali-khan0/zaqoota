@@ -407,9 +407,6 @@ class DeliveryManController extends BaseController
 
             $blockingOrderIds = Order::query()
                 ->where('delivery_man_id', $deliveryMan->id)
-                ->where(function ($query) {
-                    $query->whereNull('order_type')->orWhere('order_type', '!=', 'parcel');
-                })
                 ->whereIn('order_status', ['accepted', 'confirmed', 'pending', 'processing', 'picked_up', 'handover'])
                 ->lockForUpdate()
                 ->pluck('id');
@@ -429,6 +426,12 @@ class DeliveryManController extends BaseController
                 return [
                     'success' => false,
                     'message' => translate('messages.An approved active ride vehicle is required for Ride mode.'),
+                ];
+            }
+            if ($validated['work_mode'] === 'delivery' && ! $deliveryMan->activeCommerceVehicle()->exists()) {
+                return [
+                    'success' => false,
+                    'message' => translate('messages.An approved active bike is required for Delivery mode.'),
                 ];
             }
 

@@ -55,9 +55,10 @@ class CommerceOrderDispatchService
         }
 
         $query = DeliveryMan::query()->withoutGlobalScopes()
-            ->with(['last_location', 'wallet'])
+            ->with(['last_location', 'wallet', 'activeCommerceVehicle.vehicleType'])
             ->where('application_status', 'approved')
             ->where('active', 1)
+            ->whereHas('activeCommerceVehicle')
             ->where(function ($captains) use ($order) {
                 $captains->where(function ($zoneWise) use ($order) {
                     $zoneWise->where('type', 'zone_wise')->where('zone_id', $order->zone_id);
@@ -69,6 +70,7 @@ class CommerceOrderDispatchService
                 }
             })
             ->get();
+        $maximumPickupRadius = $this->maximumPickupRadiusMeters($order);
 
         return $query
             ->filter(function (DeliveryMan $captain) use ($order) {
@@ -90,6 +92,7 @@ class CommerceOrderDispatchService
 
                 return $captain;
             })
+            ->filter(fn (DeliveryMan $captain) => (int) $captain->getAttribute('pickup_distance_meters') <= $maximumPickupRadius)
             ->sortBy(fn (DeliveryMan $captain) => [
                 $captain->getAttribute('pickup_distance_meters'),
                 (int) $captain->id,
@@ -101,6 +104,13 @@ class CommerceOrderDispatchService
     {
         return $this->rankedCaptains($order)
             ->slice($wave * $this->waveSize(), $this->waveSize())
+            ->values();
+    }
+
+    public function captainsVisibleThroughWave(Order $order, int $wave): Collection
+    {
+        return $this->rankedCaptains($order)
+            ->take(($wave + 1) * $this->waveSize())
             ->values();
     }
 
@@ -165,6 +175,17 @@ class CommerceOrderDispatchService
         return max(30, min(1800, (int) ($this->setting('commerce_dispatch_location_freshness_seconds') ?: 180)));
     }
 
+    public function maximumPickupRadiusMeters(Order $order): int
+    {
+        $key = $order->order_type === 'parcel'
+            ? 'parcel_dispatch_maximum_pickup_radius_km'
+            : 'commerce_dispatch_maximum_pickup_radius_km';
+        $defaultKilometers = $order->order_type === 'parcel' ? 10 : 5;
+        $kilometers = (float) ($this->setting($key) ?: $defaultKilometers);
+
+        return (int) round(max(1, min(200, $kilometers)) * 1000);
+    }
+
     private function pickupCoordinates(Order $order): ?array
     {
         if ($order->order_type === 'parcel') {
@@ -193,7 +214,7 @@ class CommerceOrderDispatchService
         return $value ? Carbon::parse($value) : null;
     }
 
-    private function setting(string $key): mixed
+    protected function setting(string $key): mixed
     {
         return BusinessSetting::query()->where('key', $key)->value('value');
     }

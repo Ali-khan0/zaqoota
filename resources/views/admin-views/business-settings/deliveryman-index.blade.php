@@ -324,6 +324,8 @@
                                     'commerce_dispatch_wave_size',
                                     'commerce_dispatch_wave_interval_seconds',
                                     'commerce_dispatch_location_freshness_seconds',
+                                    'commerce_dispatch_maximum_pickup_radius_km',
+                                    'parcel_dispatch_maximum_pickup_radius_km',
                                 ])->pluck('value', 'key'))
                                 <div class="col-sm-6 col-lg-4">
                                     <div class="form-group mb-0">
@@ -356,6 +358,28 @@
                                                id="commerce_dispatch_location_freshness_seconds" min="30" max="1800" required
                                                value="{{ old('commerce_dispatch_location_freshness_seconds', $commerceDispatchSettings['commerce_dispatch_location_freshness_seconds'] ?? 180) }}">
                                         <small class="text-muted">{{ translate('Riders with an older location are excluded until their app sends a fresh GPS update.') }}</small>
+                                    </div>
+                                </div>
+                                <div class="col-sm-6 col-lg-4">
+                                    <div class="form-group mb-0">
+                                        <label class="form-label" for="commerce_dispatch_maximum_pickup_radius_km">
+                                            {{ translate('Food, grocery and medicine pickup radius (km)') }}
+                                        </label>
+                                        <input type="number" name="commerce_dispatch_maximum_pickup_radius_km" class="form-control"
+                                               id="commerce_dispatch_maximum_pickup_radius_km" min="1" max="200" step="0.1" required
+                                               value="{{ old('commerce_dispatch_maximum_pickup_radius_km', $commerceDispatchSettings['commerce_dispatch_maximum_pickup_radius_km'] ?? 5) }}">
+                                        <small class="text-muted">{{ translate('Bike riders farther from the store than this distance cannot see, receive or accept the order.') }}</small>
+                                    </div>
+                                </div>
+                                <div class="col-sm-6 col-lg-4">
+                                    <div class="form-group mb-0">
+                                        <label class="form-label" for="parcel_dispatch_maximum_pickup_radius_km">
+                                            {{ translate('Parcel pickup radius (km)') }}
+                                        </label>
+                                        <input type="number" name="parcel_dispatch_maximum_pickup_radius_km" class="form-control"
+                                               id="parcel_dispatch_maximum_pickup_radius_km" min="1" max="200" step="0.1" required
+                                               value="{{ old('parcel_dispatch_maximum_pickup_radius_km', $commerceDispatchSettings['parcel_dispatch_maximum_pickup_radius_km'] ?? 10) }}">
+                                        <small class="text-muted">{{ translate('Bike riders farther from the parcel sender than this distance cannot see, receive or accept it.') }}</small>
                                     </div>
                                 </div>
 

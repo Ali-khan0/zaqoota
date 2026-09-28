@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\BusinessSetting;
 use App\Models\RideSettingAudit;
 use App\Services\RideCustomerSettingService;
+use App\Services\RideCancellationPolicyService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -30,6 +31,14 @@ class RideHailingSettingController extends Controller
         'nearby_marker_precision' => 'ride_hailing_nearby_marker_precision',
         'nearby_marker_limit' => 'ride_hailing_nearby_marker_limit',
         'nearby_refresh_seconds' => 'ride_hailing_nearby_refresh_seconds',
+        'cancellation_charge_enabled' => 'ride_hailing_cancellation_charge_enabled',
+        'cancellation_charge_amount' => 'ride_hailing_cancellation_charge_amount',
+        'cancellation_progress_enabled' => 'ride_hailing_cancellation_progress_enabled',
+        'cancellation_progress_threshold_percent' => 'ride_hailing_cancellation_progress_threshold_percent',
+        'cancellation_strike_limit' => 'ride_hailing_cancellation_strike_limit',
+        'cancellation_strike_window_hours' => 'ride_hailing_cancellation_strike_window_hours',
+        'cancellation_temporary_block_enabled' => 'ride_hailing_cancellation_temporary_block_enabled',
+        'cancellation_cooldown_minutes' => 'ride_hailing_cancellation_cooldown_minutes',
     ];
 
     public function index(): View
@@ -49,6 +58,7 @@ class RideHailingSettingController extends Controller
             'dispatch_wave_interval_seconds' => $stored->get(self::KEYS['dispatch_wave_interval_seconds'], 20),
             'dispatch_location_freshness_seconds' => $stored->get(self::KEYS['dispatch_location_freshness_seconds'], 180),
             ...(app(RideCustomerSettingService::class)->all()),
+            ...(app(RideCancellationPolicyService::class)->settings()),
         ];
 
         $settingAudits = RideSettingAudit::query()->latest('id')->limit(20)->get();
@@ -76,9 +86,17 @@ class RideHailingSettingController extends Controller
             'nearby_marker_precision' => ['required', 'integer', 'min:1', 'max:3'],
             'nearby_marker_limit' => ['required', 'integer', 'min:0', 'max:20'],
             'nearby_refresh_seconds' => ['required', 'integer', 'min:10', 'max:300'],
+            'cancellation_charge_enabled' => ['nullable', 'boolean'],
+            'cancellation_charge_amount' => ['required', 'numeric', 'min:0', 'max:100000'],
+            'cancellation_progress_enabled' => ['nullable', 'boolean'],
+            'cancellation_progress_threshold_percent' => ['required', 'integer', 'between:30,50'],
+            'cancellation_strike_limit' => ['required', 'integer', 'between:1,10'],
+            'cancellation_strike_window_hours' => ['required', 'integer', 'between:1,720'],
+            'cancellation_temporary_block_enabled' => ['nullable', 'boolean'],
+            'cancellation_cooldown_minutes' => ['required', 'integer', 'between:1,10080'],
         ]);
 
-        foreach (['customer_enabled', 'customer_rebid_enabled', 'offer_rejection_enabled', 'nearby_availability_enabled'] as $field) {
+        foreach (['customer_enabled', 'customer_rebid_enabled', 'offer_rejection_enabled', 'nearby_availability_enabled', 'cancellation_charge_enabled', 'cancellation_progress_enabled', 'cancellation_temporary_block_enabled'] as $field) {
             $validated[$field] = $request->boolean($field) ? '1' : '0';
         }
 

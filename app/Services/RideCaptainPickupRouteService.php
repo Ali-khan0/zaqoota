@@ -41,9 +41,16 @@ class RideCaptainPickupRouteService
             return $ride;
         }
 
+        $initialDistance = $ride->captain_pickup_initial_distance_meters
+            ?: max(1, (int) $route['distance_meters']);
+        $progress = round(max(0, min(100,
+            (($initialDistance - (int) $route['distance_meters']) / $initialDistance) * 100
+        )), 2);
         $ride->update([
             'captain_pickup_route_polyline' => $route['route_polyline'],
             'captain_pickup_route_distance_meters' => $route['distance_meters'],
+            'captain_pickup_initial_distance_meters' => $initialDistance,
+            'captain_pickup_progress_percent' => $progress,
             'captain_pickup_route_duration_seconds' => $route['duration_seconds'],
             'captain_pickup_route_origin_latitude' => $ride->current_latitude,
             'captain_pickup_route_origin_longitude' => $ride->current_longitude,
@@ -84,6 +91,7 @@ class RideCaptainPickupRouteService
             'route_polyline' => $ride->captain_pickup_route_polyline,
             'distance_meters' => (int) $ride->captain_pickup_route_distance_meters,
             'duration_seconds' => (int) $ride->captain_pickup_route_duration_seconds,
+            'progress_percent' => (float) ($ride->captain_pickup_progress_percent ?? 0),
             'generated_at' => $ride->captain_pickup_route_generated_at->toIso8601String(),
         ];
     }

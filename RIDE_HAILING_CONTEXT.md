@@ -56,12 +56,15 @@ Controllers:
 - `App\Http\Controllers\Admin\RideHailing\RideHailingSettingController`
 
 The operations query is scoped to the authenticated admin's zone when one is
-assigned. Manual assignment locks the ride, rechecks current Captain mode,
-availability, zone and approved active vehicle eligibility, rejects competing
-pending offers, records an accepted admin offer, snapshots commission from the
-chosen final fare, appends an admin-authored status history, and sends customer,
-Captain and realtime updates. It cannot overwrite an already assigned or
-started ride; reassignment needs a separate audited policy before it is added.
+assigned. Manual assignment locks the ride and the selected Captain row,
+rechecks current Captain mode, availability, zone and approved active vehicle
+eligibility, rejects competing pending offers, records an accepted admin offer,
+snapshots commission from the chosen final fare, appends an admin-authored
+status history, and sends customer, Captain and realtime updates. The shared
+Captain-row lock serializes manual assignment, customer offer acceptance and
+commerce-order acceptance for the same Captain. Manual assignment cannot
+overwrite an already assigned or started ride; reassignment needs a separate
+audited policy before it is added.
 
 `App\Http\Middleware\CurrentModule` recognizes `admin/ride-hailing*` so direct
 links retain the Ride Hailing sidebar even when the previous session module was
@@ -284,12 +287,36 @@ Customer APIs live under `/api/v1/ride-hailing/customer` with Passport auth.
 Captain discovery/offers live under `/api/v1/delivery-man` with `dm.api`.
 Captain discovery is polling-based in this milestone. Eligibility is rechecked
 at discovery, offer submission, and customer selection. Final selection locks
-the ride and offer, accepts one Captain, rejects competing offers, and snapshots
-commission from the final accepted amount without posting wallet balances.
+the ride, offer and selected Captain row before the final work-conflict check,
+accepts one Captain, rejects competing offers, and snapshots commission from
+the final accepted amount without posting wallet balances. Locking the Captain
+serializes competing assignments even when they target different rides.
 Pickup-distance charge is not applied to the pre-Captain system estimate;
 Captains can account for pickup travel in their bounded offer until formal
 pickup-distance settlement is introduced with the trip lifecycle.
+
+The Captain `rides/current` query returns an assigned active Ride first. If no
+active Ride exists, it recovers the newest assigned completed Ride that remains
+unsettled in `unpaid`, `pending`, or `partially_paid` state. This preserves
+post-completion cash confirmation and customer-payment waiting across process
+loss while excluding paid or otherwise settled completed Rides.
+
+Customer payment summaries use canonical `coupon_discount` and
+`previous_cancellation_due` keys. Temporary `_amount` aliases are returned for
+older Customer builds; current clients prefer the canonical values and parse
+the aliases only as a rollout fallback.
+
+`RideRequest::isPaymentSettled()` is the shared settlement rule for Ride API
+serialization, receipt access and repeat-payment rejection. A Ride is settled
+when `settled_at` exists or status is `paid`/`recovered`; responses expose
+`is_settled` and force remaining amounts to zero for either settled status.
 The complete contract is `docs/api/ride-booking-and-bidding.md`.
+
+The cancellation-due endpoint exposes `total_due` plus an `amount_due` for
+each cancelled Ride. `amount_due` is the authoritative outstanding amount
+after `wallet_paid_amount`; `cancellation_charge` remains the original charge.
+Current Customer builds consume this through typed due models and retain older
+amount names only as compatibility fallbacks.
 
 The customer-app extension adds an always-advertised config capability object,
 admin-controlled booking/rebid/rejection/nearby settings, vehicle/category
@@ -298,6 +325,12 @@ individual offer rejection and aggregate nearby availability. Customer-rejected
 offers are final for that Captain. Realtime and Firebase are refresh hints and
 never contain Trip PIN. Nearby markers are rounded and identity-free. See
 `docs/ap/ride-customer-app-integration.md`.
+
+`ride_hailing.customer_enabled` is a new-booking capability, not an account
+access switch. Laravel enforces it on estimates and Ride creation only; owned
+active/detail/history/payment/due/receipt endpoints remain available. Customer
+navigation must preserve those recovery paths while displaying booking as
+unavailable.
 
 ## Trip lifecycle milestone
 

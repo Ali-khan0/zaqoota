@@ -39,7 +39,7 @@
                 <a class="nav-link {{ Request::is('admin/business-settings/business-setup/automated-message') ?'active':'' }}" href="{{ route('admin.business-settings.business-setup',  ['tab' => 'automated-message']) }}"  aria-disabled="true">{{translate('messages.Automated_Message')}}</a>
             </li>
             <li class="nav-item">
-                <a class="nav-link {{ Request::is('admin/business-settings/queue-operations*') ?'active':'' }}" href="{{ route('admin.business-settings.queue-operations') }}">{{ translate('Queue Operations') }}</a>
+                <a class="nav-link {{ Request::is('admin/business-settings/queue-operations*') ?'active':'' }}" href="{{ route('admin.business-settings.queue-operations') }}">{{ translate('Queue Worker / Operations') }}</a>
             </li>
         </ul>
         <!-- End Nav -->

@@ -1,6 +1,6 @@
 @extends('layouts.admin.app')
 
-@section('title', translate('Queue Operations'))
+@section('title', translate('Queue Worker / Operations'))
 
 @section('content')
     <div class="content container-fluid">
@@ -9,7 +9,7 @@
                 <span class="page-header-icon">
                     <img src="{{ asset('public/assets/admin/img/business.png') }}" class="w--26" alt="">
                 </span>
-                <span>{{ translate('Queue Operations') }}</span>
+                <span>{{ translate('Queue Worker / Operations') }}</span>
             </h1>
             @include('admin-views.business-settings.partials.nav-menu')
         </div>

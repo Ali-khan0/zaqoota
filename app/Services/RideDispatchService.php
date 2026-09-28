@@ -34,6 +34,13 @@ class RideDispatchService
             ->values();
     }
 
+    public function captainsVisibleThroughWave(RideRequest $ride, int $wave): Collection
+    {
+        return $this->rankedCaptains($ride)
+            ->take(($wave + 1) * $this->waveSize())
+            ->values();
+    }
+
     public function isVisibleTo(DeliveryMan $captain, RideRequest $ride): bool
     {
         return $this->visibleWaveFor($captain, $ride) !== null;

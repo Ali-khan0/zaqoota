@@ -46,6 +46,9 @@ class User extends Authenticatable
         'wallet_balance' => 'float',
         'loyalty_point' => 'integer',
         'ref_by' => 'integer',
+        'ride_cancellation_strikes' => 'integer',
+        'ride_cancellation_last_strike_at' => 'datetime',
+        'ride_booking_blocked_until' => 'datetime',
     ];
 
     protected $appends = ['image_full_url'];

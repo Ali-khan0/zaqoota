@@ -170,6 +170,8 @@ class BusinessSettingsController extends Controller
             'commerce_dispatch_wave_size' => 'required|integer|between:1,50',
             'commerce_dispatch_wave_interval_seconds' => 'required|integer|between:5,300',
             'commerce_dispatch_location_freshness_seconds' => 'required|integer|between:30,1800',
+            'commerce_dispatch_maximum_pickup_radius_km' => 'required|numeric|between:1,200',
+            'parcel_dispatch_maximum_pickup_radius_km' => 'required|numeric|between:1,200',
         ]);
 
         foreach ([
@@ -179,6 +181,15 @@ class BusinessSettingsController extends Controller
         ] as $key) {
             Helpers::businessUpdateOrInsert(['key' => $key], [
                 'value' => $request->integer($key),
+            ]);
+        }
+
+        foreach ([
+            'commerce_dispatch_maximum_pickup_radius_km',
+            'parcel_dispatch_maximum_pickup_radius_km',
+        ] as $key) {
+            Helpers::businessUpdateOrInsert(['key' => $key], [
+                'value' => (float) $request->input($key),
             ]);
         }
 

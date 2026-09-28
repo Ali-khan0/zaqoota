@@ -28,7 +28,7 @@ class RideNotificationService
         'ride_started' => ['label' => 'Ride Started', 'audience' => 'customer', 'title' => 'Ride started', 'body' => 'Your Trip PIN was verified and Ride {rideNumber} has started.'],
         'ride_completed' => ['label' => 'Ride Completed', 'audience' => 'customer', 'title' => 'Ride completed', 'body' => 'Ride {rideNumber} is complete. Your final payable amount is {finalFare}.'],
         'passenger_cancelled_no_charge' => ['label' => 'Passenger Cancelled - No Charge', 'audience' => 'captain', 'title' => 'Ride cancelled by passenger', 'body' => '{passengerName} cancelled Ride {rideNumber}. Reason: {reason}. No cancellation compensation applies.'],
-        'passenger_cancelled_with_charge' => ['label' => 'Passenger Cancelled - Compensation Due', 'audience' => 'captain', 'title' => 'Ride cancelled by passenger', 'body' => '{passengerName} cancelled Ride {rideNumber}. Reason: {reason}. Zaqoota has credited compensation of {cancellationCharge} to your wallet.'],
+        'passenger_cancelled_with_charge' => ['label' => 'Passenger Cancelled - Compensation Due', 'audience' => 'captain', 'title' => 'Ride cancelled by passenger', 'body' => '{passengerName} cancelled Ride {rideNumber}. Reason: {reason}. You will receive {cancellationCharge} after it is collected from the passenger.'],
         'captain_cancelled' => ['label' => 'Captain Cancelled', 'audience' => 'customer', 'title' => 'Ride cancelled by Captain', 'body' => '{captainName} cancelled Ride {rideNumber}. Reason: {reason}. You were not charged and can request another Ride.'],
         'admin_cancelled_customer' => ['label' => 'Admin Cancelled - Passenger', 'audience' => 'customer', 'title' => 'Ride cancelled by Zaqoota', 'body' => 'Zaqoota cancelled Ride {rideNumber}. Reason: {reason}. You were not charged.'],
         'admin_cancelled_captain' => ['label' => 'Admin Cancelled - Captain', 'audience' => 'captain', 'title' => 'Ride cancelled by Zaqoota', 'body' => 'Zaqoota cancelled Ride {rideNumber}. Reason: {reason}.'],
@@ -84,8 +84,7 @@ class RideNotificationService
 
                         return null;
                     }
-                    if ($delivery->push_status === 'accepted'
-                        || ($delivery->push_status === 'queued' && ! $delivery->updated_at?->lt(now()->subMinutes(5)))) {
+                    if (! $delivery->canQueuePush()) {
                         $delivery->save();
 
                         return null;

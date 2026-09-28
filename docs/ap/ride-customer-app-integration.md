@@ -42,10 +42,11 @@ locations outside the active Ride state.
 }
 ```
 
-Hide the Ride entry only when `customer_enabled` is false. Active Ride detail,
-history, receipts and cancellation-due payment remain accessible. New estimate
-and booking calls return HTTP 403 with `errors[0].code=ride_hailing` while
-disabled.
+Keep the Ride account/module entry visible when `customer_enabled` is false,
+but replace new-booking controls with an unavailable notice. Active Ride
+recovery, history, owned details, payments, receipts and cancellation-due
+payment remain accessible. New estimate and booking calls return HTTP 403 with
+`errors[0].code=ride_hailing` while disabled.
 
 ## 2. Vehicle options and images
 
@@ -256,7 +257,10 @@ Validation/business errors use HTTP 403:
 ```
 
 Common codes are `ride_hailing`, `ride`, `customer_offer`, `offer`, `action`,
-`pickup_location`, `ride_category_id`, `route`, `coupon_code`, and `payment`.
+`pickup_location`, `ride_category_id`, `route`, `coupon_code`, `payment`, and
+`ride_cancellation_cooldown`. The cooldown response also includes
+`booking_blocked`, `blocked_until`, and `cooldown_seconds`; clients must render
+the API message and calculate the countdown from `blocked_until`.
 Route-provider failure uses HTTP 503. Ride history and payment attempts retain
 their Laravel paginator envelope and accept `limit` up to 50. Do not retry a
 mutation blindly after timeout; fetch the Ride/offers/payment summary first.

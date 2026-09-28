@@ -49,7 +49,7 @@ class DispatchCommerceOrderWave implements ShouldQueue
             return;
         }
 
-        foreach ($dispatch->captainsForWave($order, $this->wave) as $captain) {
+        foreach ($dispatch->captainsVisibleThroughWave($order, $this->wave) as $captain) {
             try {
                 $deliveryId = DB::transaction(function () use ($captain) {
                     $delivery = CommerceOrderNotificationDelivery::query()->firstOrCreate([
@@ -80,8 +80,7 @@ class DispatchCommerceOrderWave implements ShouldQueue
 
                         return null;
                     }
-                    if ($delivery->push_status === 'accepted'
-                        || ($delivery->push_status === 'queued' && ! $delivery->updated_at?->lt(now()->subMinutes(5)))) {
+                    if (! $delivery->canQueuePush()) {
                         $delivery->save();
 
                         return null;

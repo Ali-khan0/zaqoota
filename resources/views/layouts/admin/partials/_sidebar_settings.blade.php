@@ -114,6 +114,14 @@
                                 <span class="text-truncate">{{ translate('messages.business_settings') }}</span>
                             </a>
                         </li>
+                        <li
+                            class="navbar-vertical-aside-has-menu {{ Request::is('admin/business-settings/queue-operations*') ? 'active' : '' }}">
+                            <a class="nav-link" href="{{ route('admin.business-settings.queue-operations') }}"
+                                title="{{ translate('Queue Worker / Operations') }}">
+                                <span class="tio-chart-bar-4 nav-icon"></span>
+                                <span class="text-truncate">{{ translate('Queue Worker / Operations') }}</span>
+                            </a>
+                        </li>
                         @if (addon_published_status('TaxModule'))
                             <li class="navbar-vertical-aside-has-menu @yield('taxmodule')">
 

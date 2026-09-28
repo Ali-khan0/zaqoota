@@ -6,6 +6,8 @@ use App\Http\Controllers\Api\V1\CustomerRideController;
 use App\Models\RideCancellationReason;
 use App\Models\RideRequest;
 use App\Services\RideCouponService;
+use App\Services\RideCancellationPolicyService;
+use App\Services\RideCancellationReceivableService;
 use App\Services\RideFareCalculator;
 use App\Services\RideSettlementCalculator;
 use App\Services\RideTripService;
@@ -62,8 +64,13 @@ class RideCancellationTransactionTest extends TestCase
         self::assertSame($reason->title, $cancelled->cancellation_reason);
     }
 
-    public function test_assigned_customer_cancellation_preserves_fee_and_captain_due(): void
+    public function test_progress_qualified_cancellation_records_due_without_admin_advance(): void
     {
+        $this->settings([
+            'ride_hailing_cancellation_charge_enabled' => '1',
+            'ride_hailing_cancellation_progress_enabled' => '1',
+            'ride_hailing_cancellation_progress_threshold_percent' => '30',
+        ]);
         [$ride, $reason] = $this->rideAndReason(RideRequest::STATUS_CAPTAIN_ARRIVING, 12.50, 14);
 
         $cancelled = DB::transaction(fn () => $this->service()->cancel($ride, 'customer', 7, $reason));
@@ -72,10 +79,108 @@ class RideCancellationTransactionTest extends TestCase
         self::assertSame(12.50, $cancelled->final_payable_amount);
         self::assertSame(12.50, $cancelled->captain_total_earning_amount);
         self::assertSame('due_next_ride', $cancelled->payment_status);
-        self::assertNotNull($cancelled->cancellation_compensation_paid_at);
+        self::assertNull($cancelled->cancellation_compensation_paid_at);
+        self::assertSame(40.0, $cancelled->cancellation_pickup_progress_percent);
+        self::assertSame('pickup_progress_threshold_met', $cancelled->cancellation_charge_rule);
+        self::assertDatabaseMissing('delivery_man_wallets', ['delivery_man_id' => 14]);
+        self::assertDatabaseMissing('expenses', ['ride_request_id' => $ride->id]);
+        self::assertDatabaseHas('ride_cancellation_receivables', [
+            'ride_request_id' => $ride->id,
+            'delivery_man_id' => 14,
+            'amount' => 12.50,
+            'status' => 'pending',
+        ]);
+        self::assertDatabaseHas('users', ['id' => 7, 'ride_cancellation_strikes' => 1]);
+    }
+
+    public function test_disabled_cancellation_charging_creates_no_charge_or_strike(): void
+    {
+        $this->settings(['ride_hailing_cancellation_charge_enabled' => '0']);
+        [$ride, $reason] = $this->rideAndReason(RideRequest::STATUS_CAPTAIN_ARRIVING, 12.50, 14);
+
+        $cancelled = DB::transaction(fn () => $this->service()->cancel($ride, 'customer', 7, $reason));
+
+        self::assertSame(0.0, $cancelled->cancellation_charge_amount);
+        self::assertSame('disabled', $cancelled->cancellation_charge_rule);
+        self::assertDatabaseHas('users', ['id' => 7, 'ride_cancellation_strikes' => 0]);
+    }
+
+    public function test_cancellation_below_pickup_progress_threshold_is_not_charged(): void
+    {
+        $this->settings([
+            'ride_hailing_cancellation_charge_enabled' => '1',
+            'ride_hailing_cancellation_progress_enabled' => '1',
+            'ride_hailing_cancellation_progress_threshold_percent' => '50',
+        ]);
+        [$ride, $reason] = $this->rideAndReason(RideRequest::STATUS_CAPTAIN_ARRIVING, 12.50, 14);
+
+        $cancelled = DB::transaction(fn () => $this->service()->cancel($ride, 'customer', 7, $reason));
+
+        self::assertSame(0.0, $cancelled->cancellation_charge_amount);
+        self::assertSame('pickup_progress_below_threshold', $cancelled->cancellation_charge_rule);
+        self::assertDatabaseHas('users', ['id' => 7, 'ride_cancellation_strikes' => 0]);
+    }
+
+    public function test_second_charged_cancellation_starts_configured_cooldown(): void
+    {
+        $this->settings([
+            'ride_hailing_cancellation_charge_enabled' => '1',
+            'ride_hailing_cancellation_progress_enabled' => '1',
+            'ride_hailing_cancellation_progress_threshold_percent' => '30',
+            'ride_hailing_cancellation_strike_limit' => '2',
+            'ride_hailing_cancellation_strike_window_hours' => '24',
+            'ride_hailing_cancellation_temporary_block_enabled' => '1',
+            'ride_hailing_cancellation_cooldown_minutes' => '60',
+        ]);
+        [$firstRide, $firstReason] = $this->rideAndReason(RideRequest::STATUS_CAPTAIN_ARRIVING, 12.50, 14);
+        DB::transaction(fn () => $this->service()->cancel($firstRide, 'customer', 7, $firstReason));
+        [$secondRide, $secondReason] = $this->rideAndReason(RideRequest::STATUS_CAPTAIN_ARRIVING, 12.50, 14);
+
+        DB::transaction(fn () => $this->service()->cancel($secondRide, 'customer', 7, $secondReason));
+
+        $user = DB::table('users')->where('id', 7)->first();
+        self::assertSame(0, (int) $user->ride_cancellation_strikes);
+        self::assertNotNull($user->ride_booking_blocked_until);
+        self::assertTrue(now()->diffInMinutes($user->ride_booking_blocked_until) >= 59);
+    }
+
+    public function test_collected_receivable_credits_original_captain_exactly_once(): void
+    {
+        $this->settings([
+            'ride_hailing_cancellation_charge_enabled' => '1',
+            'ride_hailing_cancellation_progress_enabled' => '1',
+            'ride_hailing_cancellation_progress_threshold_percent' => '30',
+        ]);
+        [$ride, $reason] = $this->rideAndReason(RideRequest::STATUS_CAPTAIN_ARRIVING, 12.50, 14);
+        $cancelled = DB::transaction(fn () => $this->service()->cancel($ride, 'customer', 7, $reason));
+        $receivables = new RideCancellationReceivableService;
+
+        $first = DB::transaction(fn () => $receivables->clear(
+            $cancelled->fresh(),
+            $cancelled->fresh(),
+            'direct_payment',
+            'digital',
+        ));
+        $replay = DB::transaction(fn () => $receivables->clear(
+            $cancelled->fresh(),
+            $cancelled->fresh(),
+            'direct_payment',
+            'digital',
+        ));
+
+        self::assertTrue($first);
+        self::assertFalse($replay);
         self::assertDatabaseHas('delivery_man_wallets', ['delivery_man_id' => 14, 'total_earning' => 12.50]);
-        self::assertDatabaseHas('delivery_man_wallet_ledgers', ['delivery_man_id' => 14, 'amount' => 12.50, 'direction' => 'credit']);
-        self::assertDatabaseHas('expenses', ['ride_request_id' => $ride->id, 'amount' => 12.50]);
+        self::assertSame(1, DB::table('delivery_man_wallet_ledgers')
+            ->where('delivery_man_id', 14)
+            ->where('transaction_type', 'ride_cancellation_earning')
+            ->count());
+        self::assertDatabaseHas('ride_cancellation_receivables', [
+            'ride_request_id' => $ride->id,
+            'status' => 'cleared',
+            'collection_source' => 'direct_payment',
+            'collection_method' => 'digital',
+        ]);
     }
 
     private function service(): RideTripService
@@ -88,14 +193,16 @@ class RideCancellationTransactionTest extends TestCase
             new RideFareCalculator,
             new RideSettlementCalculator,
             $coupon,
+            new RideCancellationPolicyService,
+            new RideCancellationReceivableService,
         );
     }
 
     private function rideAndReason(string $status, float $charge, ?int $captainId): array
     {
-        DB::table('users')->insert(['id' => 7, 'f_name' => 'Test', 'l_name' => 'Customer']);
+        DB::table('users')->insertOrIgnore(['id' => 7, 'f_name' => 'Test', 'l_name' => 'Customer']);
         if ($captainId) {
-            DB::table('delivery_men')->insert(['id' => $captainId, 'f_name' => 'Test', 'l_name' => 'Captain']);
+            DB::table('delivery_men')->insertOrIgnore(['id' => $captainId, 'f_name' => 'Test', 'l_name' => 'Captain']);
         }
         $reasonId = DB::table('ride_cancellation_reasons')->insertGetId([
             'code' => 'plans_changed', 'title' => 'My plans changed', 'user_type' => 'customer',
@@ -105,6 +212,7 @@ class RideCancellationTransactionTest extends TestCase
         $rideId = DB::table('ride_requests')->insertGetId([
             'request_number' => 'RIDE-TEST', 'user_id' => 7, 'delivery_man_id' => $captainId,
             'status' => $status, 'cancellation_charge' => $charge, 'cancellation_charge_amount' => 0,
+            'captain_pickup_progress_percent' => $captainId ? 40 : null,
             'carried_cancellation_due_amount' => 0, 'coupon_discount_amount' => 0,
             'admin_coupon_expense_amount' => 0, 'rider_earning_amount' => 0,
             'platform_commission_amount' => 0, 'captain_total_earning_amount' => 0,
@@ -113,6 +221,16 @@ class RideCancellationTransactionTest extends TestCase
         ]);
 
         return [RideRequest::query()->findOrFail($rideId), RideCancellationReason::query()->findOrFail($reasonId)];
+    }
+
+    private function settings(array $values): void
+    {
+        foreach ($values as $key => $value) {
+            DB::table('business_settings')->updateOrInsert(
+                ['key' => $key],
+                ['value' => $value, 'created_at' => now(), 'updated_at' => now()],
+            );
+        }
     }
 
     private function createTables(): void
@@ -126,6 +244,8 @@ class RideCancellationTransactionTest extends TestCase
             $table->unsignedBigInteger('delivery_man_id')->nullable(); $table->unsignedBigInteger('ride_category_id')->nullable();
             $table->unsignedBigInteger('ride_vehicle_id')->nullable(); $table->string('status');
             $table->decimal('cancellation_charge', 12, 2)->default(0); $table->decimal('cancellation_charge_amount', 12, 2)->default(0);
+            $table->decimal('captain_pickup_progress_percent', 5, 2)->nullable(); $table->decimal('cancellation_pickup_progress_percent', 5, 2)->nullable();
+            $table->string('cancellation_charge_rule')->nullable();
             $table->unsignedBigInteger('cancellation_reason_id')->nullable(); $table->string('cancellation_reason_code')->nullable();
             $table->string('cancellation_reason_user_type')->nullable(); $table->string('cancellation_reason')->nullable();
             $table->string('cancelled_by')->nullable(); $table->timestamp('cancelled_at')->nullable();
@@ -140,6 +260,12 @@ class RideCancellationTransactionTest extends TestCase
             $table->id(); $table->unsignedBigInteger('ride_request_id'); $table->string('from_status')->nullable();
             $table->string('to_status'); $table->string('actor_type'); $table->unsignedBigInteger('actor_id')->nullable();
             $table->text('note')->nullable(); $table->json('metadata')->nullable(); $table->timestamps();
+        });
+        Schema::create('ride_cancellation_receivables', function (Blueprint $table): void {
+            $table->id(); $table->unsignedBigInteger('ride_request_id')->unique(); $table->unsignedBigInteger('user_id');
+            $table->unsignedBigInteger('delivery_man_id'); $table->decimal('amount', 12, 2); $table->string('status');
+            $table->unsignedBigInteger('collection_ride_id')->nullable(); $table->string('collection_source')->nullable();
+            $table->string('collection_method')->nullable(); $table->timestamp('cleared_at')->nullable(); $table->timestamps();
         });
         Schema::create('ride_offers', function (Blueprint $table): void {
             $table->id(); $table->unsignedBigInteger('ride_request_id'); $table->string('status'); $table->timestamps();
@@ -157,9 +283,10 @@ class RideCancellationTransactionTest extends TestCase
             $table->id(); $table->decimal('amount', 12, 2); $table->string('type'); $table->unsignedBigInteger('ride_request_id')->nullable();
             $table->string('created_by')->nullable(); $table->unsignedBigInteger('user_id')->nullable(); $table->text('description')->nullable(); $table->timestamps();
         });
-        Schema::create('users', function (Blueprint $table): void { $table->id(); $table->string('f_name')->nullable(); $table->string('l_name')->nullable(); $table->timestamps(); });
+        Schema::create('users', function (Blueprint $table): void { $table->id(); $table->string('f_name')->nullable(); $table->string('l_name')->nullable(); $table->unsignedSmallInteger('ride_cancellation_strikes')->default(0); $table->timestamp('ride_cancellation_last_strike_at')->nullable(); $table->timestamp('ride_booking_blocked_until')->nullable(); $table->timestamps(); });
         Schema::create('delivery_men', function (Blueprint $table): void { $table->id(); $table->string('f_name')->nullable(); $table->string('l_name')->nullable(); $table->timestamps(); });
         Schema::create('translations', function (Blueprint $table): void { $table->id(); $table->string('translationable_type'); $table->unsignedBigInteger('translationable_id'); $table->string('locale'); $table->string('key'); $table->text('value')->nullable(); });
         Schema::create('ride_coupon_usages', function (Blueprint $table): void { $table->id(); $table->unsignedBigInteger('ride_request_id'); $table->string('status'); $table->timestamps(); });
+        Schema::create('business_settings', function (Blueprint $table): void { $table->id(); $table->string('key')->unique(); $table->text('value')->nullable(); $table->timestamps(); });
     }
 }

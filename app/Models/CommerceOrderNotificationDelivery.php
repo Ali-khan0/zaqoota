@@ -27,4 +27,18 @@ class CommerceOrderNotificationDelivery extends Model
     {
         return $this->belongsTo(DeliveryMan::class);
     }
+
+    public function canQueuePush(): bool
+    {
+        if (in_array($this->push_status, ['accepted', 'disabled', 'superseded'], true)) {
+            return false;
+        }
+
+        if ($this->push_status === 'failed' && $this->push_attempts > 0) {
+            return false;
+        }
+
+        return $this->push_status !== 'queued'
+            || $this->updated_at?->lt(now()->subMinutes(5)) === true;
+    }
 }

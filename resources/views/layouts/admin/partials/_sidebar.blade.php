@@ -911,6 +911,12 @@
                         <span class="text-truncate">{{ translate('messages.business_setup') }}</span>
                     </a>
                 </li>
+                <li class="navbar-vertical-aside-has-menu {{ Request::is('admin/business-settings/queue-operations*') ? 'active' : '' }}">
+                    <a class="nav-link" href="{{ route('admin.business-settings.queue-operations') }}" title="{{ translate('Queue Worker / Operations') }}">
+                        <span class="tio-chart-bar-4 nav-icon"></span>
+                        <span class="text-truncate">{{ translate('Queue Worker / Operations') }}</span>
+                    </a>
+                </li>
                 <li class="navbar-vertical-aside-has-menu {{Request::is('admin/business-settings/social-media')?'active':''}}">
                     <a class="nav-link " href="{{route('admin.business-settings.social-media.index')}}" title="{{translate('messages.Social Media')}}">
                         <span class="tio-facebook nav-icon"></span>

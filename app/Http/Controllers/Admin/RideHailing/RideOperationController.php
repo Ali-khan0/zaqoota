@@ -101,7 +101,7 @@ class RideOperationController extends Controller
         $ride = $this->scopedQuery()->with([
             'user', 'deliveryMan', 'category', 'zone', 'rideVehicle.vehicleType',
             'offers.deliveryMan', 'offers.rideVehicle', 'statusHistories', 'payments',
-            'notificationDeliveries.deliveryMan',
+            'notificationDeliveries.deliveryMan', 'cancellationReceivable',
         ])->findOrFail($ride->id);
         $eligibleCaptains = in_array($ride->status, [RideRequest::STATUS_SEARCHING, RideRequest::STATUS_NEGOTIATING], true)
             ? $this->eligibilityService->eligibleCaptains($ride->zone_id, $ride->ride_category_id)
@@ -138,7 +138,10 @@ class RideOperationController extends Controller
             if (! in_array($ride->status, [RideRequest::STATUS_SEARCHING, RideRequest::STATUS_NEGOTIATING], true)) {
                 throw ValidationException::withMessages(['delivery_man_id' => translate('messages.This ride already has a Captain or is no longer assignable.')]);
             }
-            $captain = \App\Models\DeliveryMan::query()->withoutGlobalScopes()->findOrFail($validated['delivery_man_id']);
+            $captain = $this->eligibilityService->lockCaptainForAssignment((int) $validated['delivery_man_id']);
+            if (! $captain) {
+                throw ValidationException::withMessages(['delivery_man_id' => translate('messages.The selected Captain no longer exists.')]);
+            }
             $vehicle = $this->eligibilityService->vehicleFor($captain, $ride->ride_category_id, $ride->zone_id);
             if (! $vehicle) {
                 throw ValidationException::withMessages(['delivery_man_id' => translate('messages.The selected Captain is no longer eligible for this ride.')]);

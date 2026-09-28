@@ -112,6 +112,26 @@
                     </div>
                 </div>
             </div>
+            <div class="card mt-3">
+                <div class="card-header"><h5 class="card-title">{{ translate('messages.Customer Cancellation Policy') }}</h5></div>
+                <div class="card-body"><div class="row">
+                    @foreach ([
+                        ['cancellation_charge_enabled', 'Cancellation Charges', 'Apply the configured cancellation amount when the pickup-progress rule is met.'],
+                        ['cancellation_progress_enabled', 'Pickup Progress Rule', 'Require the Captain to reach the configured percentage of the route to pickup before charging.'],
+                        ['cancellation_temporary_block_enabled', 'Temporary Booking Block', 'Temporarily prevent new Ride bookings after the configured number of charged cancellations.'],
+                    ] as [$field, $label, $help])
+                        <div class="col-lg-4 mb-3"><div class="border rounded p-3 h-100 d-flex justify-content-between align-items-start">
+                            <div class="pr-3"><strong>{{ translate('messages.'.$label) }}</strong><div class="small text-muted mt-1">{{ translate('messages.'.$help) }}</div></div>
+                            <label class="toggle-switch mb-0"><input type="checkbox" name="{{ $field }}" value="1" class="toggle-switch-input" @checked(old($field, $settings[$field]))><span class="toggle-switch-label"><span class="toggle-switch-indicator"></span></span></label>
+                        </div></div>
+                    @endforeach
+                    <div class="col-md-6 col-xl-3"><div class="form-group"><label class="input-label">{{ translate('messages.Cancellation Charge Amount') }}</label><input type="number" min="0" max="100000" step="0.01" name="cancellation_charge_amount" class="form-control" value="{{ old('cancellation_charge_amount', $settings['cancellation_charge_amount']) }}" required><small class="text-muted">{{ translate('messages.This amount is copied into each new Ride quote, so later setting changes do not alter an existing Ride.') }}</small></div></div>
+                    <div class="col-md-6 col-xl-3"><div class="form-group"><label class="input-label">{{ translate('messages.Pickup Progress Threshold') }}</label><div class="input-group"><input type="number" min="30" max="50" name="cancellation_progress_threshold_percent" class="form-control" value="{{ old('cancellation_progress_threshold_percent', $settings['cancellation_progress_threshold_percent']) }}" required><div class="input-group-append"><span class="input-group-text">%</span></div></div><small class="text-muted">{{ translate('messages.Select a threshold from 30% to 50%. A charge applies at or above this progress.') }}</small></div></div>
+                    <div class="col-md-6 col-xl-3"><div class="form-group"><label class="input-label">{{ translate('messages.Charged Cancellations Before Block') }}</label><input type="number" min="1" max="10" name="cancellation_strike_limit" class="form-control" value="{{ old('cancellation_strike_limit', $settings['cancellation_strike_limit']) }}" required></div></div>
+                    <div class="col-md-6 col-xl-3"><div class="form-group"><label class="input-label">{{ translate('messages.Strike Window') }}</label><div class="input-group"><input type="number" min="1" max="720" name="cancellation_strike_window_hours" class="form-control" value="{{ old('cancellation_strike_window_hours', $settings['cancellation_strike_window_hours']) }}" required><div class="input-group-append"><span class="input-group-text">hours</span></div></div></div></div>
+                    <div class="col-md-6 col-xl-3"><div class="form-group"><label class="input-label">{{ translate('messages.Booking Cooldown') }}</label><div class="input-group"><input type="number" min="1" max="10080" name="cancellation_cooldown_minutes" class="form-control" value="{{ old('cancellation_cooldown_minutes', $settings['cancellation_cooldown_minutes']) }}" required><div class="input-group-append"><span class="input-group-text">minutes</span></div></div></div></div>
+                </div></div>
+            </div>
             <div class="btn--container justify-content-end mt-4">
                 <button type="reset" class="btn btn--reset">{{ translate('messages.Reset') }}</button>
                 <button type="submit" class="btn btn--primary">{{ translate('messages.Save Information') }}</button>

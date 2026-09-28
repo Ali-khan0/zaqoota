@@ -196,15 +196,34 @@ class CaptainRideController extends Controller
     public function currentRide(Request $request)
     {
         $captain = $this->eligibilityService->captainByToken($request->token);
+        $relations = ['category', 'user', 'rideVehicle', 'cancellationReceivable'];
         $ride = RideRequest::query()->where('delivery_man_id', $captain->id)
             ->whereIn('status', [
                 RideRequest::STATUS_RIDER_SELECTED,
                 RideRequest::STATUS_CAPTAIN_ARRIVING,
                 RideRequest::STATUS_ARRIVED,
                 RideRequest::STATUS_IN_PROGRESS,
-            ])->with(['category', 'user', 'rideVehicle'])->latest('selected_at')->first();
+            ])->with($relations)->latest('selected_at')->first();
+        if (! $ride) {
+            $ride = RideRequest::query()
+                ->where('delivery_man_id', $captain->id)
+                ->awaitingCaptainPaymentRecovery()
+                ->with($relations)
+                ->orderByDesc('completed_at')
+                ->orderByDesc('id')
+                ->first();
+        }
+        if (! $ride) {
+            $ride = RideRequest::query()
+                ->where('delivery_man_id', $captain->id)
+                ->whereHas('cancellationReceivable', fn ($query) => $query->where('status', 'pending'))
+                ->with($relations)
+                ->orderByDesc('cancelled_at')
+                ->orderByDesc('id')
+                ->first();
+        }
         if ($ride) {
-            $ride = $this->captainPickupRouteService->refresh($ride)->loadMissing(['category', 'user', 'rideVehicle']);
+            $ride = $this->captainPickupRouteService->refresh($ride)->loadMissing($relations);
         }
 
         return response()->json(['ride' => $ride ? $this->tripData($ride) : null]);
@@ -213,8 +232,8 @@ class CaptainRideController extends Controller
     public function showRide(Request $request, int $rideId)
     {
         $captain = $this->eligibilityService->captainByToken($request->token);
-        $ride = RideRequest::query()->where('delivery_man_id', $captain->id)->with(['category', 'user', 'rideVehicle'])->findOrFail($rideId);
-        $ride = $this->captainPickupRouteService->refresh($ride)->loadMissing(['category', 'user', 'rideVehicle']);
+        $ride = RideRequest::query()->where('delivery_man_id', $captain->id)->with(['category', 'user', 'rideVehicle', 'cancellationReceivable'])->findOrFail($rideId);
+        $ride = $this->captainPickupRouteService->refresh($ride)->loadMissing(['category', 'user', 'rideVehicle', 'cancellationReceivable']);
 
         return response()->json(['ride' => $this->tripData($ride)]);
     }
@@ -373,15 +392,17 @@ class CaptainRideController extends Controller
             'charged_waiting_minutes' => (int) $ride->charged_waiting_minutes,
             'waiting_charge_amount' => (float) $ride->waiting_charge_amount,
             'cancellation_charge_amount' => (float) $ride->cancellation_charge_amount,
+            'cancellation_receivable' => $ride->cancellationReceivableData(),
             'previous_cancellation_due_amount' => (float) $ride->carried_cancellation_due_amount,
             'captain_pickup_route' => $this->captainPickupRouteService->data($ride),
             'cancelled_by' => $ride->cancelled_by,
             'cancellation_reason' => $ride->cancellationReasonData(),
             'payment_status' => $ride->payment_status,
+            'is_settled' => $ride->isPaymentSettled(),
             'payment_method' => $ride->payment_method,
             'final_payable_amount' => $ride->final_payable_amount,
             'wallet_paid_amount' => (float) $ride->wallet_paid_amount,
-            'remaining_payment_amount' => $ride->payment_status === 'paid' ? 0.0 : round(max(0, (float) $ride->final_payable_amount - (float) $ride->wallet_paid_amount), 2),
+            'remaining_payment_amount' => $ride->isPaymentSettled() ? 0.0 : round(max(0, (float) $ride->final_payable_amount - (float) $ride->wallet_paid_amount), 2),
             'captain_total_earning_amount' => $ride->captain_total_earning_amount,
             'receipt_number' => $ride->receipt_number,
             'next_action' => app(\App\Services\RideTripStateMachine::class)->actionFor($ride->status),

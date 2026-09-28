@@ -769,9 +769,13 @@ empty zone topics until a later heartbeat enters coverage. The service also upda
 the operational zone from authenticated HTTP and websocket location heartbeats.
 The heartbeat returns current Firebase topic metadata so clients can replace
 stale zone subscriptions. A temporary active `zone_id` fallback remains for
-older app versions during rollout. Commerce nearest-first waves now use fresh
-GPS coordinates, reveal three captains at a time by default, and share one
-ranking across discovery, acceptance, in-app delivery and individual push.
+older app versions during rollout. Current Captain clients send a single-flight
+HTTP heartbeat every 15 seconds while moving, every 60 seconds while stationary,
+or immediately after 50 metres; backend freshness removes force-stopped or
+terminated devices until the next heartbeat. Commerce nearest-first waves use
+those fresh GPS coordinates, reveal three captains at a time by default, and
+share one ranking across discovery, acceptance, in-app delivery and individual
+push.
 Zone-wide freelancer order-request broadcasts have been replaced; store-owned
 self-delivery retains its private topic. See
 `docs/api/rider-operational-zone-and-dispatch.md`.
@@ -779,13 +783,24 @@ self-delivery retains its private topic. See
 Commerce Captain discovery and acceptance share
 `CommerceOrderEligibilityService`. It owns zone/store, self-delivery, work-mode,
 vehicle, lifecycle, payment, schedule, capacity and cash eligibility.
+All commerce work, including parcels, requires `work_mode=delivery`; Ride mode
+cannot discover or directly accept a parcel.
+Commerce eligibility additionally requires the rider's active approved
+`RideVehicle` to belong to the stable `ride_vehicle_types.slug=bike` type.
+Translated vehicle names are never used for this authorization decision.
 `DeliverymanController::accept_order` locks the rider and order in one
 transaction, rechecks that policy, changes ownership/status and increments both
 workload counters atomically. Same-rider retries are successful without repeat
 counters or notifications. `CommerceOrderDispatchService` ranks eligible
 captains by current pickup distance, rejects stale/missing locations, controls
-wave visibility and queues idempotent per-captain notifications through
-`commerce_order_notification_deliveries`. Delayed waves require a database or
+wave visibility and applies the same configurable maximum pickup radius to
+list, push and acceptance. Defaults are 5 km for food/grocery/medicine and 10
+km for parcels. Delayed jobs process the cumulative open set so current rank
+changes cannot skip a rider at a wave boundary. Unique recipient rows and
+unique push-job keys prevent later waves from starting another push chain;
+queued sends are suppressed after assignment/cancellation. Commerce uses
+`commerce_order_notification_deliveries`, and Ride applies the same cumulative
+and idempotent policy through `ride_notification_deliveries`. Delayed waves require a database or
 Redis queue worker; never use the synchronous queue in production dispatch.
 
 Ride Hailing zone activation and category pricing use the existing Zone Module
@@ -808,9 +823,11 @@ and exposes authenticated customer APIs under
 `/api/v1/ride-hailing/customer` plus Captain polling/offer APIs under
 `/api/v1/delivery-man`. Google Routes creates a five-minute encrypted fare
 quote; Captain offers expire using the snapshotted fare setting. Offer selection
-uses row locks, rechecks mode/zone/vehicle/work conflicts, assigns exactly one
-Captain, and snapshots platform commission/rider earning from the final accepted
-offer. It deliberately does not post wallets or imitate commerce `orders`.
+locks the ride, offer and Captain row, rechecks mode/zone/vehicle/work conflicts,
+assigns exactly one Captain, and snapshots platform commission/rider earning
+from the final accepted offer. The shared Captain-row lock also serializes Ride
+assignment against commerce-order acceptance for that Captain. It deliberately
+does not post wallets or imitate commerce `orders`.
 See `docs/api/ride-booking-and-bidding.md` and `RIDE_HAILING_CONTEXT.md`.
 
 The trip-execution milestone extends `ride_requests` with encrypted Trip PIN,
@@ -844,6 +861,33 @@ Captain's earning and Zaqoota commission exclude the carried amount; customer
 wallets never become negative debt. Fleet-manager Ride commission,
 refunds and PDF receipts are not implemented. See
 `docs/api/ride-payments-and-settlement.md`.
+
+Captain `GET /api/v1/delivery-man/rides/current` prioritizes an assigned active
+Ride, then recovers the newest assigned completed Ride whose settlement is
+still `unpaid`, `pending`, or `partially_paid`. Paid and otherwise settled
+completed Rides are excluded, so post-completion payment actions survive app
+restart without turning Ride history into current work.
+
+Ride payment summaries expose `coupon_discount` and
+`previous_cancellation_due` as canonical money fields, with temporary
+`coupon_discount_amount` and `previous_cancellation_due_amount` aliases for
+older Customer builds. Updated clients prefer canonical keys while accepting
+the aliases during rollout.
+
+`RideRequest::isPaymentSettled()` centralizes Ride settlement interpretation:
+`settled_at` or payment status `paid`/`recovered` is settled. Customer and
+Captain Ride payloads expose `is_settled`, return zero remaining amount for
+settled records, permit receipts and reject duplicate payment consistently.
+
+Customer cancellation-due responses use `amount_due` for each Ride's current
+outstanding value and `total_due` for the list total. `cancellation_charge` is
+the original charge and must not replace `amount_due` after a wallet
+contribution. The Customer app consumes this response through typed models.
+
+The Ride `customer_enabled` setting disables new fare estimates and Ride
+creation only. It does not authorize hiding or blocking owned active Rides,
+history, details, payments, cancellation dues, or receipts; those recovery and
+account endpoints stay customer-scoped and available.
 
 Ride realtime uses explicit customer Passport and Captain `dm.api` broadcast
 auth endpoints plus private customer, Captain, and assigned-trip channels.
@@ -925,7 +969,8 @@ table when that driver is selected, or missing commerce dispatch recipient
 metadata. The deployment workflow no longer suppresses Composer, migration, or
 cache failures and requests `queue:restart` after validation. The production
 host must still supervise a continuously running default-queue worker.
-Admin **Business Setup → Queue Operations** shows connection, database queue
+Admin **Business Settings → Queue Worker / Operations** is available directly
+from the main and settings sidebars and shows connection, database queue
 counts, recent failed jobs, a three-minute worker/scheduler heartbeat, and
 processed/failed/skipped metrics for every business `ShouldQueue` job. A master
 switch and six per-process switches gate commerce waves/push, Ride waves/push,

@@ -29,6 +29,16 @@
         <div class="alert alert-soft-danger mb-3">
             <div class="d-flex"><i class="tio-clear-circle mr-3 mt-1"></i><div><h5 class="mb-1">{{ translate('messages.Ride Cancelled by') }} {{ $cancelActor }}</h5><p class="mb-1">{{ $ride->cancellation_reason ?: translate('messages.No cancellation reason was provided.') }}</p><small>{{ translate('messages.Cancellation Charge') }}: <strong>{{ \App\CentralLogics\Helpers::format_currency($ride->cancellation_charge_amount) }}</strong> · {{ translate('messages.Payment Status') }}: <strong>{{ ucfirst(str_replace('_', ' ', $ride->payment_status)) }}</strong></small></div></div>
         </div>
+        @if($ride->cancellationReceivable)
+            <div class="alert alert-soft-{{ $ride->cancellationReceivable->status === 'cleared' ? 'success' : 'warning' }} mb-3">
+                <strong>{{ translate('messages.Captain Cancellation Receivable') }}:</strong>
+                {{ \App\CentralLogics\Helpers::format_currency($ride->cancellationReceivable->amount) }} ·
+                {{ translate('messages.'.($ride->cancellationReceivable->status === 'cleared' ? 'Cleared' : 'Pending collection')) }}
+                @if($ride->cancellationReceivable->cleared_at)
+                    · {{ $ride->cancellationReceivable->cleared_at->format('d M Y, h:i A') }}
+                @endif
+            </div>
+        @endif
     @endif
 
     <div class="row g-3">

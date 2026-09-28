@@ -206,10 +206,11 @@ selection belongs to the next lifecycle and cancellation-settlement milestone.
 POST /ride-hailing/customer/rides/{ride_id}/offers/{offer_id}/accept
 ```
 
-No body is required. Selection locks the ride and offer transactionally,
-rechecks Captain eligibility, accepts exactly one offer, rejects other pending
-offers, snapshots final commission/earning, and changes the ride to
-`rider_selected`.
+No body is required. Selection locks the ride, offer and selected Captain row
+transactionally, rechecks Captain eligibility, accepts exactly one offer,
+rejects other pending offers, snapshots final commission/earning, and changes
+the ride to `rider_selected`. The Captain-row lock serializes selection against
+other Ride assignments and commerce-order acceptance for the same Captain.
 
 ## Captain Endpoints
 
@@ -306,8 +307,8 @@ in `ride-realtime.md`.
 - Customer ownership is applied to every customer ride query.
 - Captain mode, zone, online state, conflicting work and active vehicle are
   checked on discovery, offer submission, and final selection.
-- Offer selection uses row locks; concurrent selections cannot assign two
-  Captains.
+- Offer selection locks the ride, offer and Captain row; concurrent requests
+  cannot assign the same Captain to different work.
 - Only the final accepted price is the commission base.
 - Wallet settlement is defined separately in `ride-payments-and-settlement.md`.
 

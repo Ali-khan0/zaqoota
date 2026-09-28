@@ -40,6 +40,8 @@ class DispatchHealthCheck extends Command
                 'commerce_dispatch_wave_size',
                 'commerce_dispatch_wave_interval_seconds',
                 'commerce_dispatch_location_freshness_seconds',
+                'commerce_dispatch_maximum_pickup_radius_km',
+                'parcel_dispatch_maximum_pickup_radius_km',
                 'ride_hailing_dispatch_wave_size',
                 'ride_hailing_dispatch_wave_interval_seconds',
                 'ride_hailing_dispatch_location_freshness_seconds',
@@ -48,6 +50,8 @@ class DispatchHealthCheck extends Command
             $this->components->twoColumnDetail('Commerce wave size', (string) ($settings['commerce_dispatch_wave_size'] ?? 3));
             $this->components->twoColumnDetail('Commerce wave interval', ($settings['commerce_dispatch_wave_interval_seconds'] ?? 20).' seconds');
             $this->components->twoColumnDetail('Commerce GPS freshness', ($settings['commerce_dispatch_location_freshness_seconds'] ?? 180).' seconds');
+            $this->components->twoColumnDetail('Commerce maximum pickup radius', ($settings['commerce_dispatch_maximum_pickup_radius_km'] ?? 5).' km');
+            $this->components->twoColumnDetail('Parcel maximum pickup radius', ($settings['parcel_dispatch_maximum_pickup_radius_km'] ?? 10).' km');
             $this->components->twoColumnDetail('Ride wave size', (string) ($settings['ride_hailing_dispatch_wave_size'] ?? 3));
             $this->components->twoColumnDetail('Ride wave interval', ($settings['ride_hailing_dispatch_wave_interval_seconds'] ?? 20).' seconds');
             $this->components->twoColumnDetail('Ride GPS freshness', ($settings['ride_hailing_dispatch_location_freshness_seconds'] ?? 180).' seconds');

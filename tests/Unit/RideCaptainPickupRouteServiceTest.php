@@ -52,6 +52,7 @@ class RideCaptainPickupRouteServiceTest extends TestCase
             'route_polyline' => 'captain-to-pickup',
             'distance_meters' => 1850,
             'duration_seconds' => 310,
+            'progress_percent' => 0.0,
             'generated_at' => '2026-08-23T12:00:00+00:00',
         ], $service->data($ride));
 
@@ -105,6 +106,8 @@ class RideCaptainPickupRouteServiceTest extends TestCase
             'current_longitude' => 73.13,
             'captain_pickup_route_polyline' => 'captain-to-pickup',
             'captain_pickup_route_distance_meters' => 1850,
+            'captain_pickup_initial_distance_meters' => 1850,
+            'captain_pickup_progress_percent' => 0,
             'captain_pickup_route_duration_seconds' => 310,
             'captain_pickup_route_origin_latitude' => 31.45,
             'captain_pickup_route_origin_longitude' => 73.13,

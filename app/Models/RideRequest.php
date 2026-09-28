@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class RideRequest extends Model
 {
@@ -23,6 +25,17 @@ class RideRequest extends Model
     public const STATUS_COMPLETED = 'completed';
 
     public const STATUS_CANCELLED = 'cancelled';
+
+    public const SETTLED_PAYMENT_STATUSES = [
+        'paid',
+        'recovered',
+    ];
+
+    public const CAPTAIN_PAYMENT_RECOVERY_STATUSES = [
+        'unpaid',
+        'pending',
+        'partially_paid',
+    ];
 
     public const ACTIVE_CUSTOMER_STATUSES = [
         self::STATUS_SEARCHING,
@@ -96,6 +109,9 @@ class RideRequest extends Model
         'current_accuracy_meters' => 'float',
         'location_updated_at' => 'datetime',
         'captain_pickup_route_distance_meters' => 'integer',
+        'captain_pickup_initial_distance_meters' => 'integer',
+        'captain_pickup_progress_percent' => 'float',
+        'cancellation_pickup_progress_percent' => 'float',
         'captain_pickup_route_duration_seconds' => 'integer',
         'captain_pickup_route_origin_latitude' => 'float',
         'captain_pickup_route_origin_longitude' => 'float',
@@ -104,9 +120,48 @@ class RideRequest extends Model
         'settled_at' => 'datetime',
     ];
 
+    public function scopeAwaitingCaptainPaymentRecovery(Builder $query): Builder
+    {
+        return $query
+            ->where('status', self::STATUS_COMPLETED)
+            ->whereNull('settled_at')
+            ->whereIn('payment_status', self::CAPTAIN_PAYMENT_RECOVERY_STATUSES);
+    }
+
+    public function isPaymentSettled(): bool
+    {
+        return $this->settled_at !== null
+            || in_array($this->payment_status, self::SETTLED_PAYMENT_STATUSES, true);
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function cancellationReceivable(): HasOne
+    {
+        return $this->hasOne(RideCancellationReceivable::class);
+    }
+
+    public function cancellationReceivableData(): ?array
+    {
+        if ((float) $this->cancellation_charge_amount <= 0 || ! $this->delivery_man_id) {
+            return null;
+        }
+        $receivable = $this->relationLoaded('cancellationReceivable')
+            ? $this->cancellationReceivable
+            : $this->cancellationReceivable()->first();
+
+        return $receivable ? [
+            'amount' => (float) $receivable->amount,
+            'status' => $receivable->status === RideCancellationReceivable::STATUS_CLEARED
+                ? 'cleared'
+                : 'pending_collection',
+            'cleared_at' => $receivable->cleared_at?->toIso8601String(),
+            'collection_source' => $receivable->collection_source,
+            'collection_method' => $receivable->collection_method,
+        ] : null;
     }
 
     public function zone(): BelongsTo

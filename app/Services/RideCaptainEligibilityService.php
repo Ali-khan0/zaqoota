@@ -119,6 +119,15 @@ class RideCaptainEligibilityService
         return DeliveryMan::query()->withoutGlobalScopes()->where('auth_token', $token)->first();
     }
 
+    public function lockCaptainForAssignment(int $captainId): ?DeliveryMan
+    {
+        return DeliveryMan::query()
+            ->withoutGlobalScopes()
+            ->whereKey($captainId)
+            ->lockForUpdate()
+            ->first();
+    }
+
     public function vehicleFor(DeliveryMan $captain, int $categoryId, int $zoneId): ?RideVehicle
     {
         if ($captain->application_status !== 'approved'
@@ -142,9 +151,6 @@ class RideCaptainEligibilityService
     {
         return Order::query()
             ->where('delivery_man_id', $captain->id)
-            ->where(function ($query) {
-                $query->whereNull('order_type')->orWhere('order_type', '!=', 'parcel');
-            })
             ->whereIn('order_status', ['accepted', 'confirmed', 'pending', 'processing', 'picked_up', 'handover'])
             ->exists();
     }

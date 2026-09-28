@@ -27,6 +27,8 @@ class DeliveryManWalletLedger extends Model
 
     public const TYPE_RIDE_CANCELLATION_ADVANCE = 'ride_cancellation_advance';
 
+    public const TYPE_RIDE_CANCELLATION_EARNING = 'ride_cancellation_earning';
+
     public const DIR_DEBIT = 'debit';
 
     public const DIR_CREDIT = 'credit';

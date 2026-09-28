@@ -13,13 +13,8 @@ class CommerceOrderEligibilityService
     {
         $query = Order::query();
 
-        if ((int) $deliveryMan->active !== 1
-            || (int) $deliveryMan->current_orders >= (int) config('dm_maximum_orders')) {
+        if (! $this->canReceiveCommerceOrders($deliveryMan)) {
             return $query->whereRaw('1 = 0');
-        }
-
-        if ($deliveryMan->work_mode !== 'delivery') {
-            $query->where('order_type', 'parcel');
         }
 
         if ($deliveryMan->type === 'zone_wise') {
@@ -65,6 +60,23 @@ class CommerceOrderEligibilityService
             ->NotDigitalOrder()
             ->where(fn (Builder $schedule) => $schedule->OrderScheduledIn(30))
             ->whereNull('delivery_man_id');
+    }
+
+    public function canReceiveCommerceOrders(DeliveryMan $deliveryMan): bool
+    {
+        return (int) $deliveryMan->active === 1
+            && $deliveryMan->work_mode === 'delivery'
+            && (int) $deliveryMan->current_orders < (int) config('dm_maximum_orders')
+            && $this->hasActiveCommerceVehicle($deliveryMan);
+    }
+
+    private function hasActiveCommerceVehicle(DeliveryMan $deliveryMan): bool
+    {
+        if ($deliveryMan->relationLoaded('activeCommerceVehicle')) {
+            return $deliveryMan->getRelation('activeCommerceVehicle') !== null;
+        }
+
+        return $deliveryMan->activeCommerceVehicle()->exists();
     }
 
     public function isAvailableTo(DeliveryMan $deliveryMan, Order $order, bool $applyCashLimit = true): bool

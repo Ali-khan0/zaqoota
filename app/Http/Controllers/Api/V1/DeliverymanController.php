@@ -210,10 +210,9 @@ class DeliverymanController extends Controller
 
         return DB::transaction(function () use ($request) {
             $dm = DeliveryMan::query()->lockForUpdate()->where(['auth_token' => $request['token']])->first();
-            $dm->load('activeRideVehicle');
+            $dm->load(['activeRideVehicle', 'activeCommerceVehicle']);
             $hasActiveCommerceOrder = Order::query()
                 ->where('delivery_man_id', $dm->id)
-                ->where('order_type', '!=', 'parcel')
                 ->whereIn('order_status', ['accepted', 'confirmed', 'pending', 'processing', 'picked_up', 'handover'])
                 ->exists();
             if ($request->work_mode === 'ride' && $hasActiveCommerceOrder) {
@@ -228,6 +227,12 @@ class DeliverymanController extends Controller
                     'message' => translate('messages.An approved active ride vehicle is required for Ride mode.'),
                 ]]], 422);
             }
+            if ($request->work_mode === 'delivery' && ! $dm->activeCommerceVehicle) {
+                return response()->json(['errors' => [[
+                    'code' => 'delivery_vehicle',
+                    'message' => translate('messages.An approved active bike is required for Delivery mode.'),
+                ]]], 422);
+            }
 
             $dm->work_mode = $request->work_mode;
             $dm->save();
@@ -236,7 +241,7 @@ class DeliverymanController extends Controller
                 'message' => translate('messages.Rider work mode updated successfully.'),
                 'work_mode' => $dm->work_mode,
                 'receives_delivery_orders' => $dm->work_mode === 'delivery',
-                'receives_parcel_orders' => true,
+                'receives_parcel_orders' => $dm->work_mode === 'delivery',
                 'receives_ride_requests' => $dm->work_mode === 'ride',
                 'active_ride_vehicle_id' => $dm->activeRideVehicle?->id,
             ]);
@@ -401,7 +406,7 @@ class DeliverymanController extends Controller
             if ((int) $lockedDm->active !== 1) {
                 return ['error' => 'active_status', 'status' => 409, 'message' => translate('messages.You_can_not_accept_order_on_offline')];
             }
-            if ($lockedDm->work_mode !== 'delivery' && $order->order_type !== 'parcel') {
+            if ($lockedDm->work_mode !== 'delivery') {
                 return ['error' => 'work_mode', 'status' => 409, 'message' => translate('messages.Switch to Delivery mode before accepting a delivery order.')];
             }
             if ((int) $lockedDm->current_orders >= (int) config('dm_maximum_orders')) {

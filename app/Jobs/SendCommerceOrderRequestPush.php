@@ -5,17 +5,20 @@ namespace App\Jobs;
 use App\CentralLogics\Helpers;
 use App\Models\CommerceOrderNotificationDelivery;
 use App\Queue\Middleware\EnsureQueueProcessEnabled;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Throwable;
 
-class SendCommerceOrderRequestPush implements ShouldQueue
+class SendCommerceOrderRequestPush implements ShouldQueue, ShouldBeUnique
 {
     use Queueable;
 
     public int $tries = 3;
 
     public int $timeout = 30;
+
+    public int $uniqueFor = 3600;
 
     public function __construct(
         public readonly int $deliveryId,
@@ -29,13 +32,28 @@ class SendCommerceOrderRequestPush implements ShouldQueue
         return [new EnsureQueueProcessEnabled('commerce_request_push')];
     }
 
+    public function uniqueId(): string
+    {
+        return (string) $this->deliveryId;
+    }
+
     public function handle(): void
     {
         $delivery = CommerceOrderNotificationDelivery::query()->with(['deliveryMan', 'order'])->find($this->deliveryId);
-        if (! $delivery || $delivery->push_status === 'accepted' || $delivery->order?->delivery_man_id !== null) {
+        if (! $delivery || $delivery->push_status === 'accepted') {
             return;
         }
+        if (! $delivery->order
+            || $delivery->order->delivery_man_id !== null
+            || ! in_array($delivery->order->order_status, ['pending', 'confirmed', 'processing', 'handover'], true)) {
+            $delivery->update([
+                'push_status' => 'superseded',
+                'last_error' => null,
+                'last_attempted_at' => now(),
+            ]);
 
+            return;
+        }
         $token = $delivery->deliveryMan?->fcm_token;
         if (! $token) {
             $delivery->update([

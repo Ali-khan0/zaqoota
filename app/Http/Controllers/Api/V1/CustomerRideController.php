@@ -15,6 +15,7 @@ use App\Models\Zone;
 use App\Services\RideCaptainEligibilityService;
 use App\Services\RideCaptainPickupRouteService;
 use App\Services\RideCancellationReasonService;
+use App\Services\RideCancellationPolicyService;
 use App\Services\RideCouponService;
 use App\Services\RideCustomerSettingService;
 use App\Services\RideDispatchService;
@@ -49,6 +50,7 @@ class CustomerRideController extends Controller
         private readonly RideCancellationReasonService $cancellationReasonService,
         private readonly RideCaptainPickupRouteService $captainPickupRouteService,
         private readonly RideDispatchService $dispatchService,
+        private readonly RideCancellationPolicyService $cancellationPolicy,
     ) {}
 
     public function cancellationReasons(Request $request)
@@ -102,6 +104,9 @@ class CustomerRideController extends Controller
         if (! $this->customerBookingEnabled()) {
             return $this->error('ride_hailing', 'Customer Ride booking is currently unavailable.');
         }
+        if ($blocked = $this->bookingBlockResponse($request->user())) {
+            return $blocked;
+        }
         $validator = Validator::make($request->all(), [
             'ride_category_id' => 'required|integer|exists:ride_categories,id',
             'pickup_latitude' => 'required|numeric|between:-90,90',
@@ -153,7 +158,7 @@ class CustomerRideController extends Controller
         $calculation = $this->fareCalculator->calculate($fare, $route['distance_meters'], $route['duration_seconds']);
         $previousCancellationDue = round((float) PassengerRide::query()
             ->where('user_id', $request->user()->id)->where('status', PassengerRide::STATUS_CANCELLED)
-            ->whereNotNull('cancellation_compensation_paid_at')->whereNull('cancellation_recovered_at')
+            ->where('cancellation_charge_amount', '>', 0)->whereNull('cancellation_recovered_at')
             ->sum('cancellation_charge_amount'), 2);
         $quote = [
             'user_id' => (int) $request->user()->id,
@@ -174,7 +179,7 @@ class CustomerRideController extends Controller
             'per_minute_charge' => (float) $fare->per_minute_charge,
             'waiting_charge_per_minute' => (float) $fare->waiting_charge_per_minute,
             'free_waiting_minutes' => (int) $fare->free_waiting_minutes,
-            'cancellation_charge' => (float) $fare->cancellation_charge,
+            'cancellation_charge' => $this->cancellationPolicy->quoteChargeAmount(),
             'platform_commission_percent' => (float) $fare->platform_commission_percent,
             'offer_expiry_seconds' => (int) $fare->offer_expiry_seconds,
         ];
@@ -197,6 +202,9 @@ class CustomerRideController extends Controller
     {
         if (! $this->customerBookingEnabled()) {
             return $this->error('ride_hailing', 'Customer Ride booking is currently unavailable.');
+        }
+        if ($blocked = $this->bookingBlockResponse($request->user())) {
+            return $blocked;
         }
         $validator = Validator::make($request->all(), [
             'pickup_latitude' => 'required|numeric|between:-90,90',
@@ -262,6 +270,9 @@ class CustomerRideController extends Controller
         if (! $this->customerBookingEnabled()) {
             return $this->error('ride_hailing', 'Customer Ride booking is currently unavailable.');
         }
+        if ($blocked = $this->bookingBlockResponse($request->user())) {
+            return $blocked;
+        }
         $validator = Validator::make($request->all(), [
             'quote_token' => 'required|string',
             'pickup_address' => 'required|string|max:500',
@@ -296,25 +307,23 @@ class CustomerRideController extends Controller
             }
         }
 
-        $ride = DB::transaction(function () use ($request, $quote, $customerOffer, $coupon) {
-            User::query()->whereKey($request->user()->id)->lockForUpdate()->firstOrFail();
+        $result = DB::transaction(function () use ($request, $quote, $customerOffer, $coupon) {
+            $lockedUser = User::query()->whereKey($request->user()->id)->lockForUpdate()->firstOrFail();
+            $block = $this->cancellationPolicy->blockData($lockedUser);
+            if ($block['booking_blocked']) {
+                return ['block' => $block, 'ride' => null];
+            }
             $outstandingCancellations = PassengerRide::query()
                 ->where('user_id', $request->user()->id)
                 ->where('status', PassengerRide::STATUS_CANCELLED)
                 ->where('cancellation_charge_amount', '>', 0)
-                ->whereNotNull('cancellation_compensation_paid_at')
                 ->whereNull('cancellation_recovered_at')
                 ->whereNull('recovery_ride_id')
                 ->lockForUpdate()
                 ->oldest('id')
                 ->get();
-            $chargeableCancellationCount = PassengerRide::query()->where('user_id', $request->user()->id)
-                ->where('status', PassengerRide::STATUS_CANCELLED)->where('cancellation_charge_amount', '>', 0)->count();
-            if ($chargeableCancellationCount >= 2 && $outstandingCancellations->isNotEmpty()) {
-                return ['cancellation_limit' => $outstandingCancellations];
-            }
             if (PassengerRide::query()->where('user_id', $request->user()->id)->whereIn('status', PassengerRide::ACTIVE_CUSTOMER_STATUSES)->exists()) {
-                return null;
+                return ['block' => null, 'ride' => null];
             }
             $ride = PassengerRide::query()->create([
                 'user_id' => $request->user()->id,
@@ -355,20 +364,13 @@ class CustomerRideController extends Controller
             $ride->update(['request_number' => 'ZQR-'.str_pad((string) $ride->id, 7, '0', STR_PAD_LEFT)]);
             $this->tripService->history($ride, null, PassengerRide::STATUS_SEARCHING, 'customer', $request->user()->id);
 
-            return $ride->fresh(['category']);
+            return ['block' => null, 'ride' => $ride->fresh(['category'])];
         });
 
-        if (is_array($ride) && isset($ride['cancellation_limit'])) {
-            $dues = $ride['cancellation_limit'];
-
-            return response()->json([
-                'errors' => [['code' => 'ride_cancellation_limit', 'message' => 'You have reached the cancellation limit. Pay all cancellation dues online before requesting another Ride.']],
-                'booking_blocked' => true,
-                'online_payment_required' => true,
-                'total_due' => round((float) $dues->sum('cancellation_charge_amount'), 2),
-                'rides' => $dues->map(fn ($due) => ['id' => (int) $due->id, 'request_number' => $due->request_number, 'amount_due' => (float) $due->cancellation_charge_amount])->values(),
-            ], 403);
+        if ($result['block']) {
+            return $this->bookingBlockResponseFromData($result['block']);
         }
+        $ride = $result['ride'];
 
         if (! $ride) {
             return $this->error('ride', 'Complete or cancel your active ride request before creating another one.');
@@ -667,7 +669,7 @@ class CustomerRideController extends Controller
 
                 return ['error' => 'This Captain offer has expired.'];
             }
-            $captain = $offer->deliveryMan()->withoutGlobalScopes()->first();
+            $captain = $this->eligibilityService->lockCaptainForAssignment((int) $offer->delivery_man_id);
             $vehicle = $captain ? $this->eligibilityService->vehicleFor($captain, $ride->ride_category_id, $ride->zone_id) : null;
             if (! $vehicle || $vehicle->id !== $offer->ride_vehicle_id) {
                 return ['error' => 'This Captain is no longer available for the ride.'];
@@ -767,19 +769,17 @@ class CustomerRideController extends Controller
             ->where('user_id', $request->user()->id)
             ->where('status', PassengerRide::STATUS_CANCELLED)
             ->where('cancellation_charge_amount', '>', 0)
-            ->whereNotNull('cancellation_compensation_paid_at')
             ->whereNull('cancellation_recovered_at')
             ->oldest('id')
             ->get();
-        $chargeableCancellationCount = PassengerRide::query()->where('user_id', $request->user()->id)
-            ->where('status', PassengerRide::STATUS_CANCELLED)->where('cancellation_charge_amount', '>', 0)->count();
-        $bookingBlocked = $chargeableCancellationCount >= 2 && $rides->isNotEmpty();
+        $chargeableCancellationCount = $rides->count();
+        $block = $this->cancellationPolicy->blockData($request->user());
 
         return response()->json([
             'total_due' => round((float) $rides->sum(fn ($ride) => max(0, (float) $ride->final_payable_amount - (float) $ride->wallet_paid_amount)), 2),
             'chargeable_cancellation_count' => $chargeableCancellationCount,
-            'booking_blocked' => $bookingBlocked,
-            'online_payment_required' => $bookingBlocked,
+            ...$block,
+            'online_payment_required' => false,
             'rides' => $rides->map(fn ($ride) => [
                 'id' => (int) $ride->id,
                 'request_number' => $ride->request_number,
@@ -787,7 +787,7 @@ class CustomerRideController extends Controller
                 'wallet_paid_amount' => (float) $ride->wallet_paid_amount,
                 'amount_due' => round(max(0, (float) $ride->final_payable_amount - (float) $ride->wallet_paid_amount), 2),
                 'recovery_ride_id' => $ride->recovery_ride_id,
-                'recovery_method' => $bookingBlocked ? 'online_payment' : 'next_ride',
+                'recovery_method' => 'next_ride_or_online',
                 'payment_status' => $ride->payment_status,
                 'cancelled_at' => $ride->cancelled_at?->toIso8601String(),
             ])->values(),
@@ -810,7 +810,7 @@ class CustomerRideController extends Controller
         $ride = PassengerRide::query()->where('user_id', $request->user()->id)->with('user')->findOrFail($rideId);
         try {
             if ($ride->status === PassengerRide::STATUS_CANCELLED) {
-                if (! $ride->cancellation_compensation_paid_at || $ride->cancellation_recovered_at) {
+                if ($ride->cancellation_charge_amount <= 0 || $ride->cancellation_recovered_at) {
                     return $this->error('payment', 'This cancellation charge is not payable.');
                 }
                 if ($request->payment_method !== 'digital' || $request->boolean('use_wallet')) {
@@ -871,7 +871,7 @@ class CustomerRideController extends Controller
     {
         $ride = PassengerRide::query()->where('user_id', $request->user()->id)
             ->with(['category', 'deliveryMan', 'rideVehicle'])->findOrFail($rideId);
-        if (! in_array($ride->payment_status, ['paid', 'recovered'], true)) {
+        if (! $ride->isPaymentSettled()) {
             return $this->error('payment', 'A receipt is available only after payment.');
         }
 
@@ -927,10 +927,11 @@ class CustomerRideController extends Controller
             'cancelled_by' => $ride->cancelled_by,
             'cancellation_reason' => $ride->cancellationReasonData(),
             'payment_status' => $ride->payment_status,
+            'is_settled' => $ride->isPaymentSettled(),
             'payment_method' => $ride->payment_method,
             'final_payable_amount' => $ride->final_payable_amount,
             'wallet_paid_amount' => (float) $ride->wallet_paid_amount,
-            'remaining_payment_amount' => $ride->payment_status === 'paid' ? 0.0 : round(max(0, (float) $ride->final_payable_amount - (float) $ride->wallet_paid_amount), 2),
+            'remaining_payment_amount' => $ride->isPaymentSettled() ? 0.0 : round(max(0, (float) $ride->final_payable_amount - (float) $ride->wallet_paid_amount), 2),
             'receipt_number' => $ride->receipt_number,
             'captain_location' => $ride->location_updated_at && in_array($ride->status, [
                 PassengerRide::STATUS_RIDER_SELECTED,
@@ -1008,16 +1009,19 @@ class CustomerRideController extends Controller
     {
         return [
             'status' => $ride->payment_status,
+            'is_settled' => $ride->isPaymentSettled(),
             'method' => $ride->payment_method,
             'gateway' => $ride->payment_gateway,
             'accepted_fare' => (float) $ride->final_accepted_fare,
             'waiting_charge' => (float) $ride->waiting_charge_amount,
             'cancellation_charge' => (float) $ride->cancellation_charge_amount,
             'previous_cancellation_due' => (float) $ride->carried_cancellation_due_amount,
+            'previous_cancellation_due_amount' => (float) $ride->carried_cancellation_due_amount,
             'coupon_discount' => (float) $ride->coupon_discount_amount,
+            'coupon_discount_amount' => (float) $ride->coupon_discount_amount,
             'final_payable_amount' => (float) $ride->final_payable_amount,
             'wallet_paid_amount' => (float) $ride->wallet_paid_amount,
-            'remaining_amount' => $ride->payment_status === 'paid' ? 0.0 : round(max(0, (float) $ride->final_payable_amount - (float) $ride->wallet_paid_amount), 2),
+            'remaining_amount' => $ride->isPaymentSettled() ? 0.0 : round(max(0, (float) $ride->final_payable_amount - (float) $ride->wallet_paid_amount), 2),
             'customer_wallet_balance' => (float) $ride->user?->wallet_balance,
             'wallet_enabled' => (int) \App\Models\BusinessSetting::query()->where('key', 'wallet_status')->value('value') === 1,
             'partial_payment_enabled' => (int) \App\Models\BusinessSetting::query()->where('key', 'partial_payment_status')->value('value') === 1,
@@ -1051,8 +1055,31 @@ class CustomerRideController extends Controller
     {
         return round((float) PassengerRide::query()->where('user_id', $userId)
             ->where('status', PassengerRide::STATUS_CANCELLED)
-            ->whereNotNull('cancellation_compensation_paid_at')->whereNull('cancellation_recovered_at')
+            ->where('cancellation_charge_amount', '>', 0)->whereNull('cancellation_recovered_at')
             ->sum('cancellation_charge_amount'), 2);
+    }
+
+    private function bookingBlockResponse(User $user)
+    {
+        $block = $this->cancellationPolicy->blockData($user);
+        if (! $block['booking_blocked']) {
+            return null;
+        }
+
+        return $this->bookingBlockResponseFromData($block);
+    }
+
+    private function bookingBlockResponseFromData(array $block)
+    {
+        $minutes = max(1, (int) ceil($block['cooldown_seconds'] / 60));
+
+        return response()->json([
+            'errors' => [[
+                'code' => 'ride_cancellation_cooldown',
+                'message' => "Ride booking is temporarily blocked after repeated charged cancellations. Try again in {$minutes} minute(s).",
+            ]],
+            ...$block,
+        ], 403);
     }
 
     private function quoteData(Request $request, Zone $zone, RideCategory $category, RideFare $fare, array $route, array $calculation, \Carbon\CarbonInterface $expiresAt, float $previousDue): array
@@ -1076,7 +1103,7 @@ class CustomerRideController extends Controller
             'per_minute_charge' => (float) $fare->per_minute_charge,
             'waiting_charge_per_minute' => (float) $fare->waiting_charge_per_minute,
             'free_waiting_minutes' => (int) $fare->free_waiting_minutes,
-            'cancellation_charge' => (float) $fare->cancellation_charge,
+            'cancellation_charge' => $this->cancellationPolicy->quoteChargeAmount(),
             'platform_commission_percent' => (float) $fare->platform_commission_percent,
             'offer_expiry_seconds' => (int) $fare->offer_expiry_seconds,
         ];

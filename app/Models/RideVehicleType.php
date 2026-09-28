@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class RideVehicleType extends Model
 {
+    public const COMMERCE_DELIVERY_SLUG = 'bike';
+
     protected $fillable = ['name', 'slug', 'image', 'image_storage', 'status', 'sort_order'];
 
     protected $appends = ['image_url'];

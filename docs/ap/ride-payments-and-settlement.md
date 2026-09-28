@@ -57,11 +57,14 @@ GET /ride-hailing/customer/rides/{ride_id}/payment-summary
 {
   "payment": {
     "status": "partially_paid",
+    "is_settled": false,
     "method": "partial_payment",
     "gateway": null,
     "accepted_fare": 500,
     "waiting_charge": 20,
     "cancellation_charge": 0,
+    "previous_cancellation_due": 25,
+    "coupon_discount": 25,
     "final_payable_amount": 520,
     "wallet_paid_amount": 100,
     "remaining_amount": 420,
@@ -75,6 +78,19 @@ GET /ride-hailing/customer/rides/{ride_id}/payment-summary
 }
 ```
 
+`coupon_discount` and `previous_cancellation_due` are the canonical payment
+summary keys. During the mobile rollout the response also includes equivalent
+`coupon_discount_amount` and `previous_cancellation_due_amount` aliases for
+older builds. New clients must prefer the canonical keys and may fall back to
+the aliases. All four values are server-calculated; clients must not recompute
+the payable amount.
+
+`is_settled` is authoritative. It is `true` when `settled_at` exists or when
+`payment_status` is `paid` or `recovered`. Both settled statuses return zero
+`remaining_amount`, allow receipt access and reject another payment attempt.
+`recovered` is used when Zaqoota has collected a previously advanced customer
+cancellation charge; it is not an unpaid state.
+
 Payment begins only after the current Ride is completed. A previous cancellation
 charge is carried into that Ride automatically and cannot be paid against the
 cancelled Ride directly.
@@ -87,7 +103,10 @@ GET /ride-hailing/customer/payment-due
 
 ```json
 {
-  "total_due": 80,
+  "total_due": 100,
+  "chargeable_cancellation_count": 1,
+  "booking_blocked": false,
+  "online_payment_required": false,
   "rides": [
     {
       "id": 42,
@@ -105,8 +124,14 @@ GET /ride-hailing/customer/payment-due
 ```
 
 Call this during Ride entry/startup to explain any amount that will be added to
-the passenger's next Ride. It does not block booking. Fare estimates expose
+the passenger's next Ride. One due can be reserved for recovery through the
+next Ride; when the configured cancellation-limit rule is reached, the response
+sets `booking_blocked` and `online_payment_required` and the customer must pay
+the outstanding dues online first. Fare estimates expose
 `previous_cancellation_due_amount` and `estimated_total_with_previous_due`.
+`total_due` is the sum of the listed `amount_due` values. Clients must display
+`amount_due` as the outstanding card amount; `cancellation_charge` is the
+original charge before any recorded wallet contribution.
 The created Ride and its payment summary expose
 `previous_cancellation_due_amount`/`previous_cancellation_due`. Coupons never
 discount this carried amount.
@@ -235,6 +260,12 @@ POST /delivery-man/rides/{ride_id}/payments/cash/confirm
 Only the assigned Captain can confirm a pending cash component. For partial
 payment, the Ride payload's `remaining_payment_amount` is the amount to collect,
 not `final_payable_amount`. Confirmation settles the full Ride exactly once.
+
+The Captain current-Ride endpoint uses active assignment first, then falls back
+to the newest assigned completed Ride with `settled_at = null` and payment
+status `unpaid`, `pending`, or `partially_paid`. This keeps cash confirmation
+and online-payment waiting recoverable after app restart. Paid and fully
+wallet-settled completed Rides are not returned by that fallback.
 
 ## Wallet And Accounting
 

@@ -6,17 +6,20 @@ use App\CentralLogics\Helpers;
 use App\Models\RideNotificationDelivery;
 use App\Models\RideRequest;
 use App\Queue\Middleware\EnsureQueueProcessEnabled;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Throwable;
 
-class SendRideRequestPush implements ShouldQueue
+class SendRideRequestPush implements ShouldQueue, ShouldBeUnique
 {
     use Queueable;
 
     public int $tries = 3;
 
     public int $timeout = 30;
+
+    public int $uniqueFor = 3600;
 
     public function __construct(
         public readonly int $deliveryId,
@@ -28,6 +31,11 @@ class SendRideRequestPush implements ShouldQueue
     public function middleware(): array
     {
         return [new EnsureQueueProcessEnabled('ride_request_push')];
+    }
+
+    public function uniqueId(): string
+    {
+        return (string) $this->deliveryId;
     }
 
     public function handle(): void

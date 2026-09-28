@@ -36,6 +36,7 @@ class RidePaymentService
         private readonly RideSettlementCalculator $calculator,
         private readonly RideNotificationService $notificationService,
         private readonly RideRealtimeService $realtimeService,
+        private readonly RideCancellationReceivableService $cancellationReceivables,
     ) {}
 
     public function createWalletAttempt(RideRequest $ride): RidePayment
@@ -129,7 +130,8 @@ class RidePaymentService
             }
             $this->assertPayable($ride);
             $financials = $this->calculator->calculate($ride);
-            $isCancellationRecovery = $ride->status === RideRequest::STATUS_CANCELLED && $ride->cancellation_compensation_paid_at;
+            $isCancellationRecovery = $ride->status === RideRequest::STATUS_CANCELLED
+                && $ride->cancellation_charge_amount > 0;
 
             if ($payment->status !== RidePayment::STATUS_PAID) {
                 $payment->update([
@@ -179,6 +181,13 @@ class RidePaymentService
                 if ($cashPaid > 0) {
                     $this->ledger($ride, DeliveryManWalletLedger::TYPE_RIDE_CASH_COLLECTION, $reference, $cashPaid, DeliveryManWalletLedger::DIR_DEBIT, $financials);
                 }
+            } else {
+                $this->cancellationReceivables->clear(
+                    $ride,
+                    $ride,
+                    'direct_payment',
+                    $method,
+                );
             }
 
             $admin = Admin::query()->where('role_id', 1)->first();
@@ -214,34 +223,30 @@ class RidePaymentService
                 'paid_at' => now(),
                 'settled_at' => now(),
                 'cancellation_recovered_at' => $isCancellationRecovery ? now() : $ride->cancellation_recovered_at,
+                'cancellation_compensation_paid_at' => $isCancellationRecovery ? now() : $ride->cancellation_compensation_paid_at,
             ]);
-            if ($isCancellationRecovery) {
-                $recovery = new Expense;
-                $recovery->amount = -$ride->cancellation_charge_amount;
-                $recovery->type = 'ride_cancellation_recovery';
-                $recovery->ride_request_id = $ride->id;
-                $recovery->created_by = 'admin';
-                $recovery->user_id = $ride->user_id;
-                $recovery->description = 'Cancellation advance recovered directly for '.$ride->request_number;
-                $recovery->save();
-            }
             $recoveredCancellations = RideRequest::query()->where('recovery_ride_id', $ride->id)->whereNull('cancellation_recovered_at')->lockForUpdate()->get();
             if ($recoveredCancellations->isNotEmpty()) {
-                $recovery = new Expense;
-                $recovery->amount = -round((float) $recoveredCancellations->sum('cancellation_charge_amount'), 2);
-                $recovery->type = 'ride_cancellation_recovery';
-                $recovery->ride_request_id = $ride->id;
-                $recovery->created_by = 'admin';
-                $recovery->user_id = $ride->user_id;
-                $recovery->description = 'Cancellation advances recovered through '.$ride->request_number;
-                $recovery->save();
-                RideRequest::query()->whereKey($recoveredCancellations->pluck('id'))->update([
-                    'cancellation_recovered_at' => now(), 'payment_status' => 'recovered',
-                    'payment_method' => 'next_ride', 'paid_at' => now(), 'settled_at' => now(),
-                ]);
+                foreach ($recoveredCancellations as $cancelledRide) {
+                    $this->cancellationReceivables->clear(
+                        $cancelledRide,
+                        $ride,
+                        'next_ride',
+                        $method,
+                    );
+                    $cancelledRide->update([
+                        'payment_status' => 'recovered', 'payment_method' => 'next_ride',
+                        'paid_at' => now(), 'settled_at' => now(),
+                    ]);
+                }
             }
 
-            return ['ride' => $ride->fresh(['user', 'deliveryMan', 'rideVehicle', 'category']), 'newly_settled' => true, 'cancellation_recovery' => $isCancellationRecovery];
+            return [
+                'ride' => $ride->fresh(['user', 'deliveryMan', 'rideVehicle', 'category']),
+                'newly_settled' => true,
+                'cancellation_recovery' => $isCancellationRecovery,
+                'compensated_cancellation_ids' => $recoveredCancellations->pluck('id')->all(),
+            ];
         });
 
         if (! $result) {
@@ -249,8 +254,12 @@ class RidePaymentService
         }
         if ($result['newly_settled']) {
             $this->notificationService->event($result['ride'], 'payment_received');
-            if (! ($result['cancellation_recovery'] ?? false)) {
-                $this->notificationService->event($result['ride'], 'earning_posted');
+            $this->notificationService->event($result['ride'], 'earning_posted');
+            foreach ($result['compensated_cancellation_ids'] ?? [] as $cancelledRideId) {
+                $cancelledRide = RideRequest::query()->with(['user', 'deliveryMan'])->find($cancelledRideId);
+                if ($cancelledRide) {
+                    $this->notificationService->event($cancelledRide, 'earning_posted');
+                }
             }
             $this->realtimeService->payment($result['ride']);
         }
@@ -394,11 +403,13 @@ class RidePaymentService
     private function assertPayable(RideRequest $ride): void
     {
         $payable = $ride->status === RideRequest::STATUS_COMPLETED
-            || ($ride->status === RideRequest::STATUS_CANCELLED && $ride->cancellation_charge_amount > 0 && $ride->cancellation_compensation_paid_at && ! $ride->cancellation_recovered_at);
+            || ($ride->status === RideRequest::STATUS_CANCELLED
+                && $ride->cancellation_charge_amount > 0
+                && ! $ride->cancellation_recovered_at);
         if (! $payable) {
             throw new RuntimeException('This ride is not ready for payment.');
         }
-        if ($ride->settled_at || $ride->payment_status === 'paid') {
+        if ($ride->isPaymentSettled()) {
             throw new RuntimeException('This ride has already been paid.');
         }
     }
@@ -414,4 +425,5 @@ class RidePaymentService
             'meta' => ['ride_request_id' => $ride->id, ...$financials],
         ]);
     }
+
 }
