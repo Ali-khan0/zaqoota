@@ -823,7 +823,7 @@ and exposes authenticated customer APIs under
 `/api/v1/ride-hailing/customer` plus Captain polling/offer APIs under
 `/api/v1/delivery-man`. Google Routes creates a five-minute encrypted fare
 quote; Captain offers expire using the snapshotted fare setting. Offer selection
-locks the ride, offer and Captain row, rechecks mode/zone/vehicle/work conflicts,
+locks the ride, offer and Captain row, rechecks mode/vehicle/fresh-GPS/pickup-radius/work conflicts,
 assigns exactly one Captain, and snapshots platform commission/rider earning
 from the final accepted offer. The shared Captain-row lock also serializes Ride
 assignment against commerce-order acceptance for that Captain. It deliberately
@@ -839,27 +839,34 @@ immutable transition audit. Captain lifecycle/location APIs remain under
 enforce the ordered state machine and row locking. Lifecycle changes use stored
 customer notifications plus best-effort Firebase push, while API polling is
 authoritative during websocket disconnects and reconnect reconciliation.
+The authorized, zone-scoped admin Ride detail derives a temporary decrypted PIN
+only while an assigned Ride is pre-start; lists and shared payloads never carry it.
 No wallet or payment balances are posted by the lifecycle transitions alone.
 See `docs/api/ride-trip-lifecycle.md`.
 
 The Ride payment milestone adds component-level `ride_payments` attempts and
 final payment, receipt, and settlement snapshots on `ride_requests`. Customer
 APIs support full cash, online or wallet payment and wallet-plus-cash/online
-partial payment while honoring the existing global wallet and partial-payment
-settings. Customer wallet debits use the established `trip_booking` and
+partial payment while honoring the global cash, digital, wallet and
+partial-payment settings. Payment summaries expose the effective options and
+active configured gateway names for that Ride; `RidePaymentService` rechecks
+the same policy inside the locked attempt. Customer wallet debits use the established `trip_booking` and
 `partial_payment` transaction types. The assigned Captain confirms only the
 cash remainder; online payments reuse the generic gateway layer through
 `ride_payment_success`/`ride_payment_fail`. `RidePaymentService` posts Captain
 and admin wallets and dedicated Ride ledger rows exactly once after all
 components are paid under locked `settled_at` idempotency. A chargeable customer
-cancellation immediately credits the original Captain from Zaqoota, remains a
-customer receivable discoverable at
+cancellation creates a pending original-Captain receivable without an admin
+advance and remains discoverable at
 `GET api/v1/ride-hailing/customer/payment-due`, and is automatically reserved
 and collected with the passenger's next completed Ride. Cancelling that
-recovery Ride releases the receivable to a later Ride. Coupons, the new
+recovery Ride releases the receivable to a later Ride. The original Captain is
+credited exactly once only after customer collection. Coupons, the new
 Captain's earning and Zaqoota commission exclude the carried amount; customer
-wallets never become negative debt. Fleet-manager Ride commission,
-refunds and PDF receipts are not implemented. See
+wallets never become negative debt. Paid pre-start cancellation creates one
+idempotent wallet refund; when charging is disabled the complete prepayment is
+returned without a strike, receivable or Captain credit. Fleet-manager Ride
+commission and PDF receipts are not implemented. See
 `docs/api/ride-payments-and-settlement.md`.
 
 Captain `GET /api/v1/delivery-man/rides/current` prioritizes an assigned active
@@ -886,8 +893,10 @@ contribution. The Customer app consumes this response through typed models.
 
 The Ride `customer_enabled` setting disables new fare estimates and Ride
 creation only. It does not authorize hiding or blocking owned active Rides,
-history, details, payments, cancellation dues, or receipts; those recovery and
-account endpoints stay customer-scoped and available.
+history, details, ratings, payments, cancellation dues, or receipts; those
+recovery and account endpoints stay customer-scoped and available. Ride
+creation locks the customer row before checking all active statuses and writing
+the request, which serializes concurrent booking attempts for that customer.
 
 Ride realtime uses explicit customer Passport and Captain `dm.api` broadcast
 auth endpoints plus private customer, Captain, and assigned-trip channels.
@@ -945,11 +954,16 @@ distance and current-wave checks. Mobile fields and refresh
 behavior are documented in `docs/api/ride-hailing-rider-app-integration.md`.
 Offer submission also snapshots pickup distance and ETA; passenger offer lists
 return those offers nearest-first so both mobile apps share the same priority.
+An eligible Captain records a unique `ride_request_views` acknowledgement only
+when a request card actually enters the visible Captain-app viewport. Push and
+realtime delivery never create views. The owning customer receives a
+privacy-limited viewer count and up to five avatar URLs through REST and the
+`ride.viewers.updated` refresh hint; phone, name, IDs and location are omitted.
 New Ride creation queues `DispatchRideRequestWave`; each wave recalculates
 current eligible Captains and shares its slice between realtime discovery and
 `RideNotificationService::newRequest`. Only
-approved, online Ride-mode Captains with the matching active vehicle, zone,
-pickup radius, and no conflicting work receive the stored/FCM
+approved, online Ride-mode Captains with the matching active vehicle, fresh GPS
+inside the pickup radius, and no conflicting work receive the stored/FCM
 `type=ride_request` alert. Delivery-mode order notifications are unchanged.
 Each recipient is audited in `ride_notification_deliveries`, which prevents
 duplicate in-app records and repeat delivery after Firebase has accepted a
@@ -1036,10 +1050,13 @@ Conditional Ride message templates are stored in the BusinessSetting key
 sidebar. Controllers emit stable event keys through `RideNotificationService`;
 the service renders controlled placeholders and applies per-event Push/In-App
 toggles for the fixed passenger or Captain audience.
-Passengers with two lifetime chargeable cancellations are blocked from new
-Ride creation while any cancellation advance remains unrecovered. Those source
-Ride dues accept digital gateway payment only; settlement records admin
-recovery without reposting Captain earnings.
+Only charged cancellations add a strike within the configured window. Reaching
+the configured limit creates a temporary booking cooldown independent of due
+collection. Disabling new cancellation charging does not erase an existing
+cooldown or historical due; it makes subsequent cancellations free and prevents
+new strikes/receivables. Existing source-Ride dues accept digital gateway
+payment directly or can be recovered by the next Ride, crediting the original
+Captain exactly once after collection.
 
 Assigned pre-trip Rides maintain a separate server-generated
 `captain_pickup_route` cache; the booked pickup-to-destination `route_polyline`
@@ -1067,6 +1084,64 @@ Approved rider profiles expose an admin Delivery/Ride work-mode toggle at
 is rejected with the blocking order IDs when the rider has any active
 non-parcel assignment. Parcel assignments are allowed in both modes, and Ride
 mode continues to require an approved active ride vehicle.
+
+Ride vehicle approval uses `RideHailingController` on two compatible admin
+route surfaces. `admin.users.delivery-man.ride-vehicles.*` is the canonical
+Users navigation; `admin.ride-hailing.vehicles.*` remains for old links and
+settings permissions. `RideVehicleReviewAudit` is append-only decision history,
+while `RideVehicle.reviewed_by/reviewed_at/admin_note` is the latest snapshot.
+All review and activation mutations lock the vehicle and respect an admin's
+zone scope.
+Delivery-man account approval intentionally leaves Ride vehicles pending so the
+dedicated photo review and audit cannot be bypassed.
+An authenticated Captain can correct and resubmit an owned rejected vehicle at
+`POST /api/v1/delivery-man/ride-vehicles/{vehicle_id}/resubmit`. The same
+record returns to pending, optional replacement photos supersede old files only
+after commit, and the previous review history remains append-only, so the
+two-vehicle limit is not consumed again.
+
+Ride chat uses dedicated `ride_messages` and expiring `ride_chat_presences`
+tables, not commerce conversations. `RideChatController` scopes every route to
+the owning customer or assigned Captain; `RideChatService` owns lifecycle,
+client-ID idempotency, seen attribution, presence-aware push and private trip
+events. The message-list contract exposes authoritative `can_send`/`read_only`
+state so completed/cancelled assigned Ride history stays readable without new
+messages or presence. Keep presence advisory and expiring—never use it as
+authorization; the service also forces terminal presence inactive. The
+participant-scoped message response returns only the opposite participant's
+contact and minimal Ride context required for call/WhatsApp actions.
+
+Captain Ride history is exposed by `CaptainRideController::rideHistory` and
+uses the shared `RideHistoryFilterService`. It is terminal-only, paginated and
+scoped by the authenticated Captain. Detail and list payloads share `tripData`
+so earnings, settlement and cancellation receivables cannot drift.
+
+### Dispatch control room realtime orders
+
+`DispatchRealtimeService` emits `dispatch.order.created` after commit for
+delivery/parcel orders and new Ride requests. `DispatchRealtimeController`
+owns the private admin broadcast-auth endpoint plus the zone- and
+permission-scoped AJAX feed/detail endpoints. Superadmins subscribe per module;
+zone admins subscribe per zone and module. The Dispatch Blade view is a
+persistent shell: the Google map is initialized once while module counters,
+lists, pagination and compact details update independently. Pusher/Reverb is
+the primary transport and a 15-second REST poll is used only while realtime is
+unavailable. New-order sound/toast behavior is intentionally Dispatch-only.
+
+`DispatchRiderLocationService` builds the private Dispatch marker contract and
+fresh snapshot. The persisted HTTP Captain heartbeat queues
+`DispatchDriverLocationJob`, which publishes the admin event to a central or
+zone-scoped private channel; the older Reverb client-message listener remains
+only for installed-client compatibility. The page batches events into its
+keyed marker registry, removes stale/offline/old-zone markers, searches locally
+and reconciles snapshots every 60 seconds when connected or 15 seconds during
+realtime failure. None of these paths recreates the Google map.
+
+Commerce order and parcel detail modals reuse their first location-map instance
+and update only the assigned Captain marker from that same private event. Ride
+admin detail embeds pickup, destination and encoded-route geometry plus the
+live Captain marker and synchronized external-map action. Detail pages use a
+zone-scoped single-rider snapshot for bounded websocket fallback.
 
 ## 11. Verification commands
 

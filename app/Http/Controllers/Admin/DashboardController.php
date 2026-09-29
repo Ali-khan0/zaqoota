@@ -18,6 +18,7 @@ use App\Models\OrderTransaction;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Config;
+use App\Services\DispatchRiderLocationService;
 
 class DashboardController extends Controller
 {
@@ -207,11 +208,9 @@ class DashboardController extends Controller
             return $q->where('zone_id', $params['zone_id']);
         })
             ->Zonewise()->whereDate('created_at', '>=', now()->subDays(30)->format('Y-m-d'))->count();
-        $deliveryMen = DeliveryMan::when(is_numeric($params['zone_id']), function ($q) use ($params) {
-            return $q->where('zone_id', $params['zone_id']);
-        })->zonewise()->available()->deliveryMode()->active()->get();
-
-        $deliveryMen = Helpers::deliverymen_list_formatting($deliveryMen);
+        $adminZoneId = auth('admin')->user()?->zone_id;
+        $mapZoneId = $adminZoneId ?: (is_numeric($params['zone_id']) ? (int) $params['zone_id'] : null);
+        $deliveryMen = app(DispatchRiderLocationService::class)->snapshot($mapZoneId)['riders'];
 
         $module_type = Config::get('module.current_module_type');
         return view("admin-views.dashboard-{$module_type}", compact('data', 'active_deliveryman', 'deliveryMen', 'unavailable_deliveryman', 'available_deliveryman', 'inactive_deliveryman', 'newly_joined_deliveryman', 'delivery_man', 'total_sell', 'commission', 'delivery_commission', 'label', 'params', 'module_type', 'suspend_deliveryman'));

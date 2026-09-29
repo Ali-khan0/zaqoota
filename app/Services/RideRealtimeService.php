@@ -42,6 +42,14 @@ class RideRealtimeService
         ]);
     }
 
+    public function viewersUpdated(RideRequest $ride, array $summary): void
+    {
+        $this->send(["ride.customer.{$ride->user_id}"], 'ride.viewers.updated', [
+            'ride_id' => (int) $ride->id,
+            'viewer_summary' => $summary,
+        ]);
+    }
+
     public function offerRejected(RideOffer $offer): void
     {
         $ride = $offer->rideRequest;
@@ -126,6 +134,24 @@ class RideRealtimeService
             'final_payable_amount' => (float) $ride->final_payable_amount,
             'receipt_number' => $ride->receipt_number,
             'paid_at' => $ride->paid_at?->toIso8601String(),
+        ]);
+    }
+
+    public function messageCreated(RideRequest $ride, array $message): void
+    {
+        $this->send(["ride.trip.{$ride->id}"], 'ride.message.created', [
+            'ride_id' => (int) $ride->id,
+            'message' => $message,
+        ]);
+    }
+
+    public function messagesSeen(RideRequest $ride, array $messageIds, string $seenBy, string $seenAt): void
+    {
+        $this->send(["ride.trip.{$ride->id}"], 'ride.message.seen', [
+            'ride_id' => (int) $ride->id,
+            'message_ids' => $messageIds,
+            'seen_by' => $seenBy,
+            'seen_at' => $seenAt,
         ]);
     }
 

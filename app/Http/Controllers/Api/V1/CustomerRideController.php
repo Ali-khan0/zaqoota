@@ -19,11 +19,13 @@ use App\Services\RideCancellationPolicyService;
 use App\Services\RideCouponService;
 use App\Services\RideCustomerSettingService;
 use App\Services\RideDispatchService;
+use App\Services\DispatchRealtimeService;
 use App\Services\RideFareCalculator;
 use App\Services\RideHistoryFilterService;
 use App\Services\RideNotificationService;
 use App\Services\RidePaymentService;
 use App\Services\RideRealtimeService;
+use App\Services\RideRequestViewerService;
 use App\Services\RideRouteService;
 use App\Services\RideTripService;
 use Illuminate\Contracts\Encryption\DecryptException;
@@ -51,6 +53,8 @@ class CustomerRideController extends Controller
         private readonly RideCaptainPickupRouteService $captainPickupRouteService,
         private readonly RideDispatchService $dispatchService,
         private readonly RideCancellationPolicyService $cancellationPolicy,
+        private readonly RideRequestViewerService $viewerService,
+        private readonly DispatchRealtimeService $dispatchRealtimeService,
     ) {}
 
     public function cancellationReasons(Request $request)
@@ -377,6 +381,7 @@ class CustomerRideController extends Controller
         }
 
         $this->dispatchService->dispatch($ride);
+        $this->dispatchRealtimeService->rideCreated($ride);
 
         return response()->json(['message' => 'Ride request created.', 'ride' => $this->rideData($ride)], 201);
     }
@@ -670,8 +675,11 @@ class CustomerRideController extends Controller
                 return ['error' => 'This Captain offer has expired.'];
             }
             $captain = $this->eligibilityService->lockCaptainForAssignment((int) $offer->delivery_man_id);
-            $vehicle = $captain ? $this->eligibilityService->vehicleFor($captain, $ride->ride_category_id, $ride->zone_id) : null;
-            if (! $vehicle || $vehicle->id !== $offer->ride_vehicle_id) {
+            $vehicle = $captain ? $this->eligibilityService->vehicleFor($captain, $ride->ride_category_id) : null;
+            $pickupMetrics = $captain ? $this->eligibilityService->pickupMetrics($captain, $ride) : null;
+            if (! $vehicle || $vehicle->id !== $offer->ride_vehicle_id
+                || ! $pickupMetrics
+                || $pickupMetrics['distance_meters'] > $this->eligibilityService->maximumPickupRadiusMeters()) {
                 return ['error' => 'This Captain is no longer available for the ride.'];
             }
             $settlement = $this->fareCalculator->settlement($offer->amount, $ride->platform_commission_percent);
@@ -751,6 +759,12 @@ class CustomerRideController extends Controller
         if ($result->delivery_man_id) {
             $this->notificationService->event($result, $result->cancellation_charge_amount > 0 ? 'passenger_cancelled_with_charge' : 'passenger_cancelled_no_charge');
         }
+        if (($result->cancellationRefund?->wallet_refund_amount ?? 0) > 0) {
+            $this->notificationService->event($result, 'cancellation_wallet_refunded');
+        }
+        if (($result->cancellationRefund?->cancellation_allocated_amount ?? 0) > 0 && $result->delivery_man_id) {
+            $this->notificationService->event($result, 'earning_posted');
+        }
         $this->realtimeService->status($result);
 
         return response()->json(['message' => 'Ride request cancelled.', 'ride' => $this->rideData($result)]);
@@ -775,11 +789,14 @@ class CustomerRideController extends Controller
         $chargeableCancellationCount = $rides->count();
         $block = $this->cancellationPolicy->blockData($request->user());
 
+        $paymentOptions = $this->paymentService->paymentOptions($rides->first());
+
         return response()->json([
             'total_due' => round((float) $rides->sum(fn ($ride) => max(0, (float) $ride->final_payable_amount - (float) $ride->wallet_paid_amount)), 2),
             'chargeable_cancellation_count' => $chargeableCancellationCount,
             ...$block,
             'online_payment_required' => false,
+            'payment_options' => $paymentOptions,
             'rides' => $rides->map(fn ($ride) => [
                 'id' => (int) $ride->id,
                 'request_number' => $ride->request_number,
@@ -913,6 +930,7 @@ class CustomerRideController extends Controller
                 'eta_seconds' => $ride->acceptedOffer->pickup_eta_seconds,
                 'calculated_at' => $ride->acceptedOffer->created_at?->toIso8601String(),
             ] : null,
+            'viewer_summary' => $this->viewerService->summary($ride),
             'distance_meters' => (int) $ride->distance_meters, 'duration_seconds' => (int) $ride->duration_seconds,
             'suggested_fare' => (float) $ride->suggested_fare, 'customer_offer' => (float) $ride->customer_offer,
             'minimum_negotiated_fare' => (float) $ride->minimum_negotiated_fare, 'maximum_negotiated_fare' => (float) $ride->maximum_negotiated_fare,
@@ -923,6 +941,13 @@ class CustomerRideController extends Controller
             'charged_waiting_minutes' => (int) $ride->charged_waiting_minutes,
             'waiting_charge_amount' => (float) $ride->waiting_charge_amount,
             'cancellation_charge_amount' => (float) $ride->cancellation_charge_amount,
+            'cancellation_refund' => $ride->cancellationRefund ? [
+                'paid_amount' => (float) $ride->cancellationRefund->paid_amount,
+                'cancellation_allocated_amount' => (float) $ride->cancellationRefund->cancellation_allocated_amount,
+                'wallet_refund_amount' => (float) $ride->cancellationRefund->wallet_refund_amount,
+                'status' => $ride->cancellationRefund->status,
+                'completed_at' => $ride->cancellationRefund->completed_at?->toIso8601String(),
+            ] : null,
             'previous_cancellation_due_amount' => (float) $ride->carried_cancellation_due_amount,
             'cancelled_by' => $ride->cancelled_by,
             'cancellation_reason' => $ride->cancellationReasonData(),
@@ -1007,6 +1032,14 @@ class CustomerRideController extends Controller
 
     private function paymentSummaryData(PassengerRide $ride): array
     {
+        $paidAmount = round((float) $ride->payments()
+            ->where('status', \App\Models\RidePayment::STATUS_PAID)
+            ->sum('amount'), 2);
+        $financials = app(\App\Services\RideSettlementCalculator::class)->calculate($ride);
+        $finalPayable = (float) $financials['final_payable_amount'];
+
+        $paymentOptions = $this->paymentService->paymentOptions($ride);
+
         return [
             'status' => $ride->payment_status,
             'is_settled' => $ride->isPaymentSettled(),
@@ -1019,13 +1052,13 @@ class CustomerRideController extends Controller
             'previous_cancellation_due_amount' => (float) $ride->carried_cancellation_due_amount,
             'coupon_discount' => (float) $ride->coupon_discount_amount,
             'coupon_discount_amount' => (float) $ride->coupon_discount_amount,
-            'final_payable_amount' => (float) $ride->final_payable_amount,
+            'final_payable_amount' => $finalPayable,
             'wallet_paid_amount' => (float) $ride->wallet_paid_amount,
-            'remaining_amount' => $ride->isPaymentSettled() ? 0.0 : round(max(0, (float) $ride->final_payable_amount - (float) $ride->wallet_paid_amount), 2),
+            'remaining_amount' => $ride->isPaymentSettled() ? 0.0 : round(max(0, $finalPayable - $paidAmount), 2),
             'customer_wallet_balance' => (float) $ride->user?->wallet_balance,
-            'wallet_enabled' => (int) \App\Models\BusinessSetting::query()->where('key', 'wallet_status')->value('value') === 1,
-            'partial_payment_enabled' => (int) \App\Models\BusinessSetting::query()->where('key', 'partial_payment_status')->value('value') === 1,
-            'partial_payment_method' => (string) \App\Models\BusinessSetting::query()->where('key', 'partial_payment_method')->value('value'),
+            ...$paymentOptions,
+            'prepayment_allowed' => in_array($ride->status, \App\Services\RidePaymentService::PREPAYMENT_STATUSES, true),
+            'prepayment_only_digital' => in_array($ride->status, \App\Services\RidePaymentService::PREPAYMENT_STATUSES, true),
             'paid_at' => $ride->paid_at?->toIso8601String(),
             'receipt_number' => $ride->receipt_number,
         ];

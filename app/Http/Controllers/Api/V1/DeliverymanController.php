@@ -31,6 +31,7 @@ use App\Models\ProvideDMEarning;
 use App\Models\UserNotification;
 use App\Models\WithdrawalMethod;
 use App\Models\WithdrawRequest;
+use App\Jobs\DispatchDriverLocationJob;
 use App\Traits\Payment;
 use App\Services\DeliveryManMilestoneBonusService;
 use App\Services\DeliveryManRegistrationFeeService;
@@ -195,6 +196,13 @@ class DeliverymanController extends Controller
         $dm = DeliveryMan::with(['rating'])->where(['auth_token' => $request['token']])->first();
         $dm->active = $dm->active ? 0 : 1;
         $dm->save();
+        dispatch(new DispatchDriverLocationJob(
+            $dm->id,
+            $dm->last_location?->latitude,
+            $dm->last_location?->longitude,
+            $dm->last_location?->location,
+            $dm->zone_id,
+        ))->onQueue('default');
 
         return response()->json(['message' => translate('messages.active_status_updated')], 200);
     }
@@ -236,6 +244,13 @@ class DeliverymanController extends Controller
 
             $dm->work_mode = $request->work_mode;
             $dm->save();
+            DB::afterCommit(fn () => dispatch(new DispatchDriverLocationJob(
+                $dm->id,
+                $dm->last_location?->latitude,
+                $dm->last_location?->longitude,
+                $dm->last_location?->location,
+                $dm->zone_id,
+            ))->onQueue('default'));
 
             return response()->json([
                 'message' => translate('messages.Rider work mode updated successfully.'),
@@ -291,6 +306,43 @@ class DeliverymanController extends Controller
             'message' => translate('messages.Ride vehicle submitted for approval.'),
             'vehicle' => $this->formatRideVehicle($vehicle),
         ], 201);
+    }
+
+    public function resubmitRideVehicle(Request $request, $vehicleId, RideVehicleRegistrationService $vehicleService)
+    {
+        $dm = DeliveryMan::where(['auth_token' => $request['token']])->first();
+        if (! $dm) {
+            return response()->json(['errors' => [[
+                'code' => 'token',
+                'message' => translate('messages.The token field is required.'),
+            ]]], 401);
+        }
+        $vehicle = $dm->rideVehicles()->whereKey($vehicleId)->first();
+        if (! $vehicle) {
+            return response()->json(['errors' => [[
+                'code' => 'ride_vehicle',
+                'message' => translate('messages.Ride vehicle not found.'),
+            ]]], 404);
+        }
+        if ($vehicle->status !== 'rejected') {
+            return response()->json(['errors' => [[
+                'code' => 'ride_vehicle',
+                'message' => translate('messages.Only a rejected ride vehicle can be corrected and resubmitted.'),
+            ]]], 422);
+        }
+
+        $validator = Validator::make($request->all(), $vehicleService->resubmissionRules($vehicle));
+        if ($validator->fails()) {
+            return response()->json(['errors' => Helpers::error_processor($validator)], 422);
+        }
+
+        $vehicle = $vehicleService->resubmitRejectedVehicle($dm, $vehicle, $validator->validated());
+        $vehicle->load(['vehicleType', 'category']);
+
+        return response()->json([
+            'message' => translate('messages.Ride vehicle corrected and resubmitted for approval.'),
+            'vehicle' => $this->formatRideVehicle($vehicle),
+        ]);
     }
 
     public function activateRideVehicle(Request $request, $vehicleId)
@@ -497,6 +549,7 @@ class DeliverymanController extends Controller
         }
 
         $dm = DeliveryMan::where(['auth_token' => $request['token']])->first();
+        $previousZoneId = $dm->zone_id;
         DeliveryHistory::updateOrCreate(['delivery_man_id' => $dm['id']], [
             'longitude' => $request['longitude'],
             'latitude' => $request['latitude'],
@@ -515,6 +568,13 @@ class DeliverymanController extends Controller
             (float) $request->latitude,
             (float) $request->longitude,
         );
+        dispatch(new DispatchDriverLocationJob(
+            $dm->id,
+            (float) $request->latitude,
+            (float) $request->longitude,
+            (string) $request->location,
+            $previousZoneId,
+        ))->onQueue('default');
 
         return response()->json([
             'message' => translate('location recorded'),

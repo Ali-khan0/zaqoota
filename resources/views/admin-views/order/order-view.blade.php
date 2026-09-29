@@ -2583,6 +2583,39 @@
         var dmbounds = new google.maps.LatLngBounds(null);
         var locationbounds = new google.maps.LatLngBounds(null);
         var dmMarkers = [];
+        var orderLocationMap = null;
+        var orderCaptainMarker = null;
+        var pendingOrderCaptainLocation = null;
+
+        window.handleCommerceOrderCaptainLocation = function (rider) {
+            if (Number(rider?.id) !== Number(@json((int) ($order->delivery_man_id ?? 0)))) return;
+            pendingOrderCaptainLocation = rider;
+            if (!orderLocationMap || !window.google?.maps?.marker) return;
+            if (!rider.visible) {
+                if (orderCaptainMarker) orderCaptainMarker.map = null;
+                return;
+            }
+            const position = {lat: Number(rider.latitude), lng: Number(rider.longitude)};
+            if (!Number.isFinite(position.lat) || !Number.isFinite(position.lng)) return;
+            if (orderCaptainMarker) {
+                orderCaptainMarker.position = position;
+                orderCaptainMarker.map = orderLocationMap;
+            } else {
+                const icon = document.createElement('img');
+                icon.src = @json($order?->delivery_man?->image_full_url ?? asset('public/assets/admin/img/delivery_boy_map.png'));
+                icon.alt = 'Captain';
+                icon.style.width = '42px';
+                icon.style.height = '42px';
+                icon.style.objectFit = 'cover';
+                icon.style.borderRadius = '50%';
+                orderCaptainMarker = new google.maps.marker.AdvancedMarkerElement({
+                    map: orderLocationMap,
+                    position,
+                    title: @json($order?->delivery_man?->full_name ?? translate('messages.deliveryman')),
+                    content: icon,
+                });
+            }
+        };
         dmbounds.extend(myLatlng);
         locationbounds.extend(myLatlng);
         var myOptions = {
@@ -2828,7 +2861,12 @@
 
 
             function initializegLocationMap() {
-                map = new google.maps.Map(document.getElementById("location_map_canvas"), myOptions);
+                if (orderLocationMap) {
+                    google.maps.event.trigger(orderLocationMap, 'resize');
+                    return;
+                }
+                orderLocationMap = new google.maps.Map(document.getElementById("location_map_canvas"), myOptions);
+                map = orderLocationMap;
 
                 var infowindow = new google.maps.InfoWindow();
 
@@ -2871,6 +2909,7 @@
                     title: "{{ $order->delivery_man->f_name }} {{ $order->delivery_man->l_name }}",
                     content: activeIconContent,
                 });
+                orderCaptainMarker = dmmarker;
 
                 google.maps.event.addListener(dmmarker, 'click', (function(dmmarker) {
                     return function() {
@@ -2882,6 +2921,10 @@
                 })(dmmarker));
                 locationbounds.extend(dmmarker.position);
                 @endif
+
+                if (pendingOrderCaptainLocation) {
+                    window.handleCommerceOrderCaptainLocation(pendingOrderCaptainLocation);
+                }
 
                 @if ($order->store)
                 var activeIconContent = document.createElement("img");
@@ -2969,4 +3012,10 @@
             });
         });
     </script>
+    @if($order->delivery_man_id && in_array($order->order_status, ['accepted', 'confirmed', 'processing', 'handover', 'picked_up'], true))
+        @include('admin-views.dispatch.partials.rider-location-client', [
+            'trackedRiderId' => $order->delivery_man_id,
+            'onLocationHandler' => 'handleCommerceOrderCaptainLocation',
+        ])
+    @endif
 @endpush

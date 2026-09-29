@@ -2,7 +2,8 @@
 
 Backend status: cash selection/confirmation, online gateway links, customer
 wallet payment, wallet-plus-cash/online partial payment, cancellation dues,
-idempotent settlement, payment history, and JSON receipts are implemented.
+online prepayment cancellation refunds, idempotent settlement, payment history,
+and JSON receipts are implemented.
 
 This contract follows `ride-trip-lifecycle.md`. Refunds, disputes, tips, fleet
 manager Ride commission, and downloadable PDF receipts remain future work.
@@ -29,8 +30,9 @@ remain based on the full accepted fare; the discount is stored separately as a
 
 A chargeable cancellation remains attached to the cancelled Ride as an
 outstanding receivable. It does not make `users.wallet_balance` negative. The
-customer must settle all such dues before creating a new Ride request and may
-pay with wallet, cash, online, or an enabled partial combination.
+customer may settle it through the next Ride's enabled payment method. Direct
+payment against the cancelled Ride remains online-only because the cancelled
+Ride has no active cash-collection handoff.
 
 ## Authentication And Headers
 
@@ -69,9 +71,14 @@ GET /ride-hailing/customer/rides/{ride_id}/payment-summary
     "wallet_paid_amount": 100,
     "remaining_amount": 420,
     "customer_wallet_balance": 0,
+    "cash_enabled": true,
+    "digital_enabled": true,
     "wallet_enabled": true,
     "partial_payment_enabled": true,
     "partial_payment_method": "both",
+    "cash_partial_enabled": true,
+    "digital_partial_enabled": true,
+    "digital_gateways": ["stripe", "assan_pay"],
     "paid_at": null,
     "receipt_number": null
   }
@@ -85,15 +92,21 @@ older builds. New clients must prefer the canonical keys and may fall back to
 the aliases. All four values are server-calculated; clients must not recompute
 the payable amount.
 
+The payment availability fields are authoritative for that Ride. They combine
+the global cash, digital, wallet and partial-payment switches with the selected
+partial remainder method and active gateway credentials. Active pre-pickup
+Rides and cancelled-Ride direct dues expose enabled online gateways only. The
+API rechecks the same policy inside the locked payment-attempt transaction.
+
 `is_settled` is authoritative. It is `true` when `settled_at` exists or when
 `payment_status` is `paid` or `recovered`. Both settled statuses return zero
 `remaining_amount`, allow receipt access and reject another payment attempt.
-`recovered` is used when Zaqoota has collected a previously advanced customer
-cancellation charge; it is not an unpaid state.
+`recovered` is used when Zaqoota has collected a customer cancellation charge
+and cleared its Captain receivable; it is not an unpaid state.
 
-Payment begins only after the current Ride is completed. A previous cancellation
-charge is carried into that Ride automatically and cannot be paid against the
-cancelled Ride directly.
+Completed Rides become payable after completion. A cancellation charge can be
+collected directly against the cancelled Ride or carried into the customer's
+next Ride; both paths clear the same receivable record.
 
 ### Outstanding Cancellation Dues
 
@@ -107,6 +120,13 @@ GET /ride-hailing/customer/payment-due
   "chargeable_cancellation_count": 1,
   "booking_blocked": false,
   "online_payment_required": false,
+  "payment_options": {
+    "cash_enabled": false,
+    "digital_enabled": true,
+    "wallet_enabled": false,
+    "partial_payment_enabled": false,
+    "digital_gateways": ["stripe", "assan_pay"]
+  },
   "rides": [
     {
       "id": 42,
@@ -114,9 +134,9 @@ GET /ride-hailing/customer/payment-due
       "cancellation_charge": 100,
       "wallet_paid_amount": 0,
       "amount_due": 100,
-      "payment_status": "unpaid",
+      "payment_status": "due_next_ride",
       "recovery_ride_id": 51,
-      "recovery_method": "next_ride",
+      "recovery_method": "next_ride_or_online",
       "cancelled_at": "2026-08-09T10:30:00+05:00"
     }
   ]
@@ -125,9 +145,8 @@ GET /ride-hailing/customer/payment-due
 
 Call this during Ride entry/startup to explain any amount that will be added to
 the passenger's next Ride. One due can be reserved for recovery through the
-next Ride; when the configured cancellation-limit rule is reached, the response
-sets `booking_blocked` and `online_payment_required` and the customer must pay
-the outstanding dues online first. Fare estimates expose
+next Ride. A temporary booking block is controlled by the cancellation strike
+policy and its server expiry, not by whether the due was paid. Fare estimates expose
 `previous_cancellation_due_amount` and `estimated_total_with_previous_due`.
 `total_due` is the sum of the listed `amount_due` values. Clients must display
 `amount_due` as the outstanding card amount; `cancellation_charge` is the
@@ -136,28 +155,31 @@ The created Ride and its payment summary expose
 `previous_cancellation_due_amount`/`previous_cancellation_due`. Coupons never
 discount this carried amount.
 
-When the passenger cancellation is chargeable, Zaqoota immediately credits the
-cancelled Ride's Captain and records an admin-funded advance. The next Ride
-reserves all unrecovered cancellation advances. If that Ride is cancelled, the
-reservation is released to a later Ride. Once the recovery Ride is completed
-and paid, the advances are marked recovered. The new Captain's earnings and
-platform commission exclude the carried amount.
+When the passenger cancellation is chargeable, Laravel creates one pending
+`ride_cancellation_receivables` row tied to the cancelled Ride, customer and
+original Captain. It creates no admin expense and does not credit the Captain
+wallet yet. The next Ride can reserve the outstanding customer amount. If that
+Ride is cancelled, the reservation is released to a later Ride.
 
-The cancelled source Ride uses `payment_status=due_next_ride` after Zaqoota
-advances the Captain compensation. After the recovery Ride is paid, it changes
-to `payment_status=recovered` with `payment_method=next_ride`.
+Once the customer amount is actually collected—either directly or through a
+paid recovery Ride—the receivable row is locked and changed from `pending` to
+`cleared`. In the same transaction, the original Captain wallet is credited and
+one `ride_cancellation_earning` ledger entry is written. Replay sees the cleared
+row and cannot credit again. The recovery Ride's Captain earnings and platform
+commission exclude the carried amount.
+
+The cancelled source Ride uses `payment_status=due_next_ride` while collection
+is pending. After collection it changes to `payment_status=recovered`; the
+Captain API exposes `cancellation_receivable.status` as `pending_collection` or
+`cleared`, plus the amount and `cleared_at` timestamp.
 
 ## Repeat-cancellation restriction
 
-The first chargeable cancellation may roll into the next Ride. Once the
-passenger has made two chargeable cancellations, any unrecovered cancellation
-balance blocks new Ride creation. `payment-due` then returns
-`booking_blocked=true`, `online_payment_required=true`, and
-`recovery_method=online_payment` for each due Ride. The app must pay every item
-through the existing payment endpoint with `payment_method=digital`; cash,
-wallet and wallet-partial payment are rejected for these dues. After all listed
-payments succeed, booking is unlocked. Direct recovery never credits the old
-Captain again because Zaqoota already advanced that earning.
+Only charged cancellations create strikes. Reaching the admin-configured strike
+limit temporarily blocks new estimates and bookings until `blocked_until`; it
+does not force one payment method. Outstanding dues remain payable by the
+methods allowed for that Ride. Direct or next-Ride collection credits the
+original Captain receivable exactly once.
 
 ### Pay Fully From Customer Wallet
 
@@ -231,6 +253,38 @@ online component paid. Never trust the redirect flag alone.
 Only one pending cash/online attempt may exist. After a failed online attempt,
 an already-paid wallet component remains valid and the customer retries only
 the remaining amount.
+
+Cash attempts require the global cash switch. Digital attempts require the
+global digital switch and an active credential returned in
+`digital_gateways`. Full-wallet payment requires the wallet switch. Partial
+wallet payment additionally requires the partial-payment switch and the
+selected remainder method (`cod`, `digital_payment`, or `both`).
+
+### Online Prepayment Before Pickup
+
+After a Captain is selected and before the trip starts, the existing payment
+endpoint accepts online gateway payment only. Cash, wallet and wallet-partial
+prepayment are rejected. A successful callback records
+`payment_status=prepaid`; it does not post Captain earnings or mark the Ride
+settled. Completion finalizes the payment, or leaves only any later waiting
+charge as the remaining balance.
+
+If the Ride is cancelled before pickup, Laravel locks the Ride/payment and
+creates one `ride_cancellation_refunds` record. An applicable cancellation
+charge is allocated to the original Captain receivable, and the remaining paid
+amount is atomically credited to `users.wallet_balance` with a
+`ride_cancellation_refund` wallet transaction. With no applicable charge, the
+full prepayment is credited. Gateway callback/cancellation races use the same
+Ride-first lock order; the unique refund row and receivable state prevent a
+second refund or Captain credit. The customer receives the rendered
+`cancellation_wallet_refunded` push/in-app notification containing the
+authoritative wallet amount.
+
+If cancellation charging is disabled at cancellation time, the allocated
+amount is zero, payment status becomes `refunded`, the full paid amount is
+credited once, and no strike, Captain receivable, Captain wallet credit or
+admin expense is created. The switch does not erase historical dues or an
+existing cooldown.
 
 ### Payment History
 

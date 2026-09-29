@@ -9,16 +9,19 @@ use App\Models\RideOffer;
 use App\Models\RideRequest;
 use App\Services\RideCaptainEligibilityService;
 use App\Services\RideDispatchService;
+use App\Services\RideHistoryFilterService;
 use App\Services\RideCaptainPickupRouteService;
 use App\Services\RideCancellationReasonService;
 use App\Services\RideNotificationService;
 use App\Services\RidePaymentService;
 use App\Services\RideRealtimeService;
+use App\Services\RideRequestViewerService;
 use App\Services\RideTripService;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 
 class CaptainRideController extends Controller
 {
@@ -39,6 +42,8 @@ class CaptainRideController extends Controller
         private readonly RideCancellationReasonService $cancellationReasonService,
         private readonly RideCaptainPickupRouteService $captainPickupRouteService,
         private readonly RideDispatchService $dispatchService,
+        private readonly RideRequestViewerService $viewerService,
+        private readonly RideHistoryFilterService $historyFilterService,
     ) {}
 
     public function cancellationReasons(Request $request)
@@ -60,7 +65,7 @@ class CaptainRideController extends Controller
     {
         $captain = $this->eligibilityService->captainByToken($request->token);
         $vehicle = $captain?->activeRideVehicle()->first();
-        if (! $captain || ! $vehicle || ! $this->eligibilityService->vehicleFor($captain, $vehicle->ride_category_id, $captain->zone_id)) {
+        if (! $captain || ! $vehicle || ! $this->eligibilityService->vehicleFor($captain, $vehicle->ride_category_id)) {
             return $this->error('captain', 'Captain is not currently eligible to receive passenger rides.');
         }
 
@@ -81,7 +86,6 @@ class CaptainRideController extends Controller
         $visibleRides = RideRequest::query()
             ->select('ride_requests.*')->selectRaw("$distanceSql AS pickup_distance_meters", $distanceBindings)
             ->with('category')
-            ->where('zone_id', $captain->zone_id)
             ->where('ride_category_id', $vehicle->ride_category_id)
             ->whereIn('status', [RideRequest::STATUS_SEARCHING, RideRequest::STATUS_NEGOTIATING])
             ->whereDoesntHave('offers', fn ($query) => $query
@@ -133,7 +137,7 @@ class CaptainRideController extends Controller
             if (! in_array($ride->status, [RideRequest::STATUS_SEARCHING, RideRequest::STATUS_NEGOTIATING], true)) {
                 return ['error' => 'This ride request is no longer accepting offers.'];
             }
-            $vehicle = $this->eligibilityService->vehicleFor($captain, $ride->ride_category_id, $ride->zone_id);
+            $vehicle = $this->eligibilityService->vehicleFor($captain, $ride->ride_category_id);
             $pickupMetrics = $this->eligibilityService->pickupMetrics($captain, $ride);
             if (! $vehicle || ! $pickupMetrics || $pickupMetrics['distance_meters'] > $this->eligibilityService->maximumPickupRadiusMeters()) {
                 return ['error' => 'Captain is not eligible for this ride request.'];
@@ -178,6 +182,27 @@ class CaptainRideController extends Controller
         }
 
         return response()->json(['message' => 'Offer submitted.', 'offer' => $this->offerData($result['offer'])], 201);
+    }
+
+    public function acknowledgeView(Request $request, int $rideId)
+    {
+        $captain = $this->eligibilityService->captainByToken($request->token);
+        if (! $captain) {
+            return $this->error('captain', 'Captain account was not found.');
+        }
+
+        $result = $this->viewerService->acknowledge($rideId, $captain);
+        if (! $result['accepted']) {
+            return $this->error('ride_view', 'This Ride request is no longer eligible for viewing.');
+        }
+        if ($result['created']) {
+            $this->realtimeService->viewersUpdated($result['ride'], $result['summary']);
+        }
+
+        return response()->json([
+            'message' => 'Ride request view recorded.',
+            'viewer_summary' => $result['summary'],
+        ], $result['created'] ? 201 : 200);
     }
 
     public function offers(Request $request)
@@ -229,6 +254,39 @@ class CaptainRideController extends Controller
         return response()->json(['ride' => $ride ? $this->tripData($ride) : null]);
     }
 
+    public function rideHistory(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'status' => ['nullable', Rule::in([
+                RideRequest::STATUS_COMPLETED,
+                RideRequest::STATUS_CANCELLED,
+            ])],
+            'from' => 'nullable|date_format:Y-m-d',
+            'to' => array_values(array_filter([
+                'nullable',
+                'date_format:Y-m-d',
+                $request->filled('from') ? 'after_or_equal:from' : null,
+            ])),
+        ]);
+        if ($validator->fails()) {
+            return response()->json(['errors' => Helpers::error_processor($validator)], 422);
+        }
+
+        $captain = $this->eligibilityService->captainByToken($request->token);
+        if (! $captain) {
+            return response()->json(['errors' => [['code' => 'auth', 'message' => 'Unauthenticated.']]], 401);
+        }
+        $query = RideRequest::query()
+            ->where('delivery_man_id', $captain->id)
+            ->whereIn('status', [RideRequest::STATUS_COMPLETED, RideRequest::STATUS_CANCELLED]);
+        $rides = $this->historyFilterService->apply($query, $validator->validated())
+            ->with(['category', 'user', 'rideVehicle', 'cancellationReceivable'])
+            ->latest()->paginate(max(1, min($request->integer('limit', 20), 50)));
+        $rides->getCollection()->transform(fn ($ride) => $this->tripData($ride));
+
+        return response()->json($rides);
+    }
+
     public function showRide(Request $request, int $rideId)
     {
         $captain = $this->eligibilityService->captainByToken($request->token);
@@ -263,6 +321,19 @@ class CaptainRideController extends Controller
         [$title, $event] = $messages[$result['ride']->status];
         $this->notificationService->event($result['ride'], $event);
         $this->realtimeService->status($result['ride']);
+
+        if ($result['ride']->status === RideRequest::STATUS_COMPLETED) {
+            $prepayment = $result['ride']->payments()
+                ->where('status', \App\Models\RidePayment::STATUS_PAID)
+                ->latest('id')
+                ->first();
+            if ($prepayment) {
+                $settledRide = $this->paymentService->settle($prepayment->id);
+                if ($settledRide) {
+                    $result['ride'] = $settledRide;
+                }
+            }
+        }
 
         return response()->json(['message' => $title.'.', 'ride' => $this->tripData($result['ride'])]);
     }
@@ -337,6 +408,9 @@ class CaptainRideController extends Controller
         }
 
         $this->notificationService->event($ride, 'captain_cancelled');
+        if (($ride->cancellationRefund?->wallet_refund_amount ?? 0) > 0) {
+            $this->notificationService->event($ride, 'cancellation_wallet_refunded');
+        }
         $this->realtimeService->status($ride);
 
         return response()->json(['message' => 'Ride cancelled.', 'ride' => $this->tripData($ride)]);
@@ -408,6 +482,7 @@ class CaptainRideController extends Controller
             'next_action' => app(\App\Services\RideTripStateMachine::class)->actionFor($ride->status),
             'customer' => $ride->user ? ['id' => (int) $ride->user->id, 'name' => trim($ride->user->f_name.' '.$ride->user->l_name), 'phone' => $ride->user->phone] : null,
             'vehicle' => $ride->rideVehicle ? ['id' => (int) $ride->rideVehicle->id, 'make' => $ride->rideVehicle->make, 'model' => $ride->rideVehicle->model, 'color' => $ride->rideVehicle->color, 'registration_number' => $ride->rideVehicle->registration_number] : null,
+            'selected_at' => $ride->selected_at?->toIso8601String(),
             'captain_arriving_at' => $ride->captain_arriving_at?->toIso8601String(),
             'arrived_at' => $ride->arrived_at?->toIso8601String(),
             'trip_started_at' => $ride->trip_started_at?->toIso8601String(),

@@ -13,7 +13,7 @@ class RidePaymentStatusPolicyTest extends TestCase
 {
     public function test_paid_recovered_and_settled_timestamp_are_settled(): void
     {
-        self::assertSame(['paid', 'recovered'], RideRequest::SETTLED_PAYMENT_STATUSES);
+        self::assertSame(['paid', 'recovered', 'refunded'], RideRequest::SETTLED_PAYMENT_STATUSES);
 
         foreach (RideRequest::SETTLED_PAYMENT_STATUSES as $status) {
             $ride = new RideRequest;

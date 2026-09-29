@@ -31,6 +31,7 @@ use App\Mail\PlaceOrder;
 use App\Models\AddOn;
 use App\Models\SurgePrice;
 use Carbon\Carbon;
+use App\Services\DispatchRealtimeService;
 
 trait PlaceNewOrder
 {
@@ -563,6 +564,7 @@ trait PlaceNewOrder
             DB::commit();
 
             $this->sentOrderPlaceNotification($request, $order, $store);
+            app(DispatchRealtimeService::class)->commerceOrderCreated($order);
 
             return response()->json([
                 'message' => translate('messages.order_placed_successfully'),

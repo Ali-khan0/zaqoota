@@ -5,6 +5,7 @@ namespace App\Models;
 use App\CentralLogics\Helpers;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class RideVehicle extends Model
 {
@@ -15,10 +16,10 @@ class RideVehicle extends Model
     protected $fillable = [
         'delivery_man_id', 'ride_vehicle_type_id', 'ride_category_id', 'fuel_type', 'make', 'model',
         'model_year', 'color', 'registration_number', 'front_image', 'front_image_storage',
-        'back_image', 'back_image_storage', 'status', 'is_active', 'admin_note',
+        'back_image', 'back_image_storage', 'status', 'is_active', 'admin_note', 'reviewed_by', 'reviewed_at',
     ];
 
-    protected $casts = ['model_year' => 'integer', 'is_active' => 'boolean'];
+    protected $casts = ['model_year' => 'integer', 'is_active' => 'boolean', 'reviewed_at' => 'datetime'];
     protected $appends = ['front_image_full_url', 'back_image_full_url'];
 
     public function getFrontImageFullUrlAttribute(): ?string
@@ -48,5 +49,15 @@ class RideVehicle extends Model
     public function category(): BelongsTo
     {
         return $this->belongsTo(RideCategory::class, 'ride_category_id');
+    }
+
+    public function reviewer(): BelongsTo
+    {
+        return $this->belongsTo(Admin::class, 'reviewed_by');
+    }
+
+    public function reviewAudits(): HasMany
+    {
+        return $this->hasMany(RideVehicleReviewAudit::class)->latest('reviewed_at')->latest('id');
     }
 }

@@ -19,6 +19,7 @@ class RideTripService
         private readonly RideCouponService $couponService,
         private readonly RideCancellationPolicyService $cancellationPolicy,
         private readonly RideCancellationReceivableService $cancellationReceivables,
+        private readonly RidePrepaymentCancellationService $prepaymentCancellations,
     ) {}
 
     public function canCancel(string $status): bool
@@ -126,8 +127,9 @@ class RideTripService
             $this->cancellationReceivables->createPending($ride);
             $this->cancellationPolicy->registerChargedCancellation((int) $ride->user_id);
         }
+        $this->prepaymentCancellations->refund($ride, $charge);
 
-        return $ride->fresh(['category', 'user', 'deliveryMan', 'rideVehicle']);
+        return $ride->fresh(['category', 'user', 'deliveryMan', 'rideVehicle', 'cancellationRefund']);
     }
 
     public function updateLocation(

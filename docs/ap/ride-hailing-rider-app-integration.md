@@ -4,6 +4,12 @@
 
 `GET /api/v1/delivery-man/ride-requests` is ordered by the Captain's straight-line distance to each pickup. Only requests inside the admin-configured maximum pickup radius and the Captain's currently open dispatch wave are returned. The Captain must continue sending fresh location through the existing location-update flow before requesting this list.
 
+The Captain's registered/current account zone does not filter passenger Ride
+requests. Current GPS distance is authoritative, so travelling into another
+city or zone automatically makes nearby requests eligible after the next
+heartbeat. Pickup-zone pricing is unchanged and the app must not filter the
+server list by `zone_id`.
+
 Each Ride object includes:
 
 ```json

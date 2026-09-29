@@ -29,6 +29,7 @@ class RideRequest extends Model
     public const SETTLED_PAYMENT_STATUSES = [
         'paid',
         'recovered',
+        'refunded',
     ];
 
     public const CAPTAIN_PAYMENT_RECOVERY_STATUSES = [
@@ -144,6 +145,11 @@ class RideRequest extends Model
         return $this->hasOne(RideCancellationReceivable::class);
     }
 
+    public function cancellationRefund(): HasOne
+    {
+        return $this->hasOne(RideCancellationRefund::class);
+    }
+
     public function cancellationReceivableData(): ?array
     {
         if ((float) $this->cancellation_charge_amount <= 0 || ! $this->delivery_man_id) {
@@ -241,6 +247,16 @@ class RideRequest extends Model
     public function notificationDeliveries(): HasMany
     {
         return $this->hasMany(RideNotificationDelivery::class);
+    }
+
+    public function viewerRecords(): HasMany
+    {
+        return $this->hasMany(RideRequestView::class);
+    }
+
+    public function messages(): HasMany
+    {
+        return $this->hasMany(RideMessage::class);
     }
 
     public function customerRating()

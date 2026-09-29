@@ -6,8 +6,7 @@ wallet behavior is defined in `ride-payments-and-settlement.md`.
 
 This specification follows `ride-booking-and-bidding.md`. Payment collection,
 wallet posting and post-completion settlement are implemented separately in
-`ride-payments-and-settlement.md`; ratings, safety and chat remain outside this
-milestone.
+`ride-payments-and-settlement.md`; Ride chat is defined in `ride-chat.md`.
 
 ## Authentication And Headers
 
@@ -115,6 +114,13 @@ strike limit is reached, estimate and create endpoints return HTTP 403 with
 under the locked customer row. Captain/admin cancellation never creates a
 customer charge or strike.
 
+Turning `cancellation_charge_enabled` off applies to new cancellations only.
+A newly cancelled Ride records zero charge, creates no strike or Captain
+receivable, and fully refunds any paid prepayment to the customer wallet.
+Existing legitimate cancellation dues/receivables and an already-active
+`ride_booking_blocked_until` cooldown are retained until their normal
+collection or expiry; changing the switch is not a financial-data deletion.
+
 Charge collection and wallet posting follow `ride-payments-and-settlement.md`.
 
 ## Captain Contract
@@ -141,6 +147,12 @@ GET /delivery-man/rides/{ride_id}
 
 The Captain can access only rides assigned to their authenticated account.
 The Trip PIN is never returned in Captain responses.
+
+The existing authorized Admin → Ride Hailing → Ride Operations detail page may
+show the decrypted four-digit PIN only for an assigned Ride in
+`rider_selected`, `captain_arriving`, or `arrived` with no `trip_started_at`.
+It is labelled sensitive and disappears at trip start. It is never included in
+admin lists, exports, logs, notifications, realtime events, or mobile APIs.
 
 ### Advance Trip Status
 
@@ -220,6 +232,14 @@ before `in_progress` and has no
 customer charge. An in-progress or completed ride cannot be cancelled through
 this endpoint.
 
+Captain cancellation is terminal: it rejects every pending offer, creates no
+customer strike or Captain receivable, fully refunds any paid Ride prepayment
+to the customer wallet, and never starts another dispatch wave. The assigned
+Captain remains attached only for history/audit; `rides/current` excludes the
+cancelled Ride. The customer receives the configured `captain_cancelled`
+in-app/Firebase notification plus `ride.status.updated`, and must request a new
+Ride manually.
+
 ## Notifications And Polling
 
 Customer lifecycle changes and Captain cancellation create a stored customer
@@ -229,6 +249,24 @@ Captain a Firebase push. Push failure never rolls back a valid trip transition.
 Private Ride channels are defined in `ride-realtime.md`. API refresh/polling
 remains authoritative during reconnects. Do not subscribe to the existing broad
 delivery-man location channel for passenger rides.
+
+## Customer Rating
+
+```http
+PUT /ride-hailing/customer/rides/{ride_id}/rating
+```
+
+```json
+{"rating": 5, "comment": "Professional Captain"}
+```
+
+Only the owning customer can rate an assigned completed Ride. `rating` is an
+integer from 1 through 5 and `comment` is optional, stripped of HTML and limited
+to 1,000 characters. The Ride row is locked while saving. The database unique
+Ride key and `updateOrCreate` preserve one rating per Ride; submitting again
+updates that rating instead of adding a duplicate. Rating, history, Ride detail,
+payment and receipt endpoints remain accessible when new customer booking is
+disabled.
 
 ## Errors
 
@@ -271,7 +309,9 @@ Captain app:
 
 - Every customer read/write is scoped to the Passport user.
 - Every Captain read/write is scoped to the `dm.api` token and assigned ride.
-- Trip PIN is customer-only, encrypted at rest, and compared server-side.
+- Trip PIN is encrypted at rest and compared server-side. Before trip start it
+  is visible only to the owning customer and the authorized scoped admin Ride
+  detail; it is never returned to the Captain.
 - State transitions and cancellation lock the ride row.
 - Server timestamps, not device clocks, determine arrival and waiting.
 - Location input is coordinate-validated and accepted only for active rides.
@@ -298,4 +338,4 @@ Cancellation messages are actor-specific. A passenger cancellation notifies the 
 
 Ride messages for both passengers and Captains are stored in the existing `user_notifications` feed as well as sent through Firebase when a token is available. Captain Ride notifications therefore appear through the existing delivery-man notifications endpoint after reconnecting or missing a push.
 
-All Ride lifecycle titles, bodies, Push toggles and In-App toggles are managed under `/admin/ride-hailing/notification-settings`. Templates are condition-specific and support only these server-rendered placeholders: `{rideNumber}`, `{passengerName}`, `{captainName}`, `{reason}`, `{cancellationCharge}`, `{pickupAddress}`, `{finalFare}`, and `{captainEarning}`. Mobile apps must display the rendered payload and must not attempt template substitution.
+All Ride lifecycle titles, bodies, Push toggles and In-App toggles are managed under `/admin/ride-hailing/notification-settings`. Templates are condition-specific and support only these server-rendered placeholders: `{rideNumber}`, `{passengerName}`, `{captainName}`, `{reason}`, `{cancellationCharge}`, `{walletRefund}`, `{pickupAddress}`, `{finalFare}`, and `{captainEarning}`. Mobile apps must display the rendered payload and must not attempt template substitution.

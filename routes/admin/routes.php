@@ -102,6 +102,9 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
             Route::get('vehicles', [RideHailingController::class, 'vehicles'])->name('vehicles.index');
             Route::get('vehicles/create', [RideHailingController::class, 'createVehicle'])->name('vehicles.create');
             Route::post('vehicles', [RideHailingController::class, 'storeVehicle'])->name('vehicles.store');
+            Route::get('vehicles/riders/search', [RideHailingController::class, 'searchRiders'])->name('vehicles.riders.search');
+            Route::get('vehicles/{vehicle}', [RideHailingController::class, 'showVehicle'])->name('vehicles.show');
+            Route::put('vehicles/{vehicle}/decision', [RideHailingController::class, 'reviewVehicle'])->name('vehicles.decision');
             Route::get('riders', [RideHailingController::class, 'riders'])->name('riders.index');
             Route::get('riders/search', [RideHailingController::class, 'searchRiders'])->name('riders.search');
             Route::put('vehicles/{vehicle}/status', [RideHailingController::class, 'vehicleStatus'])->name('vehicles.status');
@@ -403,6 +406,16 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
                 Route::get(DeliveryMan::ACCOUNT_DATA[URI].'/{id}', [DeliveryManController::class, 'getAccountData'])->name('store-filter');
 
                 Route::group(['middleware' => ['module:deliveryman']], function () {
+                    Route::group(['prefix' => 'ride-vehicles', 'as' => 'ride-vehicles.'], function () {
+                        Route::get('/', [RideHailingController::class, 'vehicles'])->name('index');
+                        Route::get('create', [RideHailingController::class, 'createVehicle'])->name('create');
+                        Route::post('/', [RideHailingController::class, 'storeVehicle'])->name('store');
+                        Route::get('riders/search', [RideHailingController::class, 'searchRiders'])->name('riders.search');
+                        Route::get('{vehicle}', [RideHailingController::class, 'showVehicle'])->name('show');
+                        Route::put('{vehicle}/decision', [RideHailingController::class, 'reviewVehicle'])->name('decision');
+                        Route::put('{vehicle}/activate', [RideHailingController::class, 'activateVehicle'])->name('activate');
+                    });
+
                     Route::get(DeliveryMan::ADD[URI], [DeliveryManController::class, 'getAddView'])->name('add');
                     Route::post(DeliveryMan::ADD[URI], [DeliveryManController::class, 'add'])->name('store');
                     Route::get(DeliveryMan::LIST[URI], [DeliveryManController::class, 'index'])->name('list');

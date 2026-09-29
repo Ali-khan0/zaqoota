@@ -22,6 +22,7 @@ class RidePayment extends Model
         'amount' => 'float',
         'paid_at' => 'datetime',
         'failed_at' => 'datetime',
+        'admin_received_at' => 'datetime',
     ];
 
     public function rideRequest(): BelongsTo

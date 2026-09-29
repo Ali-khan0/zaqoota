@@ -83,8 +83,9 @@ Business, or Luxury. Render only categories nested under the selected type. If
 `required_fuel_type` is non-null, preselect that value.
 
 The rider and first vehicle are created atomically. Both remain pending until
-admin approval. Approving the rider also approves and activates the first
-vehicle.
+their separate admin decisions. Approving the rider account does not approve or
+activate the vehicle; an admin must review both vehicle photos and approve it
+through Admin → Users → Ride Vehicle Approval.
 
 ## Submit a second vehicle
 
@@ -105,6 +106,27 @@ Success is HTTP `201`. The returned vehicle has `status: "pending"` and
 `is_active: false`. It cannot be selected until admin approval. Validation is
 HTTP `422`, including incompatible type/category/fuel, duplicate registration
 number, or the two-vehicle limit.
+
+## Admin vehicle approval
+
+The canonical review UI is under Admin → Users → Ride Vehicle Approval at
+`/admin/users/delivery-man/ride-vehicles`. The previous
+`/admin/ride-hailing/vehicles` routes and route names remain available for old
+bookmarks, dashboard cards and admins whose existing permission grants access
+through Ride Hailing settings.
+
+The list exposes pending/approved/rejected counters plus status, vehicle type,
+category, fuel and text filters. Every new admin-created or rider-created Ride
+vehicle starts pending. Approval and rejection happen only on the dedicated
+details page after reviewing rider data, vehicle/category/fuel data and both
+verification photos. Rejection requires an admin note; both actions require a
+confirmation.
+
+The latest reviewer and timestamp are stored on `ride_vehicles`, while every
+decision is appended to `ride_vehicle_review_audits` with from/to status, admin,
+note and review time. Decisions and activation lock the vehicle row; rejecting
+or returning a vehicle to pending always deactivates it. Zone-scoped admins can
+list, open, create, decide and activate vehicles only for riders in their zone.
 
 ## Mobile screens and security
 
@@ -132,4 +154,6 @@ validation status for compatibility.
 - `app/Http/Controllers/Api/V1/DeliverymanController.php`
 - `app/Services/RideVehicleRegistrationService.php`
 - `app/Http/Controllers/Admin/DeliveryMan/DeliveryManController.php`
+- `app/Http/Controllers/Admin/RideHailing/RideHailingController.php`
+- `app/Models/RideVehicleReviewAudit.php`
 - `resources/views/dm-registration.blade.php`

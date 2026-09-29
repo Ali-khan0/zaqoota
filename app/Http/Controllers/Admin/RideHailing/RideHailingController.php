@@ -9,6 +9,7 @@ use App\Models\RideCategory;
 use App\Models\RideFare;
 use App\Models\RideRequest;
 use App\Models\RideVehicle;
+use App\Models\RideVehicleReviewAudit;
 use App\Models\RideVehicleType;
 use App\Models\Zone;
 use Illuminate\Http\JsonResponse;
@@ -127,8 +128,20 @@ class RideHailingController extends Controller
     public function vehicles(Request $request): View
     {
         $search = trim((string) $request->input('search'));
-        $vehicles = RideVehicle::query()
+        $status = in_array($request->input('status'), RideVehicle::STATUSES, true) ? $request->input('status') : 'all';
+        $vehicleTypeId = $request->integer('vehicle_type_id') ?: null;
+        $categoryId = $request->integer('category_id') ?: null;
+        $fuelType = in_array($request->input('fuel_type'), RideVehicle::FUEL_TYPES, true) ? $request->input('fuel_type') : null;
+        $baseQuery = $this->vehicleAdminQuery();
+        $statusCounts = collect(RideVehicle::STATUSES)->mapWithKeys(
+            fn (string $vehicleStatus) => [$vehicleStatus => (clone $baseQuery)->where('status', $vehicleStatus)->count()],
+        );
+        $vehicles = (clone $baseQuery)
             ->with(['deliveryMan', 'vehicleType', 'category'])
+            ->when($status !== 'all', fn ($query) => $query->where('status', $status))
+            ->when($vehicleTypeId, fn ($query) => $query->where('ride_vehicle_type_id', $vehicleTypeId))
+            ->when($categoryId, fn ($query) => $query->where('ride_category_id', $categoryId))
+            ->when($fuelType, fn ($query) => $query->where('fuel_type', $fuelType))
             ->when($search !== '', fn ($query) => $query->where(fn ($nested) => $nested
                 ->where('registration_number', 'like', "%{$search}%")
                 ->orWhere('make', 'like', "%{$search}%")
@@ -140,8 +153,12 @@ class RideHailingController extends Controller
             ->latest('id')
             ->paginate(20)
             ->withQueryString();
+        $types = RideVehicleType::query()->with(['categories' => fn ($query) => $query->orderBy('sort_order')])->orderBy('sort_order')->get();
+        $routePrefix = $this->vehicleRoutePrefix($request);
 
-        return view('admin-views.ride-hailing.vehicles.index', compact('vehicles', 'search'));
+        return view('admin-views.ride-hailing.vehicles.index', compact(
+            'vehicles', 'search', 'status', 'statusCounts', 'types', 'vehicleTypeId', 'categoryId', 'fuelType', 'routePrefix',
+        ));
     }
 
     public function riders(Request $request): View
@@ -173,11 +190,12 @@ class RideHailingController extends Controller
         return view('admin-views.ride-hailing.riders', compact('riders', 'search', 'zones', 'zoneId', 'adminZoneId'));
     }
 
-    public function createVehicle(): View
+    public function createVehicle(Request $request): View
     {
         $types = RideVehicleType::query()->where('status', true)->with(['categories' => fn ($q) => $q->where('status', true)->orderBy('sort_order')])->orderBy('sort_order')->get();
+        $routePrefix = $this->vehicleRoutePrefix($request);
 
-        return view('admin-views.ride-hailing.vehicles.create', compact('types'));
+        return view('admin-views.ride-hailing.vehicles.create', compact('types', 'routePrefix'));
     }
 
     public function searchRiders(Request $request): JsonResponse
@@ -187,6 +205,7 @@ class RideHailingController extends Controller
             ->withCount('rideVehicles')
             ->where('application_status', 'approved')
             ->where('status', 1)
+            ->when(auth('admin')->user()?->zone_id, fn ($query, $zoneId) => $query->where('zone_id', $zoneId))
             ->whereHas('rideVehicles', fn ($query) => $query, '<', RideVehicle::MAX_PER_RIDER)
             ->when($term !== '', fn ($query) => $query->where(fn ($nested) => $nested
                 ->where('f_name', 'like', "%{$term}%")
@@ -216,7 +235,7 @@ class RideHailingController extends Controller
             'registration_number' => ['required', 'string', 'max:80', 'unique:ride_vehicles,registration_number'],
             'vehicle_front_image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'vehicle_back_image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
-            'status' => ['required', Rule::in(RideVehicle::STATUSES)],
+            'status' => ['required', Rule::in(['pending'])],
             'admin_note' => ['nullable', 'string', 'max:1000'],
         ]);
 
@@ -229,7 +248,9 @@ class RideHailingController extends Controller
         }
 
         DB::transaction(function () use ($validated) {
-            DeliveryMan::withoutGlobalScopes()->lockForUpdate()->findOrFail($validated['delivery_man_id']);
+            $rider = DeliveryMan::withoutGlobalScopes()->lockForUpdate()->findOrFail($validated['delivery_man_id']);
+            $adminZoneId = auth('admin')->user()?->zone_id;
+            abort_if($adminZoneId && (int) $rider->zone_id !== (int) $adminZoneId, 404);
             if (RideVehicle::query()->where('delivery_man_id', $validated['delivery_man_id'])->count() >= RideVehicle::MAX_PER_RIDER) {
                 throw ValidationException::withMessages(['delivery_man_id' => translate('messages.A rider can register a maximum of two ride vehicles.')]);
             }
@@ -237,7 +258,6 @@ class RideHailingController extends Controller
             $frontImage = \App\CentralLogics\Helpers::upload('ride-vehicle/', 'png', $validated['vehicle_front_image']);
             $backImage = \App\CentralLogics\Helpers::upload('ride-vehicle/', 'png', $validated['vehicle_back_image']);
             unset($validated['vehicle_front_image'], $validated['vehicle_back_image']);
-            $hasActive = RideVehicle::query()->where('delivery_man_id', $validated['delivery_man_id'])->where('is_active', true)->exists();
             RideVehicle::create([
                 ...$validated,
                 'registration_number' => strtoupper(trim($validated['registration_number'])),
@@ -245,38 +265,107 @@ class RideHailingController extends Controller
                 'front_image_storage' => \App\CentralLogics\Helpers::getDisk(),
                 'back_image' => $backImage,
                 'back_image_storage' => \App\CentralLogics\Helpers::getDisk(),
-                'is_active' => $validated['status'] === 'approved' && ! $hasActive,
+                'is_active' => false,
+                'reviewed_by' => null,
+                'reviewed_at' => null,
             ]);
         });
 
-        return redirect()->route('admin.ride-hailing.vehicles.index')->with('success', translate('messages.Ride vehicle registered successfully.'));
+        return redirect()->route($this->vehicleRoutePrefix($request).'.index')->with('success', translate('messages.Ride vehicle registered successfully.'));
+    }
+
+    public function showVehicle(Request $request, RideVehicle $vehicle): View
+    {
+        $vehicle = $this->vehicleAdminQuery()
+            ->with(['deliveryMan.zone', 'vehicleType', 'category', 'reviewer', 'reviewAudits.reviewer'])
+            ->findOrFail($vehicle->id);
+        $routePrefix = $this->vehicleRoutePrefix($request);
+
+        return view('admin-views.ride-hailing.vehicles.show', compact('vehicle', 'routePrefix'));
+    }
+
+    public function reviewVehicle(Request $request, RideVehicle $vehicle): RedirectResponse
+    {
+        $validated = $request->validate([
+            'decision' => ['required', Rule::in(['approved', 'rejected'])],
+            'admin_note' => ['nullable', 'string', 'max:1000', Rule::requiredIf($request->input('decision') === 'rejected')],
+        ]);
+        $this->updateVehicleReview($vehicle->id, $validated['decision'], $validated['admin_note'] ?? null);
+
+        return back()->with('success', translate('messages.Ride vehicle review saved.'));
     }
 
     public function vehicleStatus(Request $request, RideVehicle $vehicle): RedirectResponse
     {
-        $validated = $request->validate(['status' => ['required', Rule::in(RideVehicle::STATUSES)]]);
-        DB::transaction(function () use ($vehicle, $validated) {
-            $vehicle = RideVehicle::query()->lockForUpdate()->findOrFail($vehicle->id);
-            $vehicle->status = $validated['status'];
-            if ($vehicle->status !== 'approved') {
-                $vehicle->is_active = false;
-            }
-            $vehicle->save();
-        });
+        $validated = $request->validate([
+            'status' => ['required', Rule::in(RideVehicle::STATUSES)],
+            'admin_note' => ['nullable', 'string', 'max:1000'],
+        ]);
+        $this->updateVehicleReview($vehicle->id, $validated['status'], $validated['admin_note'] ?? null);
 
         return back()->with('success', translate('messages.Ride vehicle status updated.'));
     }
 
     public function activateVehicle(RideVehicle $vehicle): RedirectResponse
     {
-        if ($vehicle->status !== 'approved') {
-            return back()->with('error', translate('messages.Only an approved ride vehicle can be activated.'));
-        }
-        DB::transaction(function () use ($vehicle) {
+        $activated = DB::transaction(function () use ($vehicle): bool {
+            $vehicle = $this->vehicleAdminQuery()->lockForUpdate()->findOrFail($vehicle->id);
+            if ($vehicle->status !== 'approved') {
+                return false;
+            }
             RideVehicle::query()->where('delivery_man_id', $vehicle->delivery_man_id)->update(['is_active' => false]);
             $vehicle->update(['is_active' => true]);
+
+            return true;
         });
+        if (! $activated) {
+            return back()->with('error', translate('messages.Only an approved ride vehicle can be activated.'));
+        }
 
         return back()->with('success', translate('messages.Active ride vehicle updated.'));
+    }
+
+    private function updateVehicleReview(int $vehicleId, string $status, ?string $adminNote): void
+    {
+        DB::transaction(function () use ($vehicleId, $status, $adminNote): void {
+            $vehicle = $this->vehicleAdminQuery()->lockForUpdate()->findOrFail($vehicleId);
+            $fromStatus = $vehicle->status;
+            $vehicle->status = $status;
+            $vehicle->admin_note = filled($adminNote) ? trim((string) $adminNote) : null;
+            $vehicle->reviewed_by = auth('admin')->id();
+            $vehicle->reviewed_at = now();
+            if ($status !== 'approved') {
+                $vehicle->is_active = false;
+            }
+            $vehicle->save();
+            $this->recordVehicleReview($vehicle, $fromStatus, $status, $vehicle->admin_note);
+        });
+    }
+
+    private function recordVehicleReview(RideVehicle $vehicle, string $fromStatus, string $toStatus, ?string $adminNote): void
+    {
+        RideVehicleReviewAudit::query()->create([
+            'ride_vehicle_id' => $vehicle->id,
+            'admin_id' => auth('admin')->id(),
+            'from_status' => $fromStatus,
+            'to_status' => $toStatus,
+            'admin_note' => $adminNote,
+            'reviewed_at' => now(),
+        ]);
+    }
+
+    private function vehicleAdminQuery()
+    {
+        $adminZoneId = auth('admin')->user()?->zone_id;
+
+        return RideVehicle::query()->when($adminZoneId, fn ($query) => $query
+            ->whereHas('deliveryMan', fn ($rider) => $rider->where('zone_id', $adminZoneId)));
+    }
+
+    private function vehicleRoutePrefix(Request $request): string
+    {
+        return $request->routeIs('admin.users.delivery-man.ride-vehicles.*')
+            ? 'admin.users.delivery-man.ride-vehicles'
+            : 'admin.ride-hailing.vehicles';
     }
 }

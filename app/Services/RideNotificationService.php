@@ -33,6 +33,8 @@ class RideNotificationService
         'admin_cancelled_customer' => ['label' => 'Admin Cancelled - Passenger', 'audience' => 'customer', 'title' => 'Ride cancelled by Zaqoota', 'body' => 'Zaqoota cancelled Ride {rideNumber}. Reason: {reason}. You were not charged.'],
         'admin_cancelled_captain' => ['label' => 'Admin Cancelled - Captain', 'audience' => 'captain', 'title' => 'Ride cancelled by Zaqoota', 'body' => 'Zaqoota cancelled Ride {rideNumber}. Reason: {reason}.'],
         'payment_received' => ['label' => 'Payment Received', 'audience' => 'customer', 'title' => 'Ride payment received', 'body' => 'Your payment of {finalFare} for Ride {rideNumber} was confirmed and the receipt is ready.'],
+        'prepayment_received' => ['label' => 'Ride Prepayment Received', 'audience' => 'customer', 'title' => 'Ride payment received', 'body' => 'Your online prepayment of {finalFare} for Ride {rideNumber} was confirmed. Final settlement will occur when the Ride completes.'],
+        'cancellation_wallet_refunded' => ['label' => 'Cancelled Ride Wallet Refund', 'audience' => 'customer', 'title' => 'Refund added to wallet', 'body' => '{walletRefund} from cancelled Ride {rideNumber} was credited to your wallet.'],
         'earning_posted' => ['label' => 'Captain Earning Posted', 'audience' => 'captain', 'title' => 'Ride earning posted', 'body' => 'Your earning of {captainEarning} for Ride {rideNumber} has been added to your wallet.'],
     ];
 
@@ -203,6 +205,7 @@ class RideNotificationService
             '{finalFare}' => Helpers::format_currency((float) $ride->final_payable_amount),
             '{captainEarning}' => Helpers::format_currency((float) $ride->captain_total_earning_amount),
             '{customerOffer}' => Helpers::format_currency((float) $ride->customer_offer),
+            '{walletRefund}' => Helpers::format_currency((float) ($ride->cancellationRefund?->wallet_refund_amount ?? 0)),
         ]);
     }
 

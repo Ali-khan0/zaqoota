@@ -6,10 +6,11 @@ use App\Models\RideRequest;
 use App\Services\RideCaptainPickupRouteService;
 use App\Services\RideRouteService;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Mockery;
+use ReflectionProperty;
 use Tests\TestCase;
 
 class RideCaptainPickupRouteFeatureTest extends TestCase
@@ -28,20 +29,37 @@ class RideCaptainPickupRouteFeatureTest extends TestCase
         DB::purge('ride_pickup_route_test');
         DB::setDefaultConnection('ride_pickup_route_test');
         $this->createTable();
+        $this->clearRideRequestGuardableColumnCache();
     }
 
     public function test_successful_route_is_persisted_reused_and_refreshed_after_movement(): void
     {
         $ride = $this->ride(7);
-        $provider = Mockery::mock(RideRouteService::class);
-        $provider->shouldReceive('calculate')->twice()->andReturn(
-            ['route_polyline' => 'first-road-route', 'distance_meters' => 1850, 'duration_seconds' => 310],
-            ['route_polyline' => 'moved-road-route', 'distance_meters' => 1700, 'duration_seconds' => 280],
-        );
+        $provider = new class extends RideRouteService
+        {
+            public int $calls = 0;
+
+            public function calculate(float $pickupLat, float $pickupLng, float $destinationLat, float $destinationLng): array
+            {
+                $this->calls++;
+
+                return $this->calls === 1
+                    ? ['route_polyline' => 'first-road-route', 'distance_meters' => 1850, 'duration_seconds' => 310]
+                    : ['route_polyline' => 'moved-road-route', 'distance_meters' => 1700, 'duration_seconds' => 280];
+            }
+        };
         $service = new RideCaptainPickupRouteService($provider);
         $at = Carbon::parse('2026-08-23 12:00:00');
 
+        self::assertSame(RideRequest::STATUS_RIDER_SELECTED, $ride->status);
+        self::assertSame(14, $ride->delivery_man_id);
+        self::assertSame(31.45, $ride->current_latitude);
+        self::assertSame(73.13, $ride->current_longitude);
+        self::assertSame([], $ride->getFillable());
+        self::assertTrue($service->needsRefresh($ride, $at));
         $ride = $service->refresh($ride, $at);
+        self::assertSame(1, $provider->calls);
+        self::assertSame('first-road-route', DB::table('ride_requests')->where('id', $ride->id)->value('captain_pickup_route_polyline'));
         self::assertSame('first-road-route', $ride->captain_pickup_route_polyline);
         self::assertSame(1850, $ride->captain_pickup_route_distance_meters);
         self::assertSame(1850, $ride->captain_pickup_initial_distance_meters);
@@ -57,6 +75,7 @@ class RideCaptainPickupRouteFeatureTest extends TestCase
         self::assertSame('moved-road-route', $ride->captain_pickup_route_polyline);
         self::assertSame(8.11, $ride->captain_pickup_progress_percent);
         self::assertSame('booked-pickup-to-destination', $ride->route_polyline);
+        self::assertSame(2, $provider->calls);
     }
 
     private function ride(int $userId): RideRequest
@@ -84,5 +103,13 @@ class RideCaptainPickupRouteFeatureTest extends TestCase
             $table->decimal('captain_pickup_route_origin_longitude', 10, 7)->nullable();
             $table->timestamp('captain_pickup_route_generated_at')->nullable(); $table->timestamps();
         });
+    }
+
+    private function clearRideRequestGuardableColumnCache(): void
+    {
+        $property = new ReflectionProperty(Model::class, 'guardableColumns');
+        $columns = $property->getValue();
+        unset($columns[RideRequest::class]);
+        $property->setValue(null, $columns);
     }
 }

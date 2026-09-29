@@ -17,23 +17,6 @@ class RideCaptainEligibilityService
 
     private ?int $locationFreshness = null;
 
-    public function eligibleCaptains(int $zoneId, int $categoryId, int $limit = 100): Collection
-    {
-        return DeliveryMan::query()->withoutGlobalScopes()
-            ->where('application_status', 'approved')
-            ->where('work_mode', 'ride')
-            ->where('active', 1)
-            ->where('zone_id', $zoneId)
-            ->whereHas('rideVehicles', fn ($query) => $query
-                ->where('ride_category_id', $categoryId)
-                ->where('status', 'approved')
-                ->where('is_active', true))
-            ->limit(max(1, min($limit, 100)))
-            ->get()
-            ->filter(fn (DeliveryMan $captain) => $this->vehicleFor($captain, $categoryId, $zoneId) !== null)
-            ->values();
-    }
-
     public function eligibleCaptainsForRide(RideRequest $ride, int $limit = 100): Collection
     {
         $earthRadius = 6371000;
@@ -51,7 +34,6 @@ class RideCaptainEligibilityService
             ->where('application_status', 'approved')
             ->where('work_mode', 'ride')
             ->where('active', 1)
-            ->where('zone_id', $ride->zone_id)
             ->whereHas('rideVehicles', fn ($query) => $query
                 ->where('ride_category_id', $ride->ride_category_id)
                 ->where('status', 'approved')
@@ -60,7 +42,7 @@ class RideCaptainEligibilityService
             ->orderBy('pickup_distance_meters')
             ->limit(max(100, min($limit * 3, 300)))
             ->get()
-            ->filter(fn (DeliveryMan $captain) => $this->vehicleFor($captain, $ride->ride_category_id, $ride->zone_id) !== null)
+            ->filter(fn (DeliveryMan $captain) => $this->vehicleFor($captain, $ride->ride_category_id) !== null)
             ->map(function (DeliveryMan $captain) {
                 $distance = (int) round($captain->getAttribute('pickup_distance_meters'));
                 $captain->setAttribute('pickup_distance_meters', $distance);
@@ -128,12 +110,11 @@ class RideCaptainEligibilityService
             ->first();
     }
 
-    public function vehicleFor(DeliveryMan $captain, int $categoryId, int $zoneId): ?RideVehicle
+    public function vehicleFor(DeliveryMan $captain, int $categoryId): ?RideVehicle
     {
         if ($captain->application_status !== 'approved'
             || $captain->work_mode !== 'ride'
             || (int) $captain->active !== 1
-            || (int) $captain->zone_id !== $zoneId
             || $this->hasConflictingOrder($captain)
             || $this->hasActivePassengerRide($captain)) {
             return null;

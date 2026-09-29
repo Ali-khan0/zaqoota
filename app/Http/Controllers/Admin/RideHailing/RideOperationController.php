@@ -99,19 +99,20 @@ class RideOperationController extends Controller
     public function show(RideRequest $ride): View
     {
         $ride = $this->scopedQuery()->with([
-            'user', 'deliveryMan', 'category', 'zone', 'rideVehicle.vehicleType',
+            'user', 'deliveryMan.last_location', 'category', 'zone', 'rideVehicle.vehicleType',
             'offers.deliveryMan', 'offers.rideVehicle', 'statusHistories', 'payments',
-            'notificationDeliveries.deliveryMan', 'cancellationReceivable',
+            'notificationDeliveries.deliveryMan', 'cancellationReceivable', 'cancellationRefund',
         ])->findOrFail($ride->id);
         $eligibleCaptains = in_array($ride->status, [RideRequest::STATUS_SEARCHING, RideRequest::STATUS_NEGOTIATING], true)
-            ? $this->eligibilityService->eligibleCaptains($ride->zone_id, $ride->ride_category_id)
+            ? $this->eligibilityService->eligibleCaptainsForRide($ride)
                 ->load('activeRideVehicle')
             : collect();
         $cancellationReasons = $this->tripService->canCancel($ride->status)
             ? $this->cancellationReasonService->available('admin', $ride->status)
             : collect();
+        $tripPin = $this->tripPinForActiveAdminDetail($ride);
 
-        return view('admin-views.ride-hailing.rides.show', compact('ride', 'eligibleCaptains', 'cancellationReasons'));
+        return view('admin-views.ride-hailing.rides.show', compact('ride', 'eligibleCaptains', 'cancellationReasons', 'tripPin'));
     }
 
     public function retryRequestNotifications(RideRequest $ride): RedirectResponse
@@ -142,8 +143,10 @@ class RideOperationController extends Controller
             if (! $captain) {
                 throw ValidationException::withMessages(['delivery_man_id' => translate('messages.The selected Captain no longer exists.')]);
             }
-            $vehicle = $this->eligibilityService->vehicleFor($captain, $ride->ride_category_id, $ride->zone_id);
-            if (! $vehicle) {
+            $vehicle = $this->eligibilityService->vehicleFor($captain, $ride->ride_category_id);
+            $pickupMetrics = $this->eligibilityService->pickupMetrics($captain, $ride);
+            if (! $vehicle || ! $pickupMetrics
+                || $pickupMetrics['distance_meters'] > $this->eligibilityService->maximumPickupRadiusMeters()) {
                 throw ValidationException::withMessages(['delivery_man_id' => translate('messages.The selected Captain is no longer eligible for this ride.')]);
             }
             $fare = round((float) $validated['final_fare'], 2);
@@ -154,7 +157,14 @@ class RideOperationController extends Controller
             RideOffer::query()->where('ride_request_id', $ride->id)->where('status', RideOffer::STATUS_PENDING)->update(['status' => RideOffer::STATUS_REJECTED]);
             $offer = RideOffer::query()->updateOrCreate(
                 ['ride_request_id' => $ride->id, 'delivery_man_id' => $captain->id],
-                ['ride_vehicle_id' => $vehicle->id, 'amount' => $fare, 'status' => RideOffer::STATUS_ACCEPTED, 'expires_at' => now()]
+                [
+                    'ride_vehicle_id' => $vehicle->id,
+                    'amount' => $fare,
+                    'pickup_distance_meters' => $pickupMetrics['distance_meters'],
+                    'pickup_eta_seconds' => $pickupMetrics['eta_seconds'],
+                    'status' => RideOffer::STATUS_ACCEPTED,
+                    'expires_at' => now(),
+                ]
             );
             $fromStatus = $ride->status;
             $captainLocation = $captain->last_location()->first();
@@ -212,6 +222,9 @@ class RideOperationController extends Controller
         });
 
         $this->notificationService->event($ride, 'admin_cancelled_customer');
+        if (($ride->cancellationRefund?->wallet_refund_amount ?? 0) > 0) {
+            $this->notificationService->event($ride, 'cancellation_wallet_refunded');
+        }
         if ($ride->delivery_man_id) {
             $this->notificationService->event($ride, 'admin_cancelled_captain');
         }
@@ -226,5 +239,26 @@ class RideOperationController extends Controller
         $adminZoneId = auth('admin')->user()?->zone_id;
 
         return $query->when($adminZoneId, fn ($builder) => $builder->where('zone_id', $adminZoneId));
+    }
+
+    private function tripPinForActiveAdminDetail(RideRequest $ride): ?string
+    {
+        if (! $ride->delivery_man_id
+            || $ride->trip_started_at
+            || ! in_array($ride->status, [
+                RideRequest::STATUS_RIDER_SELECTED,
+                RideRequest::STATUS_CAPTAIN_ARRIVING,
+                RideRequest::STATUS_ARRIVED,
+            ], true)) {
+            return null;
+        }
+
+        try {
+            $pin = (string) $ride->trip_pin;
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return preg_match('/^\d{4}$/', $pin) === 1 ? $pin : null;
     }
 }

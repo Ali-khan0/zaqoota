@@ -86,6 +86,16 @@
                         </span>
                     </a>
                 </li>
+                @php($rideVehiclePendingCount = \App\Models\RideVehicle::query()->where('status', 'pending')->when(auth('admin')->user()?->zone_id, fn($query, $zoneId) => $query->whereHas('deliveryMan', fn($rider) => $rider->where('zone_id', $zoneId)))->count())
+                <li class="navbar-vertical-aside-has-menu {{ Request::is('admin/users/delivery-man/ride-vehicles*') ? 'active' : '' }}">
+                    <a class="js-navbar-vertical-aside-menu-link nav-link" href="{{ route('admin.users.delivery-man.ride-vehicles.index', ['status' => 'pending']) }}" title="{{ translate('messages.Ride Vehicle Approval') }}">
+                        <i class="tio-car nav-icon"></i>
+                        <span class="navbar-vertical-aside-mini-mode-hidden-elements text-truncate">
+                            {{ translate('messages.Ride Vehicle Approval') }}
+                            @if($rideVehiclePendingCount > 0)<span class="badge badge-soft-warning badge-pill ml-1">{{ $rideVehiclePendingCount }}</span>@endif
+                        </span>
+                    </a>
+                </li>
                 <li class="navbar-vertical-aside-has-menu {{ Request::is('admin/users/delivery-man/add') ? 'active' : '' }}">
                     <a class="js-navbar-vertical-aside-menu-link nav-link" href="{{ route('admin.users.delivery-man.add') }}" title="{{ translate('messages.add_delivery_man') }}">
                         <i class="tio-running nav-icon"></i>

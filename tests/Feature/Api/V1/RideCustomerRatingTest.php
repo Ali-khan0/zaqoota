@@ -65,6 +65,32 @@ class RideCustomerRatingTest extends TestCase
         self::assertSame(0, DB::table('ride_ratings')->count());
     }
 
+    public function test_rating_must_be_between_one_and_five(): void
+    {
+        $rideId = $this->insertRide(7, RideRequest::STATUS_COMPLETED, 14);
+
+        foreach ([0, 6] as $rating) {
+            $response = $this->rate(7, $rideId, ['rating' => $rating]);
+            self::assertSame(403, $response->getStatusCode());
+        }
+
+        self::assertSame(0, DB::table('ride_ratings')->count());
+    }
+
+    public function test_completed_rating_accepts_an_omitted_optional_comment(): void
+    {
+        $rideId = $this->insertRide(7, RideRequest::STATUS_COMPLETED, 14);
+
+        $response = $this->rate(7, $rideId, ['rating' => 5]);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertDatabaseHas('ride_ratings', [
+            'ride_request_id' => $rideId,
+            'rating' => 5,
+            'comment' => null,
+        ]);
+    }
+
     public function test_completed_unassigned_ride_is_rejected(): void
     {
         $rideId = $this->insertRide(7, RideRequest::STATUS_COMPLETED, null);

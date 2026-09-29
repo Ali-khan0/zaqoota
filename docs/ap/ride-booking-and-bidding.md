@@ -4,6 +4,14 @@
 
 Available requests are personalized using the Captain's latest fresh stored location. The backend calculates straight-line pickup distance, excludes requests beyond `ride_hailing_maximum_pickup_radius_km`, and reveals the remaining requests in nearest-first timed waves. Responses include `pickup_distance_meters`, `pickup_eta_seconds` and `dispatch_wave`; ETA uses `ride_hailing_pickup_eta_speed_kmh` and does not affect fare calculations. Captains without fresh location cannot discover or offer on passenger Rides.
 
+Ride matching never requires the Captain account `zone_id` to equal the Ride
+pickup zone. A Captain may discover, receive push/realtime notification, submit
+an offer, be selected by the customer, or be assigned by an admin from another
+or null account zone when live GPS, radius, vehicle, mode, approval and
+conflicting-work checks pass. A same-zone Captain outside the configured radius
+is ineligible. The pickup zone remains authoritative for the quote and every
+snapshotted fare value even if the Captain crosses a zone boundary.
+
 The realtime creation event only tells the Captain app to refresh. Realtime, stored in-app messages and Firebase `type=ride_request` pushes are sent per wave to the same Captain slice. REST remains authoritative for ordering and eligibility. The offer write path repeats radius and current-wave checks to prevent bypassing discovery with a Ride ID.
 
 Pickup distance and ETA are snapshotted on every submitted offer. `GET /api/v1/ride-hailing/customer/rides/{ride_id}/offers` returns offers nearest-first and includes both fields, allowing the passenger app to show proximity beside the Captain's price and rating. `ride.offer.updated` carries the same fields; refresh the REST list after the event to preserve authoritative ordering.
@@ -146,7 +154,9 @@ POST /ride-hailing/customer/rides
 
 The offer must be between `minimum_negotiated_fare` and
 `maximum_negotiated_fare`. One customer may have only one active passenger
-request. `coupon_code` is optional; preview and final revalidation are defined
+request. Laravel locks the customer row before rechecking every non-terminal
+Ride status and creating the request, so concurrent booking calls cannot create
+two active Rides. `coupon_code` is optional; preview and final revalidation are defined
 in `ride-coupons.md`. Successful creation returns HTTP `201` with `message` and
 `ride`.
 
@@ -207,7 +217,7 @@ POST /ride-hailing/customer/rides/{ride_id}/offers/{offer_id}/accept
 ```
 
 No body is required. Selection locks the ride, offer and selected Captain row
-transactionally, rechecks Captain eligibility, accepts exactly one offer,
+transactionally, rechecks fresh GPS, pickup radius and all other Captain eligibility, accepts exactly one offer,
 rejects other pending offers, snapshots final commission/earning, and changes
 the ride to `rider_selected`. The Captain-row lock serializes selection against
 other Ride assignments and commerce-order acceptance for the same Captain.

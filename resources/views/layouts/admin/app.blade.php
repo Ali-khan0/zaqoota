@@ -635,25 +635,16 @@ if(in_array(config('module.current_module_type'),config('module.module_type') ))
     messaging.onMessage(function(payload) {
         console.log(payload.data)
         if(payload.data.order_id && payload.data.type == "order_request"){
-                @php($admin_order_notification = \App\CentralLogics\Helpers::get_business_settings('admin_order_notification') ?? 0)
-                @if (\App\CentralLogics\Helpers::module_permission_check('order') && $admin_order_notification && $order_notification_type == 'firebase')
-                new_order_type = payload.data.order_type
-                new_module_id = payload.data.module_id
-                admin_zone_id = '<?php echo auth()->guard('admin')->user()->zone_id ;?>';
-                admin_role_id = '<?php echo auth()->guard('admin')->user()->role_id ;?>';
-                if(new_order_type === 'trip'){
-                    document.querySelector('.update_notification_text').textContent = "{{translate('messages.You have new trip, Check Please.')}}";
-                }
-                if(admin_role_id === '1'){
-                    playAudio();
-                    $('#popup-modal').appendTo("body").modal('show');
-                }
-                if((admin_role_id !== '1') && (admin_zone_id === payload.data.zone_id)){
-                    playAudio();
-                    $('#popup-modal').appendTo("body").modal('show');
-                }
-                @endif
-
+            // New-order sounds and visual alerts belong to the Dispatch page only.
+            // The page-level handler also refreshes counters/lists without touching the map.
+            if (window.ZaqootaDispatchPageActive && typeof window.handleDispatchOrderHint === 'function') {
+                window.handleDispatchOrderHint({
+                    source: ['ride_hailing', 'trip'].includes(payload.data.order_type) ? 'ride' : 'commerce',
+                    id: payload.data.order_id,
+                    module_key: payload.data.order_type === 'trip' ? 'ride_hailing' : payload.data.order_type,
+                    zone_id: payload.data.zone_id,
+                });
+            }
         }else{
             if (window.location.href.includes('message/list?conversation')) {
                 let conversation_id = getUrlParameter('conversation');
@@ -677,31 +668,8 @@ if(in_array(config('module.current_module_type'),config('module.module_type') ))
         }
     });
 
-    @if(\App\CentralLogics\Helpers::module_permission_check('order') && $order_notification_type == 'manual')
-        @php($admin_order_notification=\App\CentralLogics\Helpers::get_business_settings('admin_order_notification') ?? 0)
-        @if($admin_order_notification)
-            setInterval(function () {
-                $.get({
-                    url: '{{route('admin.get-store-data')}}',
-                    dataType: 'json',
-                    success: function (response) {
-                        let data = response.data;
-                        new_order_type = data.type;
-                        new_module_id = data.module_id;
-                        if(new_order_type === 'trip'){
-                            document.querySelector('.update_notification_text').textContent = "{{translate('messages.You have new trip, Check Please.')}}";
-                        }
-                        if (data.new_order > 0) {
-                            playAudio();
-                            $('#popup-modal').appendTo("body").modal('show');
-                        }else{
-                            $('#popup-modal').appendTo("body").modal('hide');
-                        }
-                    },
-                });
-            }, 10000);
-        @endif
-    @endif
+    // Legacy global order polling was intentionally removed. Dispatch owns its
+    // bounded polling fallback, so other admin pages stay silent.
 
     $(document).on('click', '.check-order', function () {
         if(new_order_type === 'parcel')

@@ -39,19 +39,28 @@
                 @endif
             </div>
         @endif
+        @if($ride->cancellationRefund)
+            <div class="alert alert-soft-info mb-3">
+                <strong>{{ translate('messages.Online Prepayment Allocation') }}:</strong>
+                {{ translate('messages.Paid') }} {{ \App\CentralLogics\Helpers::format_currency($ride->cancellationRefund->paid_amount) }} ·
+                {{ translate('messages.Cancellation Charge') }} {{ \App\CentralLogics\Helpers::format_currency($ride->cancellationRefund->cancellation_allocated_amount) }} ·
+                {{ translate('messages.Wallet Refund') }} {{ \App\CentralLogics\Helpers::format_currency($ride->cancellationRefund->wallet_refund_amount) }}
+            </div>
+        @endif
     @endif
 
     <div class="row g-3">
         <div class="col-lg-8">
             <div class="card mb-3"><div class="card-header"><h5 class="card-title"><i class="tio-map mr-2"></i>{{ translate('messages.Route Details') }}</h5></div><div class="card-body">
+                <div id="ride-admin-map" class="rounded mb-3" style="height: 360px; width: 100%;"></div>
                 <div class="d-flex"><i class="tio-location-search text-success mt-1 mr-3"></i><div><strong>{{ translate('messages.Pickup') }}</strong><p class="mb-0 text-muted">{{ $ride->pickup_address }}</p><small>{{ $ride->pickup_latitude }}, {{ $ride->pickup_longitude }}</small></div></div>
                 <div class="border-left ml-2 my-2" style="height:24px"></div>
                 <div class="d-flex"><i class="tio-location-search text-danger mt-1 mr-3"></i><div><strong>{{ translate('messages.Destination') }}</strong><p class="mb-0 text-muted">{{ $ride->destination_address }}</p><small>{{ $ride->destination_latitude }}, {{ $ride->destination_longitude }}</small></div></div>
                 <div class="row mt-3 pt-3 border-top"><div class="col-sm-4"><small class="text-muted d-block">{{ translate('messages.Distance') }}</small><strong>{{ number_format($ride->distance_meters / 1000, 2) }} km</strong></div><div class="col-sm-4"><small class="text-muted d-block">{{ translate('messages.Estimated Duration') }}</small><strong>{{ max(1, round($ride->duration_seconds / 60)) }} min</strong></div><div class="col-sm-4"><small class="text-muted d-block">{{ translate('messages.Zone / Category') }}</small><strong>{{ $ride->zone?->name }} / {{ $ride->category?->name }}</strong></div></div>
-                @if($ride->location_updated_at)
+                @if($ride->delivery_man_id)
                     <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-3 pt-3 border-top">
-                        <div><small class="text-muted d-block">{{ translate('messages.Last Captain Location') }}</small><strong>{{ number_format($ride->current_latitude, 6) }}, {{ number_format($ride->current_longitude, 6) }}</strong><div class="small text-muted">{{ translate('messages.Updated') }} {{ $ride->location_updated_at->diffForHumans() }}</div></div>
-                        <a href="https://www.google.com/maps?q={{ $ride->current_latitude }},{{ $ride->current_longitude }}" target="_blank" rel="noopener" class="btn btn-outline-primary btn-sm"><i class="tio-map mr-1"></i>{{ translate('messages.View on Map') }}</a>
+                        <div><small class="text-muted d-block">{{ translate('messages.Last Captain Location') }}</small><strong id="ride-captain-coordinates">{{ $ride->location_updated_at ? number_format($ride->current_latitude, 6).', '.number_format($ride->current_longitude, 6) : translate('messages.Waiting for fresh location') }}</strong><div class="small text-muted" id="ride-captain-location-time">{{ $ride->location_updated_at ? translate('messages.Updated').' '.$ride->location_updated_at->diffForHumans() : '' }}</div></div>
+                        <a id="ride-captain-external-map" href="{{ $ride->location_updated_at ? 'https://www.google.com/maps?q='.$ride->current_latitude.','.$ride->current_longitude : '#' }}" target="_blank" rel="noopener" class="btn btn-outline-primary btn-sm {{ $ride->location_updated_at ? '' : 'd-none' }}"><i class="tio-map mr-1"></i>{{ translate('messages.View on Map') }}</a>
                     </div>
                 @endif
             </div></div>
@@ -68,6 +77,17 @@
         </div>
 
         <div class="col-lg-4">
+            @if($tripPin)
+                <div class="card mb-3 border-warning">
+                    <div class="card-header bg-soft-warning">
+                        <h5 class="card-title mb-0"><i class="tio-lock mr-2"></i>{{ translate('messages.Sensitive: Trip PIN') }}</h5>
+                    </div>
+                    <div class="card-body text-center">
+                        <div class="font-weight-bold text-dark" style="font-size: 2rem; letter-spacing: .45rem" aria-label="{{ translate('messages.Trip PIN') }}">{{ $tripPin }}</div>
+                        <p class="small text-muted mb-0 mt-2">{{ translate('messages.Visible only until the Captain starts the Ride. Do not share it outside active trip operations.') }}</p>
+                    </div>
+                </div>
+            @endif
             @php
                 $requestDeliveries = $ride->notificationDeliveries->where('event', 'ride_request_available');
                 $acceptedPushes = $requestDeliveries->where('push_status', 'accepted')->count();
@@ -145,3 +165,93 @@
     </div>
 </div>
 @endsection
+
+@push('script_2')
+<script async defer src="https://maps.googleapis.com/maps/api/js?key={{ \App\Models\BusinessSetting::where('key', 'map_api_key')->first()->value }}&callback=initializeRideAdminMap&libraries=marker,geometry&v=3.61"></script>
+<script>
+    let rideAdminMap = null;
+    let rideCaptainMarker = null;
+    let pendingRideCaptainLocation = @json($ride->deliveryMan?->last_location ? [
+        'id' => (int) $ride->delivery_man_id,
+        'latitude' => (float) $ride->deliveryMan->last_location->latitude,
+        'longitude' => (float) $ride->deliveryMan->last_location->longitude,
+        'visible' => true,
+        'updated_at' => $ride->deliveryMan->last_location->time?->toIso8601String(),
+    ] : null);
+
+    function rideMapIcon(src, label) {
+        const image = document.createElement('img');
+        image.src = src;
+        image.alt = label;
+        image.style.width = '42px';
+        image.style.height = '42px';
+        image.style.objectFit = 'cover';
+        image.style.borderRadius = '50%';
+        image.style.border = '3px solid #fff';
+        image.style.boxShadow = '0 2px 8px rgba(0,0,0,.3)';
+        return image;
+    }
+
+    window.initializeRideAdminMap = function () {
+        if (rideAdminMap) return;
+        const pickup = {lat: Number(@json((float) $ride->pickup_latitude)), lng: Number(@json((float) $ride->pickup_longitude))};
+        const destination = {lat: Number(@json((float) $ride->destination_latitude)), lng: Number(@json((float) $ride->destination_longitude))};
+        rideAdminMap = new google.maps.Map(document.getElementById('ride-admin-map'), {
+            center: pickup,
+            zoom: 13,
+            mapId: @json((string) \App\Models\BusinessSetting::where('key', 'map_api_key')->value('value')),
+        });
+        const bounds = new google.maps.LatLngBounds();
+        bounds.extend(pickup);
+        bounds.extend(destination);
+        new google.maps.marker.AdvancedMarkerElement({map: rideAdminMap, position: pickup, title: @json(translate('messages.Pickup'))});
+        new google.maps.marker.AdvancedMarkerElement({map: rideAdminMap, position: destination, title: @json(translate('messages.Destination'))});
+
+        const encodedRoute = @json($ride->route_polyline);
+        if (encodedRoute) {
+            new google.maps.Polyline({
+                map: rideAdminMap,
+                path: google.maps.geometry.encoding.decodePath(encodedRoute),
+                strokeColor: '#00A3FF',
+                strokeOpacity: .85,
+                strokeWeight: 5,
+            });
+        }
+        rideAdminMap.fitBounds(bounds, 60);
+        if (pendingRideCaptainLocation) window.handleRideAdminCaptainLocation(pendingRideCaptainLocation);
+    };
+
+    window.handleRideAdminCaptainLocation = function (rider) {
+        if (Number(rider?.id) !== Number(@json((int) $ride->delivery_man_id))) return;
+        pendingRideCaptainLocation = rider;
+        if (!rideAdminMap || !window.google?.maps?.marker) return;
+        if (!rider.visible) {
+            if (rideCaptainMarker) rideCaptainMarker.map = null;
+            return;
+        }
+        const position = {lat: Number(rider.latitude), lng: Number(rider.longitude)};
+        if (!Number.isFinite(position.lat) || !Number.isFinite(position.lng)) return;
+        if (rideCaptainMarker) {
+            rideCaptainMarker.position = position;
+            rideCaptainMarker.map = rideAdminMap;
+        } else {
+            rideCaptainMarker = new google.maps.marker.AdvancedMarkerElement({
+                map: rideAdminMap,
+                position,
+                title: @json($ride->deliveryMan?->full_name ?? translate('messages.Captain')),
+                content: rideMapIcon(@json($ride->deliveryMan?->image_full_url ?? asset('public/assets/admin/img/delivery_boy_map.png')), 'Captain'),
+            });
+        }
+        $('#ride-captain-coordinates').text(`${position.lat.toFixed(6)}, ${position.lng.toFixed(6)}`);
+        $('#ride-captain-location-time').text(`${@json(translate('messages.Updated'))} ${new Date(rider.updated_at).toLocaleString()}`);
+        $('#ride-captain-external-map').attr('href', `https://www.google.com/maps?q=${position.lat},${position.lng}`);
+        $('#ride-captain-external-map').removeClass('d-none');
+    };
+</script>
+@if($ride->delivery_man_id && in_array($ride->status, ['rider_selected', 'captain_arriving', 'arrived', 'in_progress'], true))
+    @include('admin-views.dispatch.partials.rider-location-client', [
+        'trackedRiderId' => $ride->delivery_man_id,
+        'onLocationHandler' => 'handleRideAdminCaptainLocation',
+    ])
+@endif
+@endpush

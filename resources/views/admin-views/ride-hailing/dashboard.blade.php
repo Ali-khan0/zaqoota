@@ -39,7 +39,7 @@
                     [translate('messages.Riders in Ride Mode'), $stats['ride_mode_riders'], 'public/assets/admin/img/icons/i-rider.png', route('admin.ride-hailing.riders.index')],
                     [translate('messages.Registered Vehicles'), $stats['registered_vehicles'], 'public/assets/admin/img/car_icon.svg', route('admin.ride-hailing.vehicles.index')],
                     [translate('messages.Approved Vehicles'), $stats['approved_vehicles'], 'public/assets/admin/img/campaign-approved.png', route('admin.ride-hailing.vehicles.index')],
-                    [translate('messages.Pending Approval'), $stats['pending_vehicles'], 'public/assets/admin/img/transactions/pending.png', route('admin.ride-hailing.vehicles.index')],
+                    [translate('messages.Pending Approval'), $stats['pending_vehicles'], 'public/assets/admin/img/transactions/pending.png', route('admin.ride-hailing.vehicles.index', ['status' => 'pending'])],
                     [translate('messages.Active Categories'), $stats['categories'], 'public/assets/admin/img/category.png', route('admin.ride-hailing.categories.index')],
                     [translate('messages.Configured Zone Fares'), $stats['configured_fares'], 'public/assets/admin/img/money.png', route('admin.business-settings.zone.home')],
                 ] as [$label, $value, $icon, $url])

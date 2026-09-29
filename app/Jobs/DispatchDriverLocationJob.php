@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Queue\Middleware\EnsureQueueProcessEnabled;
+use App\Services\DispatchRiderLocationService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 
@@ -21,13 +22,15 @@ class DispatchDriverLocationJob implements ShouldQueue
 
     public $location;
 
-    public function __construct($deliverymanId, $latitude, $longitude, $location)
+    public $previousZoneId;
+
+    public function __construct($deliverymanId, $latitude, $longitude, $location, $previousZoneId = null)
     {
         $this->deliverymanId = $deliverymanId;
         $this->latitude = $latitude;
         $this->longitude = $longitude;
         $this->location = $location;
-        info("from JOB: Broadcasting location update for deliveryman ID: {$deliverymanId} to dm_location_{$deliverymanId} channel.");
+        $this->previousZoneId = $previousZoneId;
     }
 
     public function middleware(): array
@@ -38,9 +41,11 @@ class DispatchDriverLocationJob implements ShouldQueue
     /**
      * Execute the job.
      */
-    public function handle(): void
+    public function handle(DispatchRiderLocationService $dispatchLocations): void
     {
-        info('dispachDriverLocationJob called');
-        \App\Events\DeliveryLocationUpdated::broadcast($this->deliverymanId, $this->latitude, $this->longitude, $this->location);
+        $dispatchLocations->broadcast((int) $this->deliverymanId, $this->previousZoneId ? (int) $this->previousZoneId : null);
+        if (is_numeric($this->latitude) && is_numeric($this->longitude)) {
+            \App\Events\DeliveryLocationUpdated::broadcast($this->deliverymanId, $this->latitude, $this->longitude, $this->location);
+        }
     }
 }

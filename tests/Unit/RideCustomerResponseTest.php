@@ -8,6 +8,7 @@ use App\Models\RideOffer;
 use App\Models\RideRating;
 use App\Models\RideRequest;
 use App\Services\RideCaptainPickupRouteService;
+use App\Services\RideRequestViewerService;
 use App\Services\RideRouteService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
@@ -143,6 +144,7 @@ class RideCustomerResponseTest extends TestCase
         $ride->setRelation('category', null);
         $ride->setRelation('rideVehicle', null);
         $ride->setRelation('customerRating', null);
+        $ride->setRelation('cancellationRefund', null);
 
         return $ride;
     }
@@ -152,6 +154,10 @@ class RideCustomerResponseTest extends TestCase
         $controller = (new ReflectionClass(CustomerRideController::class))->newInstanceWithoutConstructor();
         $property = new \ReflectionProperty(CustomerRideController::class, 'captainPickupRouteService');
         $property->setValue($controller, new RideCaptainPickupRouteService(new RideRouteService));
+        $viewerService = $this->createMock(RideRequestViewerService::class);
+        $viewerService->method('summary')->willReturn(['count' => 0, 'avatars' => []]);
+        $viewerProperty = new \ReflectionProperty(CustomerRideController::class, 'viewerService');
+        $viewerProperty->setValue($controller, $viewerService);
         $method = new ReflectionMethod(CustomerRideController::class, 'rideData');
 
         return $method->invoke($controller, $ride);

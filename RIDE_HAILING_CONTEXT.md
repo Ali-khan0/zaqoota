@@ -11,7 +11,8 @@ ride vehicle registration, ride categories, zone/category fare configuration,
 reserved rider-wallet ledger types, authenticated customer fare estimates and
 ride requests, eligible-Captain polling, expiring Captain offers, and atomic
 customer offer selection. The trip lifecycle now covers Captain travel and
-arrival, customer-only Trip PIN verification, server-timed waiting, active
+arrival, customer Trip PIN verification, authorized pre-start admin detail
+visibility, server-timed waiting, active
 ride-scoped location, completion, pre-start cancellation audit, and lifecycle
 push notifications. Cash, online gateway, customer-wallet and
 wallet-plus-cash/online partial payments, idempotent Captain/admin wallet
@@ -57,8 +58,8 @@ Controllers:
 
 The operations query is scoped to the authenticated admin's zone when one is
 assigned. Manual assignment locks the ride and the selected Captain row,
-rechecks current Captain mode, availability, zone and approved active vehicle
-eligibility, rejects competing pending offers, records an accepted admin offer,
+rechecks current Captain mode, availability, approved active vehicle, fresh GPS
+and configured pickup-radius eligibility, rejects competing pending offers, records an accepted admin offer,
 snapshots commission from the chosen final fare, appends an admin-authored
 status history, and sends customer, Captain and realtime updates. The shared
 Captain-row lock serializes manual assignment, customer offer acceptance and
@@ -166,6 +167,17 @@ checks active assignments before saving: active non-parcel order IDs block the
 change and are shown in the admin error toast, while parcel orders do not block
 it. Switching to Ride mode still requires an approved active ride vehicle.
 
+Ride vehicle approval is managed canonically under Admin → Users at
+`admin/users/delivery-man/ride-vehicles`. Legacy Ride Hailing vehicle URLs and
+route names remain available for bookmarks, dashboard cards and existing
+settings permissions. New vehicles are always pending. The review page shows
+both verification photos plus full rider/vehicle data, requires rejection
+notes, confirms decisions, and stores both the latest reviewer snapshot and an
+append-only decision audit. Zone-scoped admins can operate only on vehicles
+belonging to riders in their zone.
+Rider-account approval and Ride vehicle approval are separate; approving a
+rider never silently approves or activates the first pending vehicle.
+
 ## Fare configuration
 
 `ride_fares` has one row per connected zone and active ride category. Zone
@@ -212,6 +224,10 @@ wallet total, while separate `ride_payments` rows track wallet and cash/online
 components. Captain `collected_cash` increases only by the actual cash
 remainder, and admin `digital_received` increases only by the online remainder.
 Economic settlement waits until paid components equal the full payable amount.
+Cash, digital, wallet and partial availability comes from the matching global
+admin switches. Digital payment additionally requires an active configured
+gateway. The payment summary exposes those effective choices and the service
+rejects disabled methods again inside the locked payment attempt.
 
 A chargeable customer cancellation immediately credits the original Captain
 from Zaqoota and records an admin `ride_cancellation_advance` expense and
@@ -276,12 +292,23 @@ requests nearest-first with `pickup_distance_meters` and
 `pickup_eta_seconds`. ETA uses `ride_hailing_pickup_eta_speed_kmh` only for
 display and never affects fare. Realtime creation events are refresh signals;
 the REST list is authoritative and the offer write path repeats the radius
-check.
+check. Captain account `zone_id` is not a Ride matching boundary: a Captain in
+another or null operational zone remains eligible when their live GPS is fresh,
+their vehicle category matches and they are inside the pickup radius. The
+Ride's immutable fare snapshots continue to come from the pickup zone.
 
 Offer submission snapshots pickup distance/ETA in `ride_offers`. Passenger
 offer lists sort these snapshots nearest-first and expose them in REST and
 realtime payloads, so the customer app can compare proximity with fare and
 rating without trusting client-calculated distance.
+
+Captain request cards acknowledge an actual visible impression through
+`POST /api/v1/delivery-man/ride-requests/{ride_id}/view`. The server repeats
+open-state, active-vehicle, fresh-location, pickup-radius, current-wave and
+customer-rejection checks before inserting the unique Ride/Captain view row.
+Notification delivery alone never creates a view. Owner Ride responses expose
+only a count and up to five avatar URLs, and `ride.viewers.updated` asks the
+customer app to refetch authoritative REST state.
 
 Customer APIs live under `/api/v1/ride-hailing/customer` with Passport auth.
 Captain discovery/offers live under `/api/v1/delivery-man` with `dm.api`.
@@ -338,8 +365,10 @@ Assigned rides advance only through `rider_selected`, `captain_arriving`,
 `arrived`, `in_progress`, and `completed`. `RideTripStateMachine` defines the
 single legal Captain action at each step, while `RideTripService` locks every
 transition and appends `ride_status_histories`. The four-digit Trip PIN is
-encrypted at rest, returned only to the owning customer before trip start, and
-must be verified to enter `in_progress`.
+encrypted at rest, returned to the owning customer before trip start, and must
+be verified to enter `in_progress`. The authorized zone-scoped admin Ride
+detail may also display it only while the Ride is assigned and pre-start; it is
+absent from lists, logs, notifications, realtime and Captain APIs.
 
 The server starts waiting at `arrived_at`. When the Captain starts the trip,
 every started minute beyond the snapshotted free allowance is stored in
@@ -383,6 +412,14 @@ Completed rides are payable at accepted fare plus waiting. Zaqoota commission
 remains the accepted-fare commission snapshot; waiting goes entirely to the
 Captain. A customer cancellation charge goes entirely to the Captain with zero
 platform commission. Free and Captain cancellations require no payment.
+
+Captain cancellation is terminal and is never redispatched. It rejects pending
+offers, disappears from the Captain's current-assignment query, records no
+customer strike or Captain receivable, and fully refunds any Ride prepayment to
+the customer wallet. `captain_cancelled` is stored in-app and sent by Firebase
+according to the notification-template switches; `RideRealtimeService::status`
+then prompts both apps to reconcile the authoritative REST state. The customer
+must create a new Ride manually.
 
 Customer APIs expose payment summary, cash/digital attempt creation, paginated
 attempt history, and a paid JSON receipt. Online payments reuse the generic
@@ -436,12 +473,13 @@ Active Captain location updates optionally persist heading, speed and accuracy
 on `ride_requests` and publish them only on the assigned private trip channel;
 terminal Ride responses suppress the last exact location.
 
-The next milestone should add customer/Captain ratings and Ride admin
-operations/reporting. Refunds, disputes, safety, complaints, downloadable PDF
+Customer-to-Captain ratings are implemented; a separate Captain-to-customer
+rating policy is not defined. Ride admin operations/reporting, disputes,
+safety, complaints, downloadable PDF
 receipts, tips, and a separately approved fleet-manager Ride commission policy
 follow.
 
 Each mobile-facing addition requires a specification under `docs/api/` in the
 same change. Rider mode is not enough to authorize future trip operations;
-matching and acceptance must recheck mode, active vehicle, zone, category,
-approval, online state, capacity, and conflicting work server-side.
+matching and acceptance must recheck mode, active vehicle, category, approval,
+online state, fresh GPS, pickup radius, capacity, and conflicting work server-side.

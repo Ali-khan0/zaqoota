@@ -682,6 +682,13 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
 
         Route::group(['prefix' => 'dispatch', 'as' => 'dispatch.'], function () {
             Route::get('/', 'DashboardController@dispatch_dashboard')->name('dashboard');
+            Route::post('broadcasting/auth', 'DispatchRealtimeController@authenticate')->name('broadcasting.auth');
+            Route::get('feed', 'DispatchRealtimeController@feed')->name('feed');
+            Route::get('riders', 'DispatchRealtimeController@riders')->name('riders');
+            Route::get('riders/{id}', 'DispatchRealtimeController@rider')->whereNumber('id')->name('rider');
+            Route::get('item/{type}/{id}', 'DispatchRealtimeController@item')
+                ->where(['type' => 'commerce|ride', 'id' => '[0-9]+'])
+                ->name('item');
             Route::group(['middleware' => ['module:order']], function () {
                 Route::get('list/{module?}/{status?}', 'OrderController@dispatch_list')->name('list');
                 Route::get('parcel/list/{module?}/{status?}', 'ParcelController@parcel_dispatch_list')->name('parcel.list');

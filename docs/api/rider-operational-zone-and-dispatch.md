@@ -1,6 +1,6 @@
 # Rider operational zone and nearest-first dispatch
 
-Updated 2026-09-27.
+Updated 2026-09-28.
 
 ## Rollout status
 
@@ -11,7 +11,7 @@ Updated 2026-09-27.
 | Shared commerce discovery/acceptance eligibility | Implemented; runtime verification pending |
 | Atomic/idempotent commerce assignment | Implemented; concurrency verification pending |
 | Nearest-first commerce visibility/push waves | Implemented; runtime verification pending |
-| Nearest-first Ride visibility/realtime/push waves | Implemented; runtime verification pending |
+| Zone-independent nearest-first Ride visibility/realtime/push waves | Source implemented; runtime verification pending |
 | Admin wave controls and commerce dispatch monitor | Implemented; runtime verification pending |
 | Queue Operations health/status/enable controls | Implemented; runtime verification pending |
 
@@ -45,7 +45,7 @@ For a safe rolling release, `zone_id` remains a temporary fallback when coordina
 }
 ```
 
-When no active zone contains the coordinates, `service_available` is false, `operational_zone` is null, the stored operational `zone_id` is cleared, and both topic fields are empty. The stored last location still updates, but the rider is ineligible for new zone-wise orders and Rides until GPS resolves into an active zone. Updated Captain clients unsubscribe from stale zone/vehicle topics and subscribe to the returned topics. Websocket location updates also synchronize the server-side zone, while the regular HTTP heartbeat remains authoritative for topic changes.
+When no active zone contains the coordinates, `service_available` is false, `operational_zone` is null, the stored operational `zone_id` is cleared, and both topic fields are empty. The stored last location still updates. Zone-scoped commerce orders remain unavailable, but passenger Ride matching may still use that fresh GPS coordinate when the Captain is inside the Ride pickup radius and passes every other Ride rule. Updated Captain clients unsubscribe from stale zone/vehicle topics and subscribe to the returned topics. Websocket location updates also synchronize the server-side zone, while the regular HTTP heartbeat remains authoritative for topic changes.
 
 The current Captain client keeps one background-capable GPS stream while online. It submits the HTTP heartbeat every 15 seconds while moving, every 60 seconds while stationary, and immediately after movement of at least 50 metres. Sends are single-flight and restart on app resume or stream failure. A force-stopped/terminated client cannot supply GPS; the existing dispatch freshness settings remove it from candidate ranking until a fresh heartbeat arrives.
 
@@ -83,7 +83,7 @@ Relevant backend files: `app/Services/OperationalZoneService.php`, `app/Services
 
 ## Passenger Ride nearest-first waves
 
-`RideDispatchService` applies one rank to Captain polling, realtime discovery, stored notifications, Firebase push and offer submission. Ranking retains the existing current operational zone, Ride work mode, approved active vehicle category, no-conflicting-work and maximum pickup-radius requirements. Captains also need GPS newer than the configured freshness window.
+`RideDispatchService` applies one rank to Captain polling, realtime discovery, stored notifications, Firebase push and offer submission. Ranking uses Ride work mode, approved active vehicle category, no-conflicting-work and maximum pickup-radius requirements. Captains also need GPS newer than the configured freshness window. Captain account `zone_id` is deliberately ignored for passenger Ride matching: another-zone or null-zone Captains qualify by live distance, while same-zone Captains outside the radius do not. The Ride keeps the pickup-zone fare snapshot for its complete lifecycle.
 
 The default is three captains immediately and three more every 20 seconds. Admin can change these values from Ride Hailing Setup:
 
@@ -94,6 +94,45 @@ The default is three captains immediately and three more every 20 seconds. Admin
 `GET /api/v1/delivery-man/ride-requests` returns only open waves and includes `dispatch_wave`. A direct `POST /api/v1/delivery-man/ride-requests/{ride_id}/offers` before the captain's wave returns HTTP 403 with code `dispatch_wave_pending`. Price-update realtime/push events go only to waves already open; later wave jobs load the current Ride value when they run.
 
 `DispatchRideRequestWave` recalculates current distance at wave time and processes the complete cumulative open set for private Captain realtime hints and idempotent in-app/FCM notification. Earlier Captains remain eligible as later waves open. A unique recipient row plus a unique push-job key prevents later waves or concurrent retries from starting another push chain for the same Captain. Assigned or cancelled Rides stop dispatching, and `SendRideRequestPush` suppresses queued messages that became obsolete before Firebase submission. Admin notification retry uses the same wave scheduler.
+
+Offer submission, customer offer acceptance and admin manual assignment all
+repeat fresh-GPS and pickup-radius checks. This prevents a stale Ride ID or an
+old offer from bypassing the live-distance rule after a Captain moves.
+
+### Captain view acknowledgement
+
+The Captain app calls the authenticated endpoint only after a request card is
+actually visible:
+
+```http
+POST /api/v1/delivery-man/ride-requests/{ride_id}/view
+Authorization: Bearer CAPTAIN_TOKEN
+```
+
+No body is required. HTTP `201` records the first view and HTTP `200` confirms
+an already-recorded view. Laravel repeats open Ride status, matching active
+vehicle, fresh GPS, pickup radius, cumulative wave and customer-rejection
+checks. An ineligible or closed request returns HTTP `403` with code
+`ride_view`. The unique Ride/Captain key makes retries idempotent.
+
+Push, stored notification and realtime delivery paths do not write this table.
+Owner Ride responses include:
+
+```json
+{
+  "viewer_summary": {
+    "count": 7,
+    "avatars": [
+      {"image_url": "https://example.test/captain.jpg"}
+    ]
+  }
+}
+```
+
+At most five avatar entries are returned. They contain no Captain ID, name,
+phone or location. A new unique view emits `ride.viewers.updated` on the private
+customer channel; clients refresh the owned Ride through REST. Existing
+fallback polling restores the same summary after reconnect.
 
 Delayed Ride waves require a non-`sync` queue and a running worker. Polling and offer enforcement remain server-time based if the worker is unavailable.
 

@@ -106,6 +106,10 @@ Route::group(['namespace' => 'Api\V1', 'middleware'=>'localization'], function (
         Route::post('rides/{ride_id}/payments', 'CustomerRideController@createPayment');
         Route::get('rides/{ride_id}/payments', 'CustomerRideController@payments');
         Route::get('rides/{ride_id}/receipt', 'CustomerRideController@receipt');
+        Route::get('rides/{ride_id}/messages', 'RideChatController@customerMessages');
+        Route::post('rides/{ride_id}/messages', 'RideChatController@customerSend')->middleware('throttle:60,1');
+        Route::put('rides/{ride_id}/messages/seen', 'RideChatController@customerSeen')->middleware('throttle:120,1');
+        Route::put('rides/{ride_id}/chat-presence', 'RideChatController@customerPresence')->middleware('throttle:120,1');
     });
     Route::post('newsletter/subscribe','NewsletterController@index');
     Route::get('landing-page', 'ConfigController@landing_page');
@@ -130,10 +134,13 @@ Route::group(['namespace' => 'Api\V1', 'middleware'=>'localization'], function (
             Route::put('work-mode', 'DeliverymanController@updateWorkMode');
             Route::get('ride-vehicles', 'DeliverymanController@rideVehicles');
             Route::post('ride-vehicles', 'DeliverymanController@storeRideVehicle');
+            Route::post('ride-vehicles/{vehicle_id}/resubmit', 'DeliverymanController@resubmitRideVehicle');
             Route::put('ride-vehicles/{vehicle_id}/activate', 'DeliverymanController@activateRideVehicle');
             Route::get('ride-requests', 'CaptainRideController@availableRequests');
+            Route::post('ride-requests/{ride_id}/view', 'CaptainRideController@acknowledgeView')->middleware('throttle:120,1');
             Route::post('ride-requests/{ride_id}/offers', 'CaptainRideController@storeOffer');
             Route::get('ride-offers', 'CaptainRideController@offers');
+            Route::get('rides', 'CaptainRideController@rideHistory');
             Route::get('rides/current', 'CaptainRideController@currentRide');
             Route::get('ride-cancellation-reasons', 'CaptainRideController@cancellationReasons');
             Route::get('rides/{ride_id}', 'CaptainRideController@showRide');
@@ -141,6 +148,10 @@ Route::group(['namespace' => 'Api\V1', 'middleware'=>'localization'], function (
             Route::put('rides/{ride_id}/location', 'CaptainRideController@updateLocation')->middleware('throttle:120,1');
             Route::delete('rides/{ride_id}', 'CaptainRideController@cancelRide');
             Route::post('rides/{ride_id}/payments/cash/confirm', 'CaptainRideController@confirmCashPayment');
+            Route::get('rides/{ride_id}/messages', 'RideChatController@captainMessages');
+            Route::post('rides/{ride_id}/messages', 'RideChatController@captainSend')->middleware('throttle:60,1');
+            Route::put('rides/{ride_id}/messages/seen', 'RideChatController@captainSeen')->middleware('throttle:120,1');
+            Route::put('rides/{ride_id}/chat-presence', 'RideChatController@captainPresence')->middleware('throttle:120,1');
             Route::get('current-orders', 'DeliverymanController@get_current_orders');
             Route::get('latest-orders', 'DeliverymanController@get_latest_orders');
             Route::post('record-location-data', 'DeliverymanController@record_location_data');

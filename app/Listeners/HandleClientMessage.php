@@ -38,6 +38,7 @@ class HandleClientMessage
                 $deliverymanId = $deliveryman?->id;
 
                 if ($deliverymanId && is_numeric($latitude) && is_numeric($longitude)) {
+                    $previousZoneId = $deliveryman->zone_id;
                     DeliveryHistory::updateOrCreate(['delivery_man_id' => $deliverymanId], [
                         'longitude' => $data['longitude'],
                         'latitude' => $data['latitude'],
@@ -50,7 +51,7 @@ class HandleClientMessage
                         (float) $longitude,
                     );
                     try {
-                        dispatch(new DispatchDriverLocationJob($deliverymanId, $latitude, $longitude, $data['location']))->onQueue('default');
+                        dispatch(new DispatchDriverLocationJob($deliverymanId, $latitude, $longitude, $data['location'], $previousZoneId))->onQueue('default');
                     } catch (\Exception $e) {
                         info($e->getMessage());
                     }
