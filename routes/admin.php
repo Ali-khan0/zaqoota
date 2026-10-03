@@ -322,6 +322,8 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
 
 
         Route::group(['prefix' => 'business-settings', 'as' => 'business-settings.', 'middleware' => ['module:settings']], function () {
+            Route::get('ops', [\App\Http\Controllers\Admin\OpsSettingsController::class, 'index'])->name('ops.index');
+            Route::post('ops', [\App\Http\Controllers\Admin\OpsSettingsController::class, 'update'])->name('ops.update');
             Route::get('business-setup/{tab?}', 'BusinessSettingsController@business_index')->name('business-setup');
             Route::get('react-setup', 'BusinessSettingsController@react_setup')->name('react-setup');
             Route::post('react-update', 'BusinessSettingsController@react_update')->name('react-update');
@@ -752,6 +754,14 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
 
         });
         Route::group(['prefix' => 'transactions', 'as' => 'transactions.'], function () {
+            Route::group(['prefix' => 'ops-finance', 'as' => 'ops-finance.', 'middleware' => ['module:report', 'module:account']], function () {
+                Route::get('/', [\App\Http\Controllers\Admin\OpsFinanceController::class, 'index'])->name('index');
+                Route::get('export', [\App\Http\Controllers\Admin\OpsFinanceController::class, 'export'])->name('export');
+                Route::post('withdrawals/{withdrawal}', [\App\Http\Controllers\Admin\OpsFinanceController::class, 'withdrawal'])->name('withdrawal');
+                Route::get('withdrawals/{withdrawal}/proof', [\App\Http\Controllers\Admin\OpsFinanceController::class, 'proof'])->name('proof');
+                Route::get('withdrawals/{withdrawal}/destination', [\App\Http\Controllers\Admin\OpsFinanceController::class, 'destination'])->name('destination');
+                Route::post('applications/{application}', [\App\Http\Controllers\Admin\OpsFinanceController::class, 'commission'])->name('commission');
+            });
             Route::get('/', 'DashboardController@transaction_dashboard')->name('dashboard');
             Route::get('order/details/{id}', 'OrderController@details')->name('order.details');
             Route::get('parcel/order/details/{id}', 'ParcelController@order_details')->name('parcel.order.details');
@@ -771,6 +781,10 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
                 Route::post('{onboarding_invoice}/recipients', 'OnboardingInvoiceController@addRecipient')->name('recipients.add');
                 Route::delete('{onboarding_invoice}/recipients', 'OnboardingInvoiceController@removeRecipient')->name('recipients.remove');
                 Route::patch('{onboarding_invoice}/payment-status', 'OnboardingInvoiceController@paymentStatus')->name('payment-status');
+                Route::get('{onboarding_invoice}/payment-proof', 'OnboardingInvoiceController@paymentProof')->name('payment-proof');
+                Route::post('{onboarding_invoice}/checkout-link/reissue', 'OnboardingInvoiceController@reissueCheckoutLink')->name('checkout-link.reissue');
+                Route::post('{onboarding_invoice}/payment-attempts/{payment_attempt}/refund', 'OnboardingInvoiceController@refundPaymentAttempt')->name('payment-attempts.refund');
+                Route::post('{onboarding_invoice}/vendor-password-setup/reissue', 'OnboardingInvoiceController@reissueVendorPasswordSetup')->middleware('module:store')->name('vendor-password-setup.reissue');
                 Route::post('{onboarding_invoice}/void', 'OnboardingInvoiceController@voidInvoice')->name('void');
             });
             Route::group(['prefix' => 'report', 'as' => 'report.', 'middleware' => ['module:report']], function () {

@@ -20,7 +20,6 @@ class Kernel extends ConsoleKernel
     /**
      * Define the application's command schedule.
      *
-     * @param  \Illuminate\Console\Scheduling\Schedule  $schedule
      * @return void
      */
     protected function schedule(Schedule $schedule)
@@ -29,6 +28,7 @@ class Kernel extends ConsoleKernel
         $schedule->command('dm:deduct-registration-fees')->monthlyOn(1, '3:00');
         $schedule->command('dm:process-milestones-daily')->dailyAt('00:15');
         $schedule->command('dm:process-milestones-weekly')->weeklyOn(1, '00:30');
+        $schedule->command('ops:cleanup-onboarding-media')->dailyAt('02:20')->withoutOverlapping();
         $schedule->job(new RecordQueueWorkerHeartbeat)->everyMinute()->withoutOverlapping();
     }
 

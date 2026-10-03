@@ -204,6 +204,12 @@ class LoginController extends Controller
         elseif ($request->role == 'vendor') {
             $vendor = Vendor::where('email', $request->email)->first();
             if ($vendor) {
+                if ($vendor->hasIncompleteOpsOnboarding()) {
+                    RateLimiter::hit($key, $decayMinutes * 60);
+
+                    return redirect()->back()->withInput($request->only('email', 'remember'))
+                        ->withErrors([translate('messages.Admin_did_not_approve_your_registration_yet.')]);
+                }
                 if($vendor?->stores[0]?->module?->module_type == 'rental'){
                     if(!addon_published_status('Rental')){
                         return redirect()->back()->withInput($request->only('email', 'remember'))
@@ -389,6 +395,11 @@ class LoginController extends Controller
         $vendor = Vendor::where('email', $request['email'])->first();
 
         if (isset($vendor)) {
+            if ($vendor->hasIncompleteOpsOnboarding()) {
+                Toastr::error(translate('messages.Your_registration_is_not_approved_yet._You_can_login_once_admin_approved_the_request'));
+
+                return back();
+            }
             $token = Helpers::generate_reset_password_code();
             DB::table('password_resets')->insert([
                 'email' => $vendor['email'],
@@ -524,6 +535,13 @@ class LoginController extends Controller
                     ]);
                     $user_link = Helpers::get_login_url('admin_login_url');
                 } else {
+                    $vendor = Vendor::where('email', $data->email)->first();
+                    if ($vendor?->hasIncompleteOpsOnboarding()) {
+                        DB::table('password_resets')->where(['token' => $request['reset_token']])->delete();
+                        Toastr::error(translate('messages.Admin_did_not_approve_your_registration_yet.'));
+
+                        return back();
+                    }
                     DB::table('vendors')->where(['email' => $data->email])->update([
                         'password' => bcrypt($request['confirm_password']),
                         'login_remember_token' => $newRememberToken,

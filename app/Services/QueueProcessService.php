@@ -46,6 +46,31 @@ class QueueProcessService
                 'description' => 'Broadcasts queued driver location updates to realtime clients.',
                 'job' => 'DispatchDriverLocationJob',
             ],
+            'ops_onboarding_submission_email' => [
+                'label' => 'Ops onboarding registration and invoice email',
+                'description' => 'Sends the partner registration message and onboarding invoice after submission.',
+                'job' => 'SendOpsOnboardingSubmissionEmails',
+            ],
+            'ops_onboarding_reminder' => [
+                'label' => 'Ops onboarding payment reminders',
+                'description' => 'Sends manager-requested onboarding invoice payment reminders.',
+                'job' => 'SendOpsOnboardingReminder',
+            ],
+            'ops_manager_notifications' => [
+                'label' => 'Ops manager finance notifications',
+                'description' => 'Sends commission and withdrawal status notifications to onboarding managers.',
+                'job' => 'SendOpsManagerNotification',
+            ],
+            'ops_onboarding_payment_email' => [
+                'label' => 'Ops onboarding payment confirmation email',
+                'description' => 'Sends the paid onboarding invoice after verified settlement.',
+                'job' => 'SendOpsOnboardingPaymentConfirmation',
+            ],
+            'ops_vendor_approval_email' => [
+                'label' => 'Ops vendor approval and password setup email',
+                'description' => 'Sends the approved partner a one-time expiring password setup link.',
+                'job' => 'SendOpsVendorApprovalEmail',
+            ],
         ];
     }
 

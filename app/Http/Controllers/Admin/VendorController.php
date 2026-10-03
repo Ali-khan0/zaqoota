@@ -50,6 +50,7 @@ use MatanYadaev\EloquentSpatial\Objects\Point;
 use App\Exports\StoreWithdrawTransactionExport;
 use App\Exports\StoreWiseWithdrawTransactionExport;
 use Modules\Rental\Emails\ProviderWithdrawRequestMail;
+use App\Services\OpsOnboardingApprovalService;
 
 
 class VendorController extends Controller
@@ -175,6 +176,13 @@ class VendorController extends Controller
 
     public function update(Request $request, Store $store)
     {
+        $opsApplication = app(\App\Services\OpsOnboardingApprovalService::class)->applicationForStore($store);
+        if ($opsApplication && $opsApplication->status !== 'approved') {
+            abort_if(auth('admin')->user()->zone_id && (int) auth('admin')->user()->zone_id !== (int) $opsApplication->zone_id, 403);
+            if ((int) $request->zone_id !== (int) $opsApplication->zone_id) {
+                return response()->json(['errors' => [['code' => 'zone_id', 'message' => 'Pending Ops store corrections must remain in the registered zone.']]], 422);
+            }
+        }
         $validator = Validator::make($request->all(), [
             'f_name' => 'required|max:100',
             'l_name' => 'nullable|max:100',
@@ -793,6 +801,13 @@ class VendorController extends Controller
 
     public function status(Store $store, Request $request)
     {
+        if ((int) $request->status === 1) {
+            $opsApplication = app(\App\Services\OpsOnboardingApprovalService::class)->applicationForStore($store);
+            if ($opsApplication && $opsApplication->status !== 'approved') {
+                Toastr::warning('Complete Ops data entry and final approval before activating this store.');
+                return back();
+            }
+        }
         $store->status = $request->status;
         $store->save();
         $vendor = $store->vendor;
@@ -1016,15 +1031,29 @@ class VendorController extends Controller
 
     public function update_application(Request $request)
     {
-        $this->updateVendorApplication($request);
-        Toastr::success(translate('messages.application_status_updated_successfully'));
-        return redirect(route('admin.store.pending-requests'));
+        try {
+            $this->updateVendorApplication($request);
+            Toastr::success(translate('messages.application_status_updated_successfully'));
+
+            return redirect(route('admin.store.pending-requests'));
+        } catch (\Illuminate\Validation\ValidationException $exception) {
+            Toastr::error($exception->validator->errors()->first());
+
+            return back();
+        }
     }
 
 
 
     private function updateVendorApplication($request){
             $store = Store::findOrFail($request->id);
+            $opsApproval = app(OpsOnboardingApprovalService::class);
+            $opsApplication = $opsApproval->applicationForStore($store);
+            if ((int) $request->status === 1 && $opsApplication) {
+                $opsApproval->approve($opsApplication, auth('admin')->user());
+
+                return true;
+            }
             $store->vendor->status = $request->status;
             $store->vendor->rejection_note = $request->rejection_note;
             $store->vendor->save();

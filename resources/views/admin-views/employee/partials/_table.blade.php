@@ -7,6 +7,17 @@
     </td>
     <td>{{$employee['phone']}}</td>
     <td>{{$employee->role?$employee->role['name']:translate('messages.role_deleted')}}</td>
+    <td>{{($employee->staff_type ?? 'admin_employee') === 'onboarding_manager' ? 'Onboarding manager' : 'Admin employee'}}</td>
+    <td>
+        @if(($employee->staff_type ?? 'admin_employee') === 'onboarding_manager')
+            <span class="badge badge-soft-{{($employee->ops_status ?? false) ? 'success' : 'danger'}}">
+                {{($employee->ops_status ?? false) ? 'Active' : 'Inactive'}}
+            </span>
+        @else
+            <span class="badge badge-soft-secondary">N/A</span>
+        @endif
+    </td>
+    <td>{{number_format((float) ($employee->onboarding_commission_percent ?? 0), 2)}}%</td>
     <td>
         @if (auth('admin')->id()  != $employee['id'])
         <div class="btn--container justify-content-center">

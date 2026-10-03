@@ -90,6 +90,27 @@ class Vendor extends Authenticatable
     {
         return $this->hasMany(Store::class);
     }
+
+    public function onboardingApplications()
+    {
+        return $this->hasMany(OnboardingApplication::class);
+    }
+    public function onboardingPasswordSetupTokens()
+    {
+        return $this->hasMany(OnboardingVendorPasswordSetup::class);
+    }
+    public function latestOnboardingApplication()
+    {
+        return $this->hasOne(OnboardingApplication::class)
+            ->where('status', '!=', OnboardingApplication::STATUS_DRAFT)
+            ->latestOfMany();
+    }
+    public function hasIncompleteOpsOnboarding(): bool
+    {
+        $application = $this->latestOnboardingApplication;
+
+        return $application !== null && $application->status !== OnboardingApplication::STATUS_APPROVED;
+    }
     public function store()
     {
         return $this->hasOne(Store::class);

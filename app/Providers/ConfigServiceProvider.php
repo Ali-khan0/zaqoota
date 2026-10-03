@@ -30,6 +30,10 @@ class ConfigServiceProvider extends ServiceProvider
     {
         $mode = env('APP_MODE');
         try {
+            app(\App\Services\OpsSettingsService::class)->apply();
+            \Illuminate\Support\Facades\Queue::before(function (): void {
+                app(\App\Services\OpsSettingsService::class)->apply();
+            });
             Translator::get(config('app.locale'))->setTranslations([
                 'first_day_of_week' => CarbonImmutable::MONDAY,
                 'weekend' => [CarbonImmutable::SUNDAY],

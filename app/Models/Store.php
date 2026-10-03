@@ -86,6 +86,11 @@ use Modules\TaxModule\Entities\OrderTax;
 class Store extends Model
 {
     use ReportFilter;
+
+    public function onboardingApplications(): HasMany
+    {
+        return $this->hasMany(OnboardingApplication::class);
+    }
     /**
      * The attributes that are mass assignable.
      *

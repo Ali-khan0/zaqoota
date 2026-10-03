@@ -1297,6 +1297,10 @@ class Helpers
         $data_id = $data['data_id'] ?? '';
         $status = $data['status'] ?? '';
         $advertisement_id = $data['advertisement_id'] ?? '';
+        $event_type = $data['event_type'] ?? '';
+        $event_id = $data['event_id'] ?? '';
+        $application_id = $data['application_id'] ?? '';
+        $withdrawal_id = $data['withdrawal_id'] ?? '';
 
         $postData = [
             'message' => [
@@ -1313,6 +1317,10 @@ class Helpers
                     "type" => (string)$data['type'],
                     "data_id" => (string)$data_id,
                     "advertisement_id" => (string)$advertisement_id,
+                    "event_type" => (string)$event_type,
+                    "event_id" => (string)$event_id,
+                    "application_id" => (string)$application_id,
+                    "withdrawal_id" => (string)$withdrawal_id,
                     "conversation_id" => (string)$conversation_id,
                     "module_id" => (string)$module_id,
                     "sender_type" => (string)$sender_type,

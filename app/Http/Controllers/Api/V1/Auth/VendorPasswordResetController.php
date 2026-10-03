@@ -29,6 +29,12 @@ class VendorPasswordResetController extends Controller
         $vendor = Vendor::Where(['email' => $request['email']])->first();
 
         if (isset($vendor)) {
+            if ($vendor->hasIncompleteOpsOnboarding()) {
+                return response()->json(['errors' => [[
+                    'code' => 'auth-002',
+                    'message' => translate('messages.Your_registration_is_not_approved_yet._You_can_login_once_admin_approved_the_request'),
+                ]]], 403);
+            }
             $token = rand(1000,9999);
             DB::table('password_resets')->updateOrInsert([
                 'email' => $vendor['email'],
@@ -60,6 +66,14 @@ class VendorPasswordResetController extends Controller
 
         if ($validator->fails()) {
             return response()->json(['errors' => Helpers::error_processor($validator)], 403);
+        }
+
+        $vendor = Vendor::where('email', $request->email)->first();
+        if ($vendor?->hasIncompleteOpsOnboarding()) {
+            return response()->json(['errors' => [[
+                'code' => 'auth-002',
+                'message' => translate('messages.Your_registration_is_not_approved_yet._You_can_login_once_admin_approved_the_request'),
+            ]]], 403);
         }
 
         $data = DB::table('password_resets')->where(['token' => $request['reset_token'],'email'=>$request->email])->first();
@@ -148,6 +162,15 @@ class VendorPasswordResetController extends Controller
 
         if ($validator->fails()) {
             return response()->json(['errors' => Helpers::error_processor($validator)], 403);
+        }
+        $vendor = Vendor::where('email', $request->email)->first();
+        if ($vendor?->hasIncompleteOpsOnboarding()) {
+            DB::table('password_resets')->where('email', $request->email)->delete();
+
+            return response()->json(['errors' => [[
+                'code' => 'auth-002',
+                'message' => translate('messages.Your_registration_is_not_approved_yet._You_can_login_once_admin_approved_the_request'),
+            ]]], 403);
         }
         if(env('APP_MODE')=='demo') {
             if ($request['reset_token'] != '123456') {

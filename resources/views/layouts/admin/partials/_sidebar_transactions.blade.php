@@ -221,6 +221,11 @@
                                 <span class="text-truncate">{{ translate('Onboarding Invoices') }}</span>
                             </a>
                         </li>
+                        @if(\App\CentralLogics\Helpers::module_permission_check('account'))
+                        <li class="nav-item {{ Request::is('admin/transactions/ops-finance*') ? 'active' : '' }}">
+                            <a class="nav-link" href="{{ route('admin.transactions.ops-finance.index') }}"><span class="tio-money nav-icon"></span><span>{{ translate('Ops finance') }}</span></a>
+                        </li>
+                        @endif
 
                         <li
                             class="navbar-vertical-aside-has-menu {{ Request::is('admin/transactions/report/disbursement-report') ? 'active' : '' }}">

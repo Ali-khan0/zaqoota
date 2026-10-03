@@ -17,10 +17,16 @@
                     {{translate('messages.Employee_list')}}
                 </span>
             </h1>
-            <a href="{{route('admin.users.employee.add-new')}}" class="btn btn--primary mb-3">
-                <i class="tio-add-circle"></i>
-                <span class="text">{{translate('messages.add_new')}}</span>
-            </a>
+            <div class="btn--container mb-3">
+                <a href="{{route('admin.users.onboarding-manager.index')}}" class="btn btn-outline-primary">
+                    <i class="tio-dashboard-vs"></i>
+                    <span class="text">Onboarding managers</span>
+                </a>
+                <a href="{{route('admin.users.employee.add-new')}}" class="btn btn--primary">
+                    <i class="tio-add-circle"></i>
+                    <span class="text">{{translate('messages.add_new')}}</span>
+                </a>
+            </div>
         </div>
     </div>
 
@@ -89,6 +95,9 @@
                                 <th class="border-0">{{translate('messages.email')}}</th>
                                 <th class="border-0">{{translate('messages.phone')}}</th>
                                 <th class="border-0">{{translate('messages.Role')}}</th>
+                                <th class="border-0">Staff type</th>
+                                <th class="border-0">Ops access</th>
+                                <th class="border-0">Commission</th>
                                 <th class="border-0 text-center">{{translate('messages.action')}}</th>
                             </tr>
                             </thead>
@@ -102,6 +111,17 @@
                                     </td>
                                     <td>{{$employee['phone']}}</td>
                                     <td>{{$employee->role?$employee->role['name']:translate('messages.role_deleted')}}</td>
+                                    <td>{{($employee->staff_type ?? 'admin_employee') === 'onboarding_manager' ? 'Onboarding manager' : 'Admin employee'}}</td>
+                                    <td>
+                                        @if(($employee->staff_type ?? 'admin_employee') === 'onboarding_manager')
+                                            <span class="badge badge-soft-{{($employee->ops_status ?? false) ? 'success' : 'danger'}}">
+                                                {{($employee->ops_status ?? false) ? 'Active' : 'Inactive'}}
+                                            </span>
+                                        @else
+                                            <span class="badge badge-soft-secondary">N/A</span>
+                                        @endif
+                                    </td>
+                                    <td>{{number_format((float) ($employee->onboarding_commission_percent ?? 0), 2)}}%</td>
                                     <td>
                                         @if (auth('admin')->id()  != $employee['id'])
                                         <div class="btn--container justify-content-center">

@@ -295,6 +295,19 @@ class VendorLoginController extends Controller
 
 
     private function storeSubscriptionCheck($store, $vendor,$token){
+        if ($vendor instanceof Vendor && $vendor->hasIncompleteOpsOnboarding()) {
+            auth('vendor')->logout();
+
+            return [
+                'type' => 'errors',
+                'code' => 403,
+                'data' => [
+                    'errors' => [
+                        ['code' => 'auth-002', 'message' => translate('messages.Your_registration_is_not_approved_yet._You_can_login_once_admin_approved_the_request')]
+                    ]
+                ]
+            ];
+        }
         if ($store?->store_business_model == 'none') {
             $vendor->auth_token = $token;
             $vendor?->save();

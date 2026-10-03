@@ -48,6 +48,9 @@
                     </div>
                 </form>
                 <ul class="navbar-nav navbar-nav-lg nav-tabs">
+                    @if(\App\CentralLogics\Helpers::module_permission_check('settings'))
+                    <li class="nav-item"><a class="nav-link" href="{{ route('admin.business-settings.ops.index') }}"><i class="tio-settings nav-icon"></i><span>{{ translate('Zaqoota Ops settings') }}</span></a></li>
+                    @endif
 
                     <!-- Business Settings -->
                     <li class="nav-item">

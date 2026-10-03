@@ -211,6 +211,30 @@ if (! function_exists('ride_payment_fail')) {
     }
 }
 
+if (! function_exists('onboarding_invoice_payment_success')) {
+    function onboarding_invoice_payment_success($data) {
+        try {
+            return app(\App\Services\OpsOnboardingPaymentService::class)->settleGateway($data);
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return false;
+        }
+    }
+}
+
+if (! function_exists('onboarding_invoice_payment_failed')) {
+    function onboarding_invoice_payment_failed($data) {
+        try {
+            app(\App\Services\OpsOnboardingPaymentService::class)->failGatewayAttempt($data);
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
+
+        return true;
+    }
+}
+
 
 
 if (! function_exists('order_failed')) {

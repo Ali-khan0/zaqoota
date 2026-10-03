@@ -39,6 +39,7 @@
                             <option value="unpaid" @selected(request('payment_status') === 'unpaid')>{{ translate('Unpaid') }}</option>
                             <option value="due_soon" @selected(request('payment_status') === 'due_soon')>{{ translate('Due Soon') }}</option>
                             <option value="overdue" @selected(request('payment_status') === 'overdue')>{{ translate('Overdue') }}</option>
+                            <option value="refunded" @selected(request('payment_status') === 'refunded')>{{ translate('Refunded') }}</option>
                             <option value="void" @selected(request('payment_status') === 'void')>{{ translate('Void') }}</option>
                         </select>
                     </div>
@@ -72,7 +73,7 @@
                         <td>{{ $invoice->module_name }}</td>
                         <td>{{ $invoice->invoice_date->format('d M Y') }}<br><small class="text-muted">{{ translate('Due') }}: {{ $invoice->due_date->format('d M Y') }}</small></td>
                         <td class="font-weight-bold">{{ \App\CentralLogics\Helpers::format_currency($invoice->amount) }}</td>
-                        @php($statusColor = ['paid' => 'success', 'unpaid' => 'warning', 'due_soon' => 'info', 'overdue' => 'danger', 'void' => 'secondary'][$invoice->display_status] ?? 'secondary')
+                        @php($statusColor = ['paid' => 'success', 'refunded' => 'info', 'unpaid' => 'warning', 'due_soon' => 'info', 'overdue' => 'danger', 'void' => 'secondary'][$invoice->display_status] ?? 'secondary')
                         <td><span class="badge badge-soft-{{ $statusColor }}">{{ ucwords(str_replace('_', ' ', $invoice->display_status)) }}</span></td>
                         <td><span class="badge badge-soft-{{ $invoice->send_status === 'sent' ? 'success' : ($invoice->send_status === 'failed' ? 'danger' : 'secondary') }}">{{ str_replace('_', ' ', ucfirst($invoice->send_status)) }}</span></td>
                         <td class="text-center">

@@ -16,6 +16,7 @@ use App\Http\Middleware\Localization;
 use App\Http\Middleware\LocalizationMiddleware;
 use App\Http\Middleware\ModuleCheckMiddleware;
 use App\Http\Middleware\ModulePermissionMiddleware;
+use App\Http\Middleware\OpsManagerAccess;
 use App\Http\Middleware\ProviderRentalModuleCheckMiddleware;
 use App\Http\Middleware\ReactValid;
 use App\Http\Middleware\RedirectIfAuthenticated;
@@ -94,6 +95,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'verified' => EnsureEmailIsVerified::class,
             'module-check' => ModuleCheckMiddleware::class,
             'current-module' => CurrentModule::class,
+            'ops.manager' => OpsManagerAccess::class,
             'admin-rental-module' => AdminRentalModuleCheckMiddleware::class,
             'provider-rental-module' => ProviderRentalModuleCheckMiddleware::class,
         ]);

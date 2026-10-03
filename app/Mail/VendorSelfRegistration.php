@@ -52,6 +52,7 @@ class VendorSelfRegistration extends Mailable
         $body = Helpers::text_variable_data_format( value:$data['body']??'',store_name:$store_name??'');
         $footer_text = Helpers::text_variable_data_format( value:$data['footer_text']??'',store_name:$store_name??'');
         $copyright_text = Helpers::text_variable_data_format( value:$data['copyright_text']??'',store_name:$store_name??'');
-        return $this->subject(translate('New_Store_Registration'))->view('email-templates.new-email-format-'.$template, ['company_name'=>$company_name,'data'=>$data,'title'=>$title,'body'=>$body,'footer_text'=>$footer_text,'copyright_text'=>$copyright_text,'url'=>$url]);
+        $subject = trim((string) preg_replace('/\s+/', ' ', strip_tags($title ?: translate('New_Store_Registration'))));
+        return $this->subject($subject)->view('email-templates.new-email-format-'.$template, ['company_name'=>$company_name,'data'=>$data,'title'=>$title,'body'=>$body,'footer_text'=>$footer_text,'copyright_text'=>$copyright_text,'url'=>$url]);
     }
 }

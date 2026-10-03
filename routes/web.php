@@ -16,6 +16,8 @@ use App\Http\Controllers\FlutterwaveV3Controller;
 use App\Http\Controllers\PaypalPaymentController;
 use App\Http\Controllers\StripePaymentController;
 use App\Http\Controllers\SslCommerzPaymentController;
+use App\Http\Controllers\OnboardingInvoiceCheckoutController;
+use App\Http\Controllers\OnboardingVendorPasswordSetupController;
 use Illuminate\Support\Facades\Http;
 
 /*
@@ -80,6 +82,23 @@ Route::group(['prefix' => 'payment-mobile'], function () {
 Route::get('payment-success', 'PaymentController@success')->name('payment-success');
 Route::get('payment-fail', 'PaymentController@fail')->name('payment-fail');
 Route::get('payment-cancel', 'PaymentController@cancel')->name('payment-cancel');
+
+Route::middleware(['signed', 'throttle:30,1'])->group(function () {
+    Route::get('onboarding-invoice/checkout/{token}', [OnboardingInvoiceCheckoutController::class, 'show'])
+        ->name('onboarding-invoice.checkout');
+    Route::post('onboarding-invoice/checkout/{token}', [OnboardingInvoiceCheckoutController::class, 'pay'])
+        ->name('onboarding-invoice.checkout.pay');
+});
+Route::get('onboarding-invoice/payment-return/{token}', [OnboardingInvoiceCheckoutController::class, 'result'])
+    ->middleware('throttle:60,1')
+    ->name('onboarding-invoice.checkout.result');
+
+Route::middleware(['signed', 'throttle:20,1'])->group(function () {
+    Route::get('onboarding-vendor/password-setup/{token}', [OnboardingVendorPasswordSetupController::class, 'show'])
+        ->name('onboarding-vendor.password-setup');
+    Route::post('onboarding-vendor/password-setup/{token}', [OnboardingVendorPasswordSetupController::class, 'store'])
+        ->name('onboarding-vendor.password-setup.store');
+});
 
 $is_published = 0;
 try {

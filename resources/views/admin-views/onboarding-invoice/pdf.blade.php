@@ -23,6 +23,7 @@
         .total td { padding: 10px 0; font-size: 15px; font-weight: bold; border-bottom: 2px solid #0d988d; }
         .footer { margin-top: 54px; padding-top: 18px; border-top: 1px solid #dbe9e7; color: #718096; line-height: 1.6; }
         .note { margin-top: 28px; padding: 14px; background: #f7fafb; border-left: 3px solid #0d988d; }
+        .checkout { margin-top: 20px; padding: 15px; background: #edf8f7; text-align: center; }
     </style>
 </head>
 <body>
@@ -60,6 +61,9 @@
         <table class="total"><tr><td>Total</td><td class="right">{{ \App\CentralLogics\Helpers::format_currency($invoice->amount) }}</td></tr></table>
         @if($invoice->public_note)<div class="note"><strong>Note</strong><br>{{ $invoice->public_note }}</div>@endif
         @if($invoice->payment_status === 'unpaid' && !$invoice->voided_at)<div class="note"><strong>Payment Details</strong><br>Bank: {{ $bankDetails['bank_name'] }}<br>Account title: {{ $bankDetails['account_title'] }}<br>IBAN: {{ $bankDetails['iban'] }}<br>Account number: {{ $bankDetails['account_number'] }}<br><span class="muted">Please use {{ $invoice->invoice_number }} as your payment reference.</span></div>@endif
+        @if(!empty($checkoutUrl) && $invoice->payment_status === 'unpaid' && !$invoice->voided_at)
+        <div class="checkout"><strong>Pay online securely</strong><br><barcode code="{{ $checkoutUrl }}" type="QR" size="1.1" error="M" disableborder="1" /><br><span class="muted">Scan the QR code or open the secure payment link in the invoice email.</span></div>
+        @endif
         @if($invoice->payment_status === 'paid' && $invoice->payment_method)<div class="note"><strong>Payment</strong><br>{{ $invoice->payment_method }}@if($invoice->payment_reference) · {{ $invoice->payment_reference }}@endif</div>@endif
         @if($invoice->voided_at)<div class="note" style="border-color:#c0392b;"><strong>VOID</strong><br>{{ $invoice->void_reason }}</div>@endif
 

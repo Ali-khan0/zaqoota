@@ -9,19 +9,30 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class OnboardingInvoice extends Model
 {
     public const TYPE_ONBOARDING = 'onboarding';
+
     public const TYPE_OTHER = 'other';
+
     public const PAYMENT_PAID = 'paid';
+
     public const PAYMENT_UNPAID = 'unpaid';
+
+    public const PAYMENT_REFUNDED = 'refunded';
+
     public const SEND_SENT = 'sent';
+
     public const SEND_NOT_SENT = 'not_sent';
+
     public const SEND_FAILED = 'failed';
 
     protected $fillable = [
         'module_id', 'store_id', 'invoice_number', 'invoice_type', 'invoice_date',
+        'onboarding_application_id',
         'due_date', 'amount', 'public_note', 'private_note', 'module_name', 'store_name', 'store_owner_name', 'store_email', 'recipient_emails',
         'store_address', 'payment_status', 'send_status', 'sent_at', 'paid_at',
         'last_send_error', 'last_reminder_at', 'payment_method', 'payment_reference', 'paid_by',
+        'payment_proof_disk', 'payment_proof_path', 'payment_proof_name', 'payment_proof_mime', 'payment_proof_size',
         'voided_at', 'void_reason', 'voided_by', 'created_by', 'generated_by_name',
+        'refunded_at', 'refund_reference', 'refund_reason', 'refunded_by',
     ];
 
     protected $casts = [
@@ -33,6 +44,17 @@ class OnboardingInvoice extends Model
         'paid_at' => 'datetime',
         'voided_at' => 'datetime',
         'last_reminder_at' => 'datetime',
+        'payment_proof_size' => 'integer',
+        'refunded_at' => 'datetime',
+    ];
+
+    protected $hidden = [
+        'onboarding_application_id',
+        'payment_proof_disk',
+        'payment_proof_path',
+        'payment_proof_name',
+        'payment_proof_mime',
+        'payment_proof_size',
     ];
 
     public function module(): BelongsTo
@@ -45,9 +67,24 @@ class OnboardingInvoice extends Model
         return $this->belongsTo(Store::class);
     }
 
+    public function onboardingApplication(): BelongsTo
+    {
+        return $this->belongsTo(OnboardingApplication::class);
+    }
+
     public function creator(): BelongsTo
     {
         return $this->belongsTo(Admin::class, 'created_by');
+    }
+
+    public function paymentVerifier(): BelongsTo
+    {
+        return $this->belongsTo(Admin::class, 'paid_by');
+    }
+
+    public function refundVerifier(): BelongsTo
+    {
+        return $this->belongsTo(Admin::class, 'refunded_by');
     }
 
     public function items(): HasMany
@@ -65,6 +102,21 @@ class OnboardingInvoice extends Model
         return $this->hasMany(OnboardingInvoiceEvent::class);
     }
 
+    public function financeLedger(): HasMany
+    {
+        return $this->hasMany(OpsManagerFinanceLedger::class);
+    }
+
+    public function checkoutTokens(): HasMany
+    {
+        return $this->hasMany(OnboardingInvoiceCheckoutToken::class);
+    }
+
+    public function paymentAttempts(): HasMany
+    {
+        return $this->hasMany(OnboardingInvoicePaymentAttempt::class);
+    }
+
     public function getDisplayStatusAttribute(): string
     {
         if ($this->voided_at) {
@@ -72,6 +124,9 @@ class OnboardingInvoice extends Model
         }
         if ($this->payment_status === self::PAYMENT_PAID) {
             return 'paid';
+        }
+        if ($this->payment_status === self::PAYMENT_REFUNDED) {
+            return 'refunded';
         }
         if ($this->due_date->isPast()) {
             return 'overdue';

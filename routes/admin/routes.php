@@ -1,63 +1,64 @@
 <?php
 
-use App\Enums\ViewPaths\Admin\Unit;
-use App\Enums\ViewPaths\Admin\Zone;
 use App\Enums\ViewPaths\Admin\Addon;
-use App\Enums\ViewPaths\Admin\Brand;
+use App\Enums\ViewPaths\Admin\Attribute;
 use App\Enums\ViewPaths\Admin\Banner;
-use App\Enums\ViewPaths\Admin\Coupon;
-use App\Enums\ViewPaths\Admin\Module;
-use Illuminate\Support\Facades\Route;
+use App\Enums\ViewPaths\Admin\Brand;
 use App\Enums\ViewPaths\Admin\CashBack;
 use App\Enums\ViewPaths\Admin\Category;
-use App\Enums\ViewPaths\Admin\Employee;
-use App\Enums\ViewPaths\Admin\Attribute;
-use App\Enums\ViewPaths\Admin\DmVehicle;
+use App\Enums\ViewPaths\Admin\CommonCondition;
+use App\Enums\ViewPaths\Admin\Coupon;
 use App\Enums\ViewPaths\Admin\CustomRole;
 use App\Enums\ViewPaths\Admin\DeliveryMan;
-use App\Enums\ViewPaths\Admin\WalletBonus;
+use App\Enums\ViewPaths\Admin\DmVehicle;
+use App\Enums\ViewPaths\Admin\Employee;
+use App\Enums\ViewPaths\Admin\Module;
 use App\Enums\ViewPaths\Admin\Notification;
-use App\Enums\ViewPaths\Admin\CommonCondition;
-use App\Http\Controllers\Admin\VendorController;
-use App\Http\Controllers\Admin\Item\UnitController;
-use App\Http\Controllers\Admin\Zone\ZoneController;
-use App\Http\Controllers\Admin\Item\AddonController;
-use App\Http\Controllers\Admin\Item\BrandController;
+use App\Enums\ViewPaths\Admin\Unit;
+use App\Enums\ViewPaths\Admin\WalletBonus;
+use App\Enums\ViewPaths\Admin\Zone;
 use App\Http\Controllers\Admin\Banner\BannerController;
 use App\Http\Controllers\Admin\Coupon\CouponController;
-use App\Http\Controllers\Admin\Item\CategoryController;
-use App\Http\Controllers\Admin\Module\ModuleController;
-use App\Http\Controllers\Admin\Item\AttributeController;
-use App\Http\Controllers\Admin\Employee\EmployeeController;
-use App\Http\Controllers\Admin\Promotion\CashBackController;
-use App\Http\Controllers\Admin\Employee\CustomRoleController;
 use App\Http\Controllers\Admin\Customer\WalletBonusController;
-use App\Http\Controllers\Admin\Item\CommonConditionController;
-use App\Http\Controllers\Admin\DeliveryMan\DmVehicleController;
 use App\Http\Controllers\Admin\DeliveryMan\DeliveryManController;
-use App\Http\Controllers\Admin\DeliveryMan\DmRegistrationFeeController;
 use App\Http\Controllers\Admin\DeliveryMan\DmMilestoneBonusController;
+use App\Http\Controllers\Admin\DeliveryMan\DmRegistrationFeeController;
+use App\Http\Controllers\Admin\DeliveryMan\DmVehicleController;
 use App\Http\Controllers\Admin\DeliveryMan\FleetManagerController;
+use App\Http\Controllers\Admin\Employee\CustomRoleController;
+use App\Http\Controllers\Admin\Employee\EmployeeController;
+use App\Http\Controllers\Admin\Employee\OnboardingManagerController;
 use App\Http\Controllers\Admin\Item\AddonCategoryController;
-use App\Http\Controllers\Admin\Promotion\AdvertisementController;
+use App\Http\Controllers\Admin\Item\AddonController;
+use App\Http\Controllers\Admin\Item\AttributeController;
+use App\Http\Controllers\Admin\Item\BrandController;
+use App\Http\Controllers\Admin\Item\CategoryController;
+use App\Http\Controllers\Admin\Item\CommonConditionController;
+use App\Http\Controllers\Admin\Item\UnitController;
+use App\Http\Controllers\Admin\Module\ModuleController;
 use App\Http\Controllers\Admin\Notification\NotificationController;
+use App\Http\Controllers\Admin\Promotion\AdvertisementController;
+use App\Http\Controllers\Admin\Promotion\CashBackController;
+use App\Http\Controllers\Admin\RideHailing\RideBannerController;
+use App\Http\Controllers\Admin\RideHailing\RideCancellationReasonController;
+use App\Http\Controllers\Admin\RideHailing\RideCouponController;
+use App\Http\Controllers\Admin\RideHailing\RideHailingController;
+use App\Http\Controllers\Admin\RideHailing\RideHailingSettingController;
+use App\Http\Controllers\Admin\RideHailing\RideNotificationSettingController;
+use App\Http\Controllers\Admin\RideHailing\RideOperationController;
+use App\Http\Controllers\Admin\RideHailing\RidePushNotificationController;
 use App\Http\Controllers\Admin\Subscription\SubscriptionController;
 use App\Http\Controllers\Admin\SurgePriceController;
-use App\Http\Controllers\Admin\RideHailing\RideHailingSettingController;
-use App\Http\Controllers\Admin\RideHailing\RideHailingController;
-use App\Http\Controllers\Admin\RideHailing\RideOperationController;
-use App\Http\Controllers\Admin\RideHailing\RideCouponController;
-use App\Http\Controllers\Admin\RideHailing\RideBannerController;
-use App\Http\Controllers\Admin\RideHailing\RidePushNotificationController;
-use App\Http\Controllers\Admin\RideHailing\RideNotificationSettingController;
-use App\Http\Controllers\Admin\RideHailing\RideCancellationReasonController;
+use App\Http\Controllers\Admin\VendorController;
+use App\Http\Controllers\Admin\Zone\ZoneController;
+use Illuminate\Support\Facades\Route;
 
 Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
 
     Route::get(Zone::GET_COORDINATES[URI].'/{id}', [ZoneController::class, 'getCoordinates'])->name('zone.get-coordinates');
     Route::get(Zone::GET_ALL_ZONE_COORDINATES[URI].'/{id?}', [ZoneController::class, 'getAllZoneCoordinates'])->name('zone.zoneCoordinates');
 
-    Route::group(['middleware' => ['admin', 'current-module','actch:admin_panel']], function () {
+    Route::group(['middleware' => ['admin', 'current-module', 'actch:admin_panel']], function () {
 
         Route::group(['prefix' => 'ride-hailing', 'as' => 'ride-hailing.', 'middleware' => ['module:settings']], function () {
             Route::get('/', [RideHailingController::class, 'dashboard'])->name('dashboard');
@@ -115,7 +116,7 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
         Route::get('recent-search', 'SearchRoutingController@recentSearch')->name('recent.search');
         Route::post('store-clicked-route', 'SearchRoutingController@storeClickedRoute')->name('store.clicked.route');
 
-        Route::get('store/get-store-ratings', [VendorController::class,'get_store_ratings'])->name('store.get-store-ratings');
+        Route::get('store/get-store-ratings', [VendorController::class, 'get_store_ratings'])->name('store.get-store-ratings');
         Route::group(['prefix' => 'category', 'as' => 'category.'], function () {
             Route::get(Category::NAME_LIST[URI], [CategoryController::class, 'getNameList'])->name('get-all');
             Route::group(['middleware' => ['module:category']], function () {
@@ -129,7 +130,7 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
                 Route::delete(Category::DELETE[URI].'/{id}', [CategoryController::class, 'delete'])->name('delete');
                 Route::get(Category::EXPORT[URI], [CategoryController::class, 'exportList'])->name('export-categories');
 
-                //Import and export
+                // Import and export
                 Route::get(Category::BULK_IMPORT[URI], [CategoryController::class, 'getBulkImportView'])->name('bulk-import');
                 Route::post(Category::BULK_IMPORT[URI], [CategoryController::class, 'importBulkData']);
                 Route::post(Category::BULK_UPDATE[URI], [CategoryController::class, 'updateBulkData'])->name('bulk-update');
@@ -175,7 +176,7 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
             Route::get(Addon::EXPORT[URI], [AddonController::class, 'exportList'])->name('export');
             Route::get(Addon::UPDATE_STATUS[URI].'/{id}/{status}', [AddonController::class, 'updateStatus'])->name('status');
 
-            //Import and export
+            // Import and export
             Route::get(Addon::BULK_IMPORT[URI], [AddonController::class, 'getBulkImportView'])->name('bulk-import');
             Route::post(Addon::BULK_IMPORT[URI], [AddonController::class, 'importBulkData']);
             Route::post(Addon::BULK_UPDATE[URI], [AddonController::class, 'updateBulkData'])->name('bulk-update');
@@ -184,14 +185,14 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
         });
 
         Route::group(['prefix' => 'banner', 'as' => 'banner.', 'middleware' => ['module:banner']], function () {
-            Route::get(Banner::INDEX[URI], [BannerController::class,'index'])->name('add-new');
-            Route::post(Banner::ADD[URI], [BannerController::class,'add'])->name('store');
-            Route::get(Banner::UPDATE[URI].'/{id}', [BannerController::class,'getUpdateView'])->name('edit');
-            Route::post(Banner::UPDATE[URI].'/{id}', [BannerController::class,'update'])->name('update');
-            Route::delete(Banner::DELETE[URI].'/{id}', [BannerController::class,'delete'])->name('delete');
-            Route::get(Banner::UPDATE_STATUS[URI].'/{id}/{status}', [BannerController::class,'updateStatus'])->name('status');
-            Route::get(Banner::UPDATE_FEATURED[URI].'/{id}/{status}', [BannerController::class,'updateFeatured'])->name('featured');
-            Route::post(Banner::SEARCH[URI], [BannerController::class,'getSearchList'])->name('search');
+            Route::get(Banner::INDEX[URI], [BannerController::class, 'index'])->name('add-new');
+            Route::post(Banner::ADD[URI], [BannerController::class, 'add'])->name('store');
+            Route::get(Banner::UPDATE[URI].'/{id}', [BannerController::class, 'getUpdateView'])->name('edit');
+            Route::post(Banner::UPDATE[URI].'/{id}', [BannerController::class, 'update'])->name('update');
+            Route::delete(Banner::DELETE[URI].'/{id}', [BannerController::class, 'delete'])->name('delete');
+            Route::get(Banner::UPDATE_STATUS[URI].'/{id}/{status}', [BannerController::class, 'updateStatus'])->name('status');
+            Route::get(Banner::UPDATE_FEATURED[URI].'/{id}/{status}', [BannerController::class, 'updateFeatured'])->name('featured');
+            Route::post(Banner::SEARCH[URI], [BannerController::class, 'getSearchList'])->name('search');
         });
 
         Route::group(['prefix' => 'coupon', 'as' => 'coupon.', 'middleware' => ['module:coupon']], function () {
@@ -200,7 +201,7 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
             Route::get(Coupon::UPDATE[URI].'/{id}', [CouponController::class, 'getUpdateView'])->name('edit');
             Route::post(Coupon::UPDATE[URI].'/{id}', [CouponController::class, 'update'])->name('update');
             Route::delete(Coupon::DELETE[URI].'/{id}', [CouponController::class, 'delete'])->name('delete');
-            Route::get(Coupon::STATUS[URI].'/{id}/{status}', [CouponController::class,'updateStatus'])->name('status');
+            Route::get(Coupon::STATUS[URI].'/{id}/{status}', [CouponController::class, 'updateStatus'])->name('status');
             Route::get(Coupon::EXPORT[URI], [CouponController::class, 'exportList'])->name('coupon_export');
             Route::get('view/{id}', [CouponController::class, 'viewCoupon'])->name('viewCoupon');
         });
@@ -211,7 +212,7 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
             Route::get(Notification::UPDATE[URI].'/{id}', [NotificationController::class, 'getUpdateView'])->name('edit');
             Route::post(Notification::UPDATE[URI].'/{id}', [NotificationController::class, 'update'])->name('update');
             Route::delete(Notification::DELETE[URI].'/{id}', [NotificationController::class, 'delete'])->name('delete');
-            Route::get(Notification::STATUS[URI].'/{id}/{status}', [NotificationController::class,'updateStatus'])->name('status');
+            Route::get(Notification::STATUS[URI].'/{id}/{status}', [NotificationController::class, 'updateStatus'])->name('status');
             Route::get(Notification::EXPORT[URI], [NotificationController::class, 'exportList'])->name('export');
         });
 
@@ -222,7 +223,7 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
             Route::get(CommonCondition::UPDATE[URI].'/{id}', [CommonConditionController::class, 'getUpdateView'])->name('edit');
             Route::post(CommonCondition::UPDATE[URI].'/{id}', [CommonConditionController::class, 'update'])->name('update');
             Route::delete(CommonCondition::DELETE[URI].'/{id}', [CommonConditionController::class, 'delete'])->name('delete');
-            Route::get(CommonCondition::STATUS[URI].'/{id}/{status}', [CommonConditionController::class,'updateStatus'])->name('status');
+            Route::get(CommonCondition::STATUS[URI].'/{id}/{status}', [CommonConditionController::class, 'updateStatus'])->name('status');
         });
 
         Route::group(['prefix' => 'brand', 'as' => 'brand.'], function () {
@@ -231,64 +232,59 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
             Route::post(Brand::ADD[URI], [BrandController::class, 'add'])->name('store');
             Route::post(Brand::UPDATE[URI].'/{id}', [BrandController::class, 'update'])->name('update');
             Route::delete(Brand::DELETE[URI].'/{id}', [BrandController::class, 'delete'])->name('delete');
-            Route::get(Brand::STATUS[URI].'/{id}/{status}', [BrandController::class,'updateStatus'])->name('status');
-            Route::post('module-upadte', [BrandController::class,'moduleUpadte'])->name('moduleUpadte');
-            Route::get('get-brand-data', [BrandController::class,'getBrandData'])->name('getBrandData');
+            Route::get(Brand::STATUS[URI].'/{id}/{status}', [BrandController::class, 'updateStatus'])->name('status');
+            Route::post('module-upadte', [BrandController::class, 'moduleUpadte'])->name('moduleUpadte');
+            Route::get('get-brand-data', [BrandController::class, 'getBrandData'])->name('getBrandData');
         });
 
+        Route::group(['prefix' => 'advertisement', 'as' => 'advertisement.', 'middleware' => ['module:advertisement']], function () {
 
-        Route::group([ 'prefix' => 'advertisement', 'as' => 'advertisement.' ,'middleware' => ['module:advertisement']], function () {
+            Route::get('/', [AdvertisementController::class, 'index'])->name('index');
+            Route::get('create/', [AdvertisementController::class, 'create'])->name('create');
+            Route::get('details/{advertisement}', [AdvertisementController::class, 'show'])->name('show');
+            Route::get('{advertisement}/edit', [AdvertisementController::class, 'edit'])->name('edit');
+            Route::post('store', [AdvertisementController::class, 'store'])->name('store');
+            Route::put('update/{advertisement}', [AdvertisementController::class, 'update'])->name('update');
+            Route::delete('delete/{id}', [AdvertisementController::class, 'destroy'])->name('destroy');
 
-            Route::get('/', [AdvertisementController::class,'index'])->name('index');
-            Route::get('create/', [AdvertisementController::class,'create'])->name('create');
-            Route::get('details/{advertisement}', [AdvertisementController::class,'show'])->name('show');
-            Route::get('{advertisement}/edit', [AdvertisementController::class,'edit'])->name('edit');
-            Route::post('store', [AdvertisementController::class,'store'])->name('store');
-            Route::put('update/{advertisement}', [AdvertisementController::class,'update'])->name('update');
-            Route::delete('delete/{id}', [AdvertisementController::class,'destroy'])->name('destroy');
-
-            Route::get('/status', [AdvertisementController::class,'status'])->name('status');
-            Route::get('/paidStatus', [AdvertisementController::class,'paidStatus'])->name('paidStatus');
-            Route::get('/priority', [AdvertisementController::class,'priority'])->name('priority');
-            Route::get('/requests', [AdvertisementController::class,'requestList'])->name('requestList');
-            Route::get('/copy-advertisement/{advertisement}', [AdvertisementController::class,'copyAdd'])->name('copyAdd');
-            Route::get('/updateDate/{advertisement}', [AdvertisementController::class,'updateDate'])->name('updateDate');
-            Route::post('/copy-add-post/{advertisement}', [AdvertisementController::class,'copyAddPost'])->name('copyAddPost');
+            Route::get('/status', [AdvertisementController::class, 'status'])->name('status');
+            Route::get('/paidStatus', [AdvertisementController::class, 'paidStatus'])->name('paidStatus');
+            Route::get('/priority', [AdvertisementController::class, 'priority'])->name('priority');
+            Route::get('/requests', [AdvertisementController::class, 'requestList'])->name('requestList');
+            Route::get('/copy-advertisement/{advertisement}', [AdvertisementController::class, 'copyAdd'])->name('copyAdd');
+            Route::get('/updateDate/{advertisement}', [AdvertisementController::class, 'updateDate'])->name('updateDate');
+            Route::post('/copy-add-post/{advertisement}', [AdvertisementController::class, 'copyAddPost'])->name('copyAddPost');
 
         });
-
 
         Route::group(['prefix' => 'business-settings', 'as' => 'business-settings.'], function () {
 
-            Route::group(['prefix' => 'subscription' ,'middleware' => ['module:subscription']], function () {
+            Route::group(['prefix' => 'subscription', 'middleware' => ['module:subscription']], function () {
 
                 Route::resource('subscriptionackage', SubscriptionController::class);
-                Route::get('/status/{subscriptionackage}',  [SubscriptionController::class, 'statusChange'])->name('subscriptionackage.status');
-                Route::get('/overView/{subscriptionackage}',  [SubscriptionController::class, 'overView'])->name('subscriptionackage.overView');
-                Route::get('/transaction/{subscriptionackage}',  [SubscriptionController::class, 'transaction'])->name('subscriptionackage.transaction');
-                Route::get('/settings',  [SubscriptionController::class, 'settings'])->name('subscriptionackage.settings');
-                Route::get('/trial-status',  [SubscriptionController::class, 'trialStatus'])->name('subscriptionackage.trialStatus');
-                Route::post('/setting-update',  [SubscriptionController::class, 'settingUpdate'])->name('subscriptionackage.settingUpdate');
-                Route::get('/invoice/{id}',  [SubscriptionController::class, 'invoice'])->name('subscriptionackage.invoice');
-                Route::post('/switch-plan',  [SubscriptionController::class, 'switchPlan'])->name('subscriptionackage.switchPlan');
-                Route::get('/package-export',  [SubscriptionController::class, 'packageExport'])->name('subscriptionackage.packageExport');
-                Route::get('/transaction-export',  [SubscriptionController::class, 'TransactionExport'])->name('subscriptionackage.TransactionExport');
+                Route::get('/status/{subscriptionackage}', [SubscriptionController::class, 'statusChange'])->name('subscriptionackage.status');
+                Route::get('/overView/{subscriptionackage}', [SubscriptionController::class, 'overView'])->name('subscriptionackage.overView');
+                Route::get('/transaction/{subscriptionackage}', [SubscriptionController::class, 'transaction'])->name('subscriptionackage.transaction');
+                Route::get('/settings', [SubscriptionController::class, 'settings'])->name('subscriptionackage.settings');
+                Route::get('/trial-status', [SubscriptionController::class, 'trialStatus'])->name('subscriptionackage.trialStatus');
+                Route::post('/setting-update', [SubscriptionController::class, 'settingUpdate'])->name('subscriptionackage.settingUpdate');
+                Route::get('/invoice/{id}', [SubscriptionController::class, 'invoice'])->name('subscriptionackage.invoice');
+                Route::post('/switch-plan', [SubscriptionController::class, 'switchPlan'])->name('subscriptionackage.switchPlan');
+                Route::get('/package-export', [SubscriptionController::class, 'packageExport'])->name('subscriptionackage.packageExport');
+                Route::get('/transaction-export', [SubscriptionController::class, 'TransactionExport'])->name('subscriptionackage.TransactionExport');
 
-                Route::get('/subscriber-list',  [SubscriptionController::class, 'subscriberList'])->name('subscriptionackage.subscriberList');
-                Route::get('/subscriber-list-export',  [SubscriptionController::class, 'subscriberListExport'])->name('subscriptionackage.subscriberListExport');
-                Route::get('/subscriber-transaction-export',  [SubscriptionController::class, 'subscriberTransactionExport'])->name('subscriptionackage.subscriberTransactionExport');
-                Route::post('/cancel-subscription/{id}',  [SubscriptionController::class, 'cancelSubscription'])->name('subscriptionackage.cancelSubscription');
-                Route::post('/switch-to-commission/{id}',  [SubscriptionController::class, 'switchToCommission'])->name('subscriptionackage.switchToCommission');
-                Route::get('/subscriber-detail/{id}',  [SubscriptionController::class, 'subscriberDetail'])->name('subscriptionackage.subscriberDetail');
-                Route::get('/package-view/{id}/{store_id}',  [SubscriptionController::class, 'packageView'])->name('subscriptionackage.packageView');
-                Route::get('/subscriber-transactions/{id}',  [SubscriptionController::class, 'subscriberTransactions'])->name('subscriptionackage.subscriberTransactions');
-                Route::get('/subscriber-wallet-transactions/{id}',  [SubscriptionController::class, 'subscriberWalletTransactions'])->name('subscriptionackage.subscriberWalletTransactions');
+                Route::get('/subscriber-list', [SubscriptionController::class, 'subscriberList'])->name('subscriptionackage.subscriberList');
+                Route::get('/subscriber-list-export', [SubscriptionController::class, 'subscriberListExport'])->name('subscriptionackage.subscriberListExport');
+                Route::get('/subscriber-transaction-export', [SubscriptionController::class, 'subscriberTransactionExport'])->name('subscriptionackage.subscriberTransactionExport');
+                Route::post('/cancel-subscription/{id}', [SubscriptionController::class, 'cancelSubscription'])->name('subscriptionackage.cancelSubscription');
+                Route::post('/switch-to-commission/{id}', [SubscriptionController::class, 'switchToCommission'])->name('subscriptionackage.switchToCommission');
+                Route::get('/subscriber-detail/{id}', [SubscriptionController::class, 'subscriberDetail'])->name('subscriptionackage.subscriberDetail');
+                Route::get('/package-view/{id}/{store_id}', [SubscriptionController::class, 'packageView'])->name('subscriptionackage.packageView');
+                Route::get('/subscriber-transactions/{id}', [SubscriptionController::class, 'subscriberTransactions'])->name('subscriptionackage.subscriberTransactions');
+                Route::get('/subscriber-wallet-transactions/{id}', [SubscriptionController::class, 'subscriberWalletTransactions'])->name('subscriptionackage.subscriberWalletTransactions');
 
-                Route::post('/package-buy',  [SubscriptionController::class, 'packageBuy'])->name('subscriptionackage.packageBuy');
+                Route::post('/package-buy', [SubscriptionController::class, 'packageBuy'])->name('subscriptionackage.packageBuy');
             });
-
-
-
 
             Route::group(['prefix' => 'zone', 'as' => 'zone.', 'middleware' => ['module:zone']], function () {
                 Route::get(Zone::INDEX[URI], [ZoneController::class, 'index'])->name('home');
@@ -355,6 +351,15 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
         });
 
         Route::group(['prefix' => 'users', 'as' => 'users.'], function () {
+            Route::group(['prefix' => 'onboarding-applications', 'as' => 'onboarding-applications.', 'middleware' => ['module:store']], function () {
+                Route::get('/', [\App\Http\Controllers\Admin\OnboardingApplicationController::class, 'index'])->name('index');
+                Route::get('data-entry', [\App\Http\Controllers\Admin\OnboardingApplicationController::class, 'dataQueue'])->name('data-queue');
+                Route::post('{application}/data-entry', [\App\Http\Controllers\Admin\OnboardingApplicationController::class, 'dataEntry'])->name('data-entry');
+                Route::post('{application}/approve', [\App\Http\Controllers\Admin\OnboardingApplicationController::class, 'approve'])->middleware('module:report')->name('approve');
+                Route::get('{application}', [\App\Http\Controllers\Admin\OnboardingApplicationController::class, 'show'])->name('show');
+                Route::get('{application}/media/{media}', [\App\Http\Controllers\Admin\OnboardingApplicationController::class, 'media'])->name('media');
+                Route::post('{application}/review', [\App\Http\Controllers\Admin\OnboardingApplicationController::class, 'review'])->middleware('module:report')->name('review');
+            });
             Route::group(['prefix' => 'custom-role', 'as' => 'custom-role.', 'middleware' => ['module:custom_role']], function () {
                 Route::get(CustomRole::ADD[URI], [CustomRoleController::class, 'index'])->name('create');
                 Route::post(CustomRole::ADD[URI], [CustomRoleController::class, 'add'])->name('store');
@@ -375,28 +380,34 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
                 Route::get(Employee::EXPORT[URI], [EmployeeController::class, 'exportList'])->name('export');
             });
 
+            Route::group(['prefix' => 'onboarding-managers', 'as' => 'onboarding-manager.', 'middleware' => ['module:employee']], function () {
+                Route::get('/', [OnboardingManagerController::class, 'index'])->name('index');
+                Route::get('{manager}', [OnboardingManagerController::class, 'show'])->name('show');
+                Route::put('{manager}/status', [OnboardingManagerController::class, 'updateStatus'])->name('status');
+            });
+
             // customer routes
             Route::group(['prefix' => 'customer', 'as' => 'customer.'], function () {
                 Route::group(['prefix' => 'wallet', 'as' => 'wallet.', 'middleware' => ['module:customer_management']], function () {
                     Route::group(['prefix' => 'bonus', 'as' => 'bonus.'], function () {
-                        Route::get(WalletBonus::INDEX[URI], [WalletBonusController::class,'index'])->name('add-new');
-                        Route::post(WalletBonus::ADD[URI], [WalletBonusController::class,'add'])->name('store');
-                        Route::get(WalletBonus::UPDATE[URI].'/{id}', [WalletBonusController::class,'getUpdateView'])->name('edit');
-                        Route::post(WalletBonus::UPDATE[URI].'/{id}', [WalletBonusController::class,'update'])->name('update');
-                        Route::delete(WalletBonus::DELETE[URI].'/{id}', [WalletBonusController::class,'delete'])->name('delete');
-                        Route::get(WalletBonus::UPDATE_STATUS[URI].'/{id}/{status}', [WalletBonusController::class,'updateStatus'])->name('status');
-                        Route::post(WalletBonus::SEARCH[URI], [WalletBonusController::class,'getSearchList'])->name('search');
+                        Route::get(WalletBonus::INDEX[URI], [WalletBonusController::class, 'index'])->name('add-new');
+                        Route::post(WalletBonus::ADD[URI], [WalletBonusController::class, 'add'])->name('store');
+                        Route::get(WalletBonus::UPDATE[URI].'/{id}', [WalletBonusController::class, 'getUpdateView'])->name('edit');
+                        Route::post(WalletBonus::UPDATE[URI].'/{id}', [WalletBonusController::class, 'update'])->name('update');
+                        Route::delete(WalletBonus::DELETE[URI].'/{id}', [WalletBonusController::class, 'delete'])->name('delete');
+                        Route::get(WalletBonus::UPDATE_STATUS[URI].'/{id}/{status}', [WalletBonusController::class, 'updateStatus'])->name('status');
+                        Route::post(WalletBonus::SEARCH[URI], [WalletBonusController::class, 'getSearchList'])->name('search');
                     });
                 });
             });
 
-            Route::group(['prefix' => 'cashback', 'as' => 'cashback.' , 'middleware' => ['module:cashback']], function () {
-                Route::get(CashBack::INDEX[URI], [CashBackController::class,'index'])->name('add-new');
-                Route::post(CashBack::ADD[URI], [CashBackController::class,'add'])->name('store');
-                Route::get(CashBack::UPDATE[URI].'/{id}', [CashBackController::class,'getUpdateView'])->name('edit');
-                Route::post(CashBack::UPDATE[URI].'/{id}', [CashBackController::class,'update'])->name('update');
-                Route::delete(CashBack::DELETE[URI].'/{id}', [CashBackController::class,'delete'])->name('delete');
-                Route::get(CashBack::UPDATE_STATUS[URI].'/{id}/{status}', [CashBackController::class,'updateStatus'])->name('status');
+            Route::group(['prefix' => 'cashback', 'as' => 'cashback.', 'middleware' => ['module:cashback']], function () {
+                Route::get(CashBack::INDEX[URI], [CashBackController::class, 'index'])->name('add-new');
+                Route::post(CashBack::ADD[URI], [CashBackController::class, 'add'])->name('store');
+                Route::get(CashBack::UPDATE[URI].'/{id}', [CashBackController::class, 'getUpdateView'])->name('edit');
+                Route::post(CashBack::UPDATE[URI].'/{id}', [CashBackController::class, 'update'])->name('update');
+                Route::delete(CashBack::DELETE[URI].'/{id}', [CashBackController::class, 'delete'])->name('delete');
+                Route::get(CashBack::UPDATE_STATUS[URI].'/{id}/{status}', [CashBackController::class, 'updateStatus'])->name('status');
                 // Route::post(CashBack::SEARCH[URI], [CashBackController::class,'getSearchList'])->name('search');
             });
 
@@ -448,14 +459,14 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
                     Route::get(DeliveryMan::CONVERSATION_DETAILS[URI], [DeliveryManController::class, 'getConversationList'])->name('message-list-search');
 
                     Route::group(['prefix' => 'vehicle', 'as' => 'vehicle.'], function () {
-                        Route::get(DmVehicle::INDEX[URI], [DmVehicleController::class,'index'])->name('list');
-                        Route::get(DmVehicle::ADD[URI], [DmVehicleController::class,'getAddView'])->name('create');
-                        Route::post(DmVehicle::ADD[URI], [DmVehicleController::class,'add'])->name('store');
-                        Route::get(DmVehicle::UPDATE[URI].'/{id}', [DmVehicleController::class,'getUpdateView'])->name('edit');
-                        Route::post(DmVehicle::UPDATE[URI].'/{id}', [DmVehicleController::class,'update'])->name('update');
-                        Route::delete(DmVehicle::DELETE[URI].'/{id}', [DmVehicleController::class,'delete'])->name('delete');
-                        Route::get(DmVehicle::UPDATE_STATUS[URI].'/{id}/{status}', [DmVehicleController::class,'updateStatus'])->name('status');
-                        Route::get(DmVehicle::VIEW[URI].'/{id}', [DmVehicleController::class,'getDetailsView'])->name('view');
+                        Route::get(DmVehicle::INDEX[URI], [DmVehicleController::class, 'index'])->name('list');
+                        Route::get(DmVehicle::ADD[URI], [DmVehicleController::class, 'getAddView'])->name('create');
+                        Route::post(DmVehicle::ADD[URI], [DmVehicleController::class, 'add'])->name('store');
+                        Route::get(DmVehicle::UPDATE[URI].'/{id}', [DmVehicleController::class, 'getUpdateView'])->name('edit');
+                        Route::post(DmVehicle::UPDATE[URI].'/{id}', [DmVehicleController::class, 'update'])->name('update');
+                        Route::delete(DmVehicle::DELETE[URI].'/{id}', [DmVehicleController::class, 'delete'])->name('delete');
+                        Route::get(DmVehicle::UPDATE_STATUS[URI].'/{id}/{status}', [DmVehicleController::class, 'updateStatus'])->name('status');
+                        Route::get(DmVehicle::VIEW[URI].'/{id}', [DmVehicleController::class, 'getDetailsView'])->name('view');
                     });
 
                     Route::get('registration-fee', [DmRegistrationFeeController::class, 'index'])->name('registration-fee');
@@ -481,7 +492,6 @@ Route::group(['namespace' => 'Admin', 'as' => 'admin.'], function () {
                         Route::get('payment/collections', [FleetManagerController::class, 'collections'])->name('collections');
 
                     });
-
 
                     Route::get('milestone-bonus/awards', [DmMilestoneBonusController::class, 'awards'])->name('milestone-bonus.awards');
                     Route::get('milestone-bonus', [DmMilestoneBonusController::class, 'index'])->name('milestone-bonus');

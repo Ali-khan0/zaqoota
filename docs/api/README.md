@@ -18,3 +18,7 @@ current `docs/api/` documentation convention.
 
 The older specifications currently stored under `docs/ap/` remain valid until
 they are migrated as a separate documentation cleanup.
+# Ops configuration
+
+See [Ops settings and compatibility](ops-settings.md) for the additive Ops config
+object, registration policy fields and admin settings behavior.

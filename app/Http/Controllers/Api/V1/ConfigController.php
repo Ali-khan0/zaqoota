@@ -292,6 +292,7 @@ if (addon_published_status('TaxModule')) {
 
 
         return response()->json([
+            'ops' => app(\App\Services\OpsSettingsService::class)->lifecycle(),
             'business_name' => $settings['business_name'],
             'logo' => $settings['logo'],
             'logo_full_url' => Helpers::get_full_url('business', $settings['logo'], $data['logo_storage'] ?? 'public'),
@@ -470,13 +471,30 @@ if (addon_published_status('TaxModule')) {
         $validator = Validator::make($request->all(), [
             'lat' => 'required',
             'lng' => 'required',
+            'module_id' => 'nullable|integer|exists:modules,id',
         ]);
 
         if ($validator->errors()->count() > 0) {
             return response()->json(['errors' => Helpers::error_processor($validator)], 403);
         }
+        $module = $request->filled('module_id')
+            ? Module::query()->active()->commerce()->find($request->module_id)
+            : null;
+        if ($request->filled('module_id') && ! $module) {
+            return response()->json([
+                'errors' => [
+                    ['code' => 'module_id', 'message' => translate('The selected business type is not available.')],
+                ],
+            ], 403);
+        }
+
         $zones = Zone::with('modules')->whereContains('coordinates', new Point($request->lat, $request->lng, POINT_SRID))
-            ->selectRaw('zones.*, ABS(ST_Area(coordinates)) as area')->orderBy('area', 'asc')->latest()->get(['id', 'status', 'cash_on_delivery', 'digital_payment', 'offline_payment']);
+            ->when($module && ! $module->all_zone_service, function ($query) use ($module) {
+                $query->whereHas('modules', function ($moduleQuery) use ($module) {
+                    $moduleQuery->where('modules.id', $module->id);
+                });
+            })
+            ->selectRaw('zones.*, ABS(ST_Area(coordinates)) as area')->orderBy('area', 'asc')->latest()->get(['id', 'name', 'status', 'cash_on_delivery', 'digital_payment', 'offline_payment']);
         if (count($zones) < 1) {
             return response()->json([
                 'errors' => [

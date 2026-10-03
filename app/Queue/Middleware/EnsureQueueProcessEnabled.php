@@ -15,6 +15,9 @@ class EnsureQueueProcessEnabled
         $service = app(QueueProcessService::class);
         if (! $service->enabled($this->process)) {
             $service->recordSkipped($this->process);
+            if (method_exists($job, 'skipped')) {
+                $job->skipped();
+            }
 
             return;
         }

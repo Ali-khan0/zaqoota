@@ -2,24 +2,31 @@
 
 namespace App\Traits;
 
-use Illuminate\Foundation\Application;
-use Illuminate\Contracts\Routing\UrlGenerator;
-use InvalidArgumentException;
 use App\Models\PaymentRequest;
+use Illuminate\Contracts\Routing\UrlGenerator;
+use Illuminate\Foundation\Application;
+use InvalidArgumentException;
 
 trait Payment
 {
     public static function generate_link(object $payer, object $payment_info, object $receiver): Application|bool|string|UrlGenerator|\Illuminate\Contracts\Foundation\Application
     {
+        $payment = self::create_request($payer, $payment_info, $receiver);
+
+        return self::gateway_link($payment);
+    }
+
+    public static function create_request(object $payer, object $payment_info, object $receiver): PaymentRequest
+    {
         if ($payment_info->getPaymentAmount() <= 0) {
             throw new InvalidArgumentException(translate('Payment amount can not be 0'));
         }
 
-        if (!is_array($payment_info->getAdditionalData())) {
+        if (! is_array($payment_info->getAdditionalData())) {
             throw new InvalidArgumentException(translate('Additional data should be in a valid array'));
         }
 
-        $payment = new PaymentRequest();
+        $payment = new PaymentRequest;
         $payment->payment_amount = $payment_info->getPaymentAmount();
         $payment->success_hook = $payment_info->getSuccessHook();
         $payment->failure_hook = $payment_info->getFailureHook();
@@ -36,6 +43,11 @@ trait Payment
         $payment->payment_platform = $payment_info->getPaymentPlatForm();
         $payment->save();
 
+        return $payment;
+    }
+
+    public static function gateway_link(PaymentRequest $payment): Application|bool|string|UrlGenerator|\Illuminate\Contracts\Foundation\Application
+    {
         $routes = [
             'ssl_commerz' => 'payment/sslcommerz/pay',
             'stripe' => 'payment/stripe/pay',

@@ -274,6 +274,12 @@
 
 
                 <!-- Employee-->
+                @if (\App\CentralLogics\Helpers::module_permission_check('store'))
+                <li class="nav-item {{ Request::is('admin/users/onboarding-applications*') ? 'active' : '' }}">
+                    <a class="nav-link" href="{{ route('admin.users.onboarding-applications.index') }}"><i class="tio-shop nav-icon"></i><span>{{ translate('Onboarding applications') }}</span></a>
+                    <a class="nav-link" href="{{ route('admin.users.onboarding-applications.data-queue') }}"><i class="tio-edit nav-icon"></i><span>{{ translate('Paid data-entry queue') }}</span></a>
+                </li>
+                @endif
 
                 <li class="nav-item">
                     <small class="nav-subtitle" title="{{ translate('messages.employee_handle') }}">{{ translate('messages.employee') }}
@@ -291,12 +297,12 @@
                 @endif
 
                 @if (\App\CentralLogics\Helpers::module_permission_check('employee'))
-                <li class="navbar-vertical-aside-has-menu {{ Request::is('admin/users/employee*') ? 'active' : '' }}">
+                <li class="navbar-vertical-aside-has-menu {{ Request::is('admin/users/employee*') || Request::is('admin/users/onboarding-managers*') ? 'active' : '' }}">
                     <a class="js-navbar-vertical-aside-menu-link nav-link nav-link-toggle" href="javascript:" title="{{ translate('messages.Employee') }}">
                         <i class="tio-user nav-icon"></i>
                         <span class="navbar-vertical-aside-mini-mode-hidden-elements text-truncate">{{ translate('messages.employees') }}</span>
                     </a>
-                    <ul class="js-navbar-vertical-aside-submenu nav nav-sub"  style="display:{{ Request::is('admin/users/employee*') ? 'block' : 'none' }}">
+                    <ul class="js-navbar-vertical-aside-submenu nav nav-sub"  style="display:{{ Request::is('admin/users/employee*') || Request::is('admin/users/onboarding-managers*') ? 'block' : 'none' }}">
                         <li class="nav-item {{ Request::is('admin/users/employee/store') ? 'active' : '' }}">
                             <a class="nav-link " href="{{ route('admin.users.employee.add-new') }}" title="{{ translate('messages.add_new_Employee') }}">
                                 <span class="tio-circle nav-indicator-icon"></span>
@@ -307,6 +313,12 @@
                             <a class="nav-link " href="{{ route('admin.users.employee.list') }}" title="{{ translate('messages.Employee_list') }}">
                                 <span class="tio-circle nav-indicator-icon"></span>
                                 <span class="text-truncate">{{ translate('messages.list') }}</span>
+                            </a>
+                        </li>
+                        <li class="nav-item {{ Request::is('admin/users/onboarding-managers*') ? 'active' : '' }}">
+                            <a class="nav-link" href="{{ route('admin.users.onboarding-manager.index') }}" title="Onboarding managers">
+                                <span class="tio-circle nav-indicator-icon"></span>
+                                <span class="text-truncate">Onboarding managers</span>
                             </a>
                         </li>
 

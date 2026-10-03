@@ -43,9 +43,14 @@ class EmployeeUpdateRequest extends FormRequest
             'f_name' => 'required|max:100',
             'l_name' => 'nullable|max:100',
             'role_id' => 'required|not_in:1',
+            'staff_type' => 'required|in:admin_employee,onboarding_manager',
+            'onboarding_commission_percent' => 'nullable|required_if:staff_type,onboarding_manager|numeric|between:0,100',
+            'ops_status' => 'nullable|boolean',
+            'zone_id' => 'nullable|exists:zones,id',
             'email' => 'required|unique:admins,email,'.$this->id,
             'phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:10|max:20|unique:admins,phone,'.$this->id,
             'password' => ['nullable', Password::min(8)->mixedCase()->letters()->numbers()->symbols()->uncompromised()],
+            'confirmPassword' => 'nullable|required_with:password|same:password',
         ];
     }
 

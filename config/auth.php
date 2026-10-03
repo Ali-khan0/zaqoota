@@ -60,6 +60,10 @@ return [
             'driver' => 'passport',
             'provider' => 'users',
         ],
+        'ops_api' => [
+            'driver' => 'passport',
+            'provider' => 'admins',
+        ],
         'customer' => [
             'driver' => 'session',
             'provider' => 'users',

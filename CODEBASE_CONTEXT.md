@@ -361,6 +361,93 @@ signature support is intentionally deferred.
   `onboarding_invoice_account_title`, `onboarding_invoice_iban`, and
   `onboarding_invoice_account_number`) and can be edited above the invoice
   history. Paid and void invoices suppress the transfer instructions.
+- An invoice linked to a Zaqoota Ops onboarding application has stricter manual
+  settlement semantics than a standalone legacy invoice. Admin verification
+  requires method, reference and a privately stored JPG/PNG/PDF proof, then one
+  manager/application/invoice-locked transaction marks it paid, moves the
+  application to `data_pending`, clears awaiting collection and transfers the
+  snapshotted commission to pending release. The vendor/store remain pending.
+  Paid email and manager push run after commit. Direct paid-to-unpaid and paid
+  void changes are blocked pending a refund/reversal workflow; voiding an unpaid
+  Ops invoice cancels the application and reverses its ledger state atomically.
+  Standalone invoices retain their existing behavior. The scheduled Ops media
+  cleanup also deletes stale unreferenced private payment proofs.
+- Ops-linked unpaid invoices also support a hosted checkout implemented by
+  `OpsOnboardingCheckoutService`. A random 64-character bearer secret is stored
+  encrypted while only its SHA-256 hash is queried; the public checkout URL is
+  additionally protected by an expiring Laravel signature. Email and mPDF use
+  the same link, with mPDF rendering its QR barcode. Checkout offers only active
+  gateways compatible with the snapshotted invoice currency and reuses the
+  existing `PaymentRequest`, gateway controllers and provider verification.
+- Gateway redirects are display-only. Fixed success/failure hooks in
+  `app/helpers.php` pass the persisted request to
+  `OpsOnboardingPaymentService`, which locks and checks invoice ownership,
+  gateway, paid flag, amount, currency and unique transaction reference before
+  moving the invoice/application/finance ledger. Multiple live attempts are
+  blocked. Expired, late and duplicate captures never settle twice and are
+  marked for provider refund. Admin records the completed refund reference and
+  reason; refunding the active payment reverses commission and moves the
+  application/invoice to `refunded`. Link reissue revokes all older tokens.
+  These web/admin additions do not alter legacy mobile APIs or standalone
+  onboarding invoices.
+- Ops final approval is isolated in `OpsOnboardingApprovalService`. An Ops
+  application must be `review_pending` with a paid, non-void invoice; one locked
+  transaction activates its vendor/store, moves the application to `approved`,
+  writes status/invoice/audit history, and issues a random one-time password
+  setup secret. Normal non-Ops store approvals continue through the legacy
+  `VendorController` path. The generated vendor password from submission stays
+  unknown and unusable until the partner chooses a password.
+- Password setup secrets are encrypted at rest, queried only by SHA-256 hash,
+  protected by an expiring Laravel-signed URL, revoked on reissue, and retained
+  as used audit records. Completion rechecks approved/active state under locks,
+  rotates the vendor web-session token, clears any vendor API token, and never
+  displays, emails or returns a plaintext password. Approval email delivery is
+  queued through the independently controllable `ops_vendor_approval_email`
+  process and reuses the existing Store approval mail enablement settings.
+  Web/mobile vendor login and both legacy forgot-password paths explicitly deny
+  an Ops-linked vendor until its application is approved, closing the historical
+  `vendor.status = null` gap without changing non-Ops vendor behavior. Approval
+  and successful setup delete any stale legacy reset tokens for that email.
+- Dedicated onboarding-manager administration lives under
+  `/admin/users/onboarding-managers` and reuses the employee, application,
+  finance and audit domains. The list is searchable/filterable and the detail
+  page shows zone-scoped performance, submitted applications, masked payout
+  details, finance ledger, withdrawals and audit history. Banning is reversible:
+  it disables Ops access, clears the Ops push/session state and revokes Passport
+  tokens without deleting financial or attribution history. Onboarding-manager
+  employee rows cannot be deleted, and a manager with application history cannot
+  be converted to a regular employee. Zone admins can only view and mutate
+  managers in their own zone; their employee writes are forced to that zone.
+
+Ops application operations are at `/admin/users/onboarding-applications` through
+`OnboardingApplicationController` and `OpsOnboardingReviewService`. Store
+permission protects zone-scoped queues, details and private attached media;
+review requires report permission too. Corrections append manager-visible
+timeline notes and return data-entry/review work to `data_pending`. Unpaid
+rejection reuses invoice voiding and ledger reversal inside the review
+transaction; paid closure requires refunds. Submitted records are never turned
+back into editable mobile drafts. Data-entry completion is a separate workflow.
+
+Ops finance administration is `/admin/transactions/ops-finance`, protected by
+report and account permissions, with zone-scoped queries. It reuses
+`OpsManagerFinanceService` for commission and withdrawal mutations and links to
+existing invoice verification. Withdrawal approval and payment require distinct
+staff, neither the recipient; commission release requires approved/paid state
+and an actor other than the invoice verifier/manager. Payout evidence is private
+and downloaded through an authenticated route. Full saved withdrawal destination
+access is audited, restricted to approved/processing requests, and not cached.
+New proof columns are hidden from mobile serialization. Ledger CSV is streamed
+and spreadsheet formula prefixes are escaped. No gateway transfer is initiated
+by marking a withdrawal paid: staff record an already completed transfer.
+
+Ops data-entry queues live under the existing onboarding application routes.
+`OpsDataEntryService` locks manager/application/invoice, requires paid non-void
+state, validates assignment eligibility and records immutable handoff history.
+Assignment and completion columns are hidden from mobile serialization. Staff
+reuse store/catalog editors, then checklist completion moves to `review_pending`.
+Correction invalidates completion. Final approval checks recorded completion
+and store/report permissions; the general store-status action cannot activate
+pending Ops accounts. Existing non-Ops approval behavior remains intact.
 
 Order commission reporting convention:
 
@@ -381,6 +468,15 @@ Order commission reporting convention:
   manager commission is created.
 
 ### Business settings and integrations
+
+Ops settings are managed at `/admin/business-settings/ops`, using the existing
+BusinessSetting table and settings permission. `OpsSettingsService` loads
+`ops_admin_settings` into Ops config at startup and before queue jobs. The page
+reuses existing Store registration/approval editors and invoice/reminder/paid
+copy keys. The public config response adds an `ops` lifecycle object; older
+clients retain all root fields. Registration policy adds invoice due days and
+media limits. Manual commission release follows paid-or-approved policy;
+historical snapshots are unchanged. See `docs/api/ops-settings.md`.
 
 - Admin settings: `routes/admin.php` and `Admin/BusinessSettingsController`,
   `ExternalConfigurationController`, `SMSModuleController`,

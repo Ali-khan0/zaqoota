@@ -83,6 +83,29 @@
                                     </select>
                                 </div>
                             </div>
+                            <div class="col-sm-6">
+                                <label class="input-label" for="staff_type">Staff type <span class="text-danger">*</span></label>
+                                <select class="form-control" name="staff_type" id="staff_type" required>
+                                    <option value="admin_employee" {{old('staff_type', request('staff_type', 'admin_employee')) === 'admin_employee' ? 'selected' : ''}}>Admin employee</option>
+                                    <option value="onboarding_manager" {{old('staff_type', request('staff_type')) === 'onboarding_manager' ? 'selected' : ''}}>Onboarding manager</option>
+                                </select>
+                            </div>
+                            <div class="col-sm-6 ops-manager-field">
+                                <label class="input-label" for="onboarding_commission_percent">Onboarding commission (%) <span class="text-danger">*</span></label>
+                                <input type="number" min="0" max="100" step="0.01" name="onboarding_commission_percent"
+                                    id="onboarding_commission_percent" class="form-control"
+                                    value="{{old('onboarding_commission_percent', 0)}}">
+                            </div>
+                            <div class="col-sm-6 ops-manager-field">
+                                <input type="hidden" name="ops_status" value="0">
+                                <label class="input-label d-block">Zaqoota Ops access</label>
+                                <label class="toggle-switch toggle-switch-sm">
+                                    <input type="checkbox" class="toggle-switch-input" name="ops_status" value="1"
+                                        {{old('ops_status', '1') == '1' ? 'checked' : ''}}>
+                                    <span class="toggle-switch-label"><span class="toggle-switch-indicator"></span></span>
+                                </label>
+                                <span class="ml-2">Active</span>
+                            </div>
                             <div class="col-md-6">
                                 <label class="input-label qcont" for="phone">{{translate('messages.phone')}}<span class="form-label-secondary text-danger"
                                                         data-toggle="tooltip" data-placement="right"
@@ -202,6 +225,14 @@
 <script>
     "use strict";
     $(document).on('ready', function () {
+        function toggleOpsFields() {
+            const isManager = $('#staff_type').val() === 'onboarding_manager';
+            $('.ops-manager-field').toggle(isManager);
+            $('#onboarding_commission_percent').prop('required', isManager);
+        }
+        $('#staff_type').on('change', toggleOpsFields);
+        toggleOpsFields();
+
         // INITIALIZATION OF SHOW PASSWORD
         // =======================================================
         $('.js-toggle-password').each(function () {
